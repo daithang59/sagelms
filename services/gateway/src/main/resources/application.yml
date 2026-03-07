@@ -4,3 +4,9 @@ server:
 spring:
   application:
     name: sagelms-gateway
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

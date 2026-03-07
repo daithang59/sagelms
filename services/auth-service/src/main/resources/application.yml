@@ -20,3 +20,9 @@ spring:
   flyway:
     schemas: auth
     baseline-on-migrate: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

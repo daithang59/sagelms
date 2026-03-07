@@ -1,0 +1,44 @@
+#!/bin/sh
+# Maven Wrapper script — downloads Maven if not present
+# https://maven.apache.org/wrapper/
+
+set -e
+
+# Determine the directory of this script
+WRAPPER_DIR="$(cd "$(dirname "$0")" && pwd)"
+WRAPPER_PROPERTIES="$WRAPPER_DIR/.mvn/wrapper/maven-wrapper.properties"
+
+if [ ! -f "$WRAPPER_PROPERTIES" ]; then
+  echo "Error: Could not find .mvn/wrapper/maven-wrapper.properties" >&2
+  exit 1
+fi
+
+# Read distribution URL from properties
+DIST_URL=$(grep 'distributionUrl' "$WRAPPER_PROPERTIES" | cut -d'=' -f2-)
+WRAPPER_JAR="$WRAPPER_DIR/.mvn/wrapper/maven-wrapper.jar"
+MAVEN_HOME="$HOME/.m2/wrapper/dists/$(basename "$DIST_URL" .zip)"
+
+if [ ! -d "$MAVEN_HOME" ]; then
+  echo "Downloading Maven from $DIST_URL..."
+  mkdir -p "$MAVEN_HOME"
+  if command -v curl > /dev/null 2>&1; then
+    curl -fsSL "$DIST_URL" -o "$MAVEN_HOME/maven.zip"
+  elif command -v wget > /dev/null 2>&1; then
+    wget -q "$DIST_URL" -O "$MAVEN_HOME/maven.zip"
+  else
+    echo "Error: curl or wget required" >&2
+    exit 1
+  fi
+  unzip -q "$MAVEN_HOME/maven.zip" -d "$MAVEN_HOME"
+  rm "$MAVEN_HOME/maven.zip"
+fi
+
+# Find the maven bin directory
+MVN_CMD=$(find "$MAVEN_HOME" -name 'mvn' -path '*/bin/mvn' | head -1)
+
+if [ -z "$MVN_CMD" ]; then
+  echo "Error: Could not find mvn executable in $MAVEN_HOME" >&2
+  exit 1
+fi
+
+exec "$MVN_CMD" "$@"

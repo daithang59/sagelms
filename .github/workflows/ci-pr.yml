@@ -116,7 +116,12 @@ jobs:
           java-version: 17
           cache: maven
       - name: Run tests
-        run: mvn -B test --no-transfer-progress
+        run: |
+          if [ -f mvnw ]; then
+            chmod +x mvnw && ./mvnw -B test --no-transfer-progress
+          else
+            mvn -B test --no-transfer-progress
+          fi
 
   # --------------------------------------------------
   # Unit tests — Frontend (khi có code)
