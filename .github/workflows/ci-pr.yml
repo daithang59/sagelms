@@ -62,9 +62,11 @@ jobs:
         run: |
           BRANCH="${{ github.head_ref }}"
           echo "Branch: $BRANCH"
-          if [[ ! "$BRANCH" =~ ^(feat|fix|chore|docs|refactor|test|ci|build|perf|style|revert)\/[a-z0-9]+(-[a-z0-9]+)*$ ]]; then
+          if [[ "$BRANCH" == dependabot/* ]]; then
+            echo "✅ Dependabot branch allowed"
+          elif [[ ! "$BRANCH" =~ ^(feat|fix|chore|docs|refactor|test|ci|build|perf|style|revert)\/[a-zA-Z0-9_-]+(\/[a-zA-Z0-9_-]+)*$ ]]; then
             echo "❌ Invalid branch name: $BRANCH"
-            echo "✅ Expected: <type>/<slug> (e.g., feat/auth-login)"
+            echo "✅ Expected: <type>/<slug> (e.g., feat/auth-login) or dependabot/*"
             exit 1
           fi
           echo "✅ Branch name OK"
