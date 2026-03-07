@@ -2,65 +2,15 @@ name: CI (PR)
 
 on:
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
   # --------------------------------------------------
-  # Detect which file types changed (path-filter)
-  # --------------------------------------------------
-  changes:
-    runs-on: ubuntu-latest
-    outputs:
-      markdown: ${{ steps.filter.outputs.markdown }}
-      yaml: ${{ steps.filter.outputs.yaml }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: |
-            markdown:
-              - '**/*.md'
-            yaml:
-              - '**/*.yml'
-              - '**/*.yaml'
-
-  # --------------------------------------------------
-  # Markdown lint (only if .md files changed)
-  # --------------------------------------------------
-  markdown_lint:
-    needs: changes
-    if: needs.changes.outputs.markdown == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: DavidAnson/markdownlint-cli2-action@v16
-        with:
-          globs: |
-            **/*.md
-
-  # --------------------------------------------------
-  # YAML lint (only if .yml/.yaml files changed)
-  # --------------------------------------------------
-  yaml_lint:
-    needs: changes
-    if: needs.changes.outputs.yaml == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ibiqlik/action-yamllint@v3
-        with:
-          file_or_dir: .
-          config_data: |
-            extends: default
-            rules:
-              line-length: disable
-
-  # --------------------------------------------------
-  # Secret scan (always runs)
+  # Secret scan — always runs (bảo vệ không lộ secret)
   # --------------------------------------------------
   secret_scan:
     runs-on: ubuntu-latest
@@ -78,22 +28,108 @@ jobs:
         run: gitleaks detect --source . --no-git --redact
 
   # --------------------------------------------------
-  # Repo policy (always runs — ensure required files)
+  # Conventions: PR Title (cho trường hợp squash merge)
   # --------------------------------------------------
-  repo_policy:
+  pr_title:
+    name: Validate PR title
+    runs-on: ubuntu-latest
+    steps:
+      - uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            chore
+            docs
+            refactor
+            test
+            ci
+            build
+            perf
+            style
+            revert
+
+  # --------------------------------------------------
+  # Conventions: Branch Naming
+  # --------------------------------------------------
+  conventions_branch:
+    name: Validate branch name
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check branch naming
+        run: |
+          BRANCH="${{ github.head_ref }}"
+          echo "Branch: $BRANCH"
+          if [[ ! "$BRANCH" =~ ^(feat|fix|chore|docs|refactor|test|ci|build|perf|style|revert)\/[a-z0-9]+(-[a-z0-9]+)*$ ]]; then
+            echo "❌ Invalid branch name: $BRANCH"
+            echo "✅ Expected: <type>/<slug> (e.g., feat/auth-login)"
+            exit 1
+          fi
+          echo "✅ Branch name OK"
+
+  # --------------------------------------------------
+  # Conventions: Commit Messages
+  # --------------------------------------------------
+  conventions_commits:
+    name: Validate commit messages
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Ensure required files exist
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install commitlint
+        run: npm i -D @commitlint/cli @commitlint/config-conventional
+
+      - name: Lint commits in PR range
         run: |
-          test -f README.md
-          test -f CONTRIBUTING.md
-          test -f SECURITY.md
-          test -f .gitignore
-          test -f .gitattributes
-          test -f .env.example
-          test -f .editorconfig
-          test -d docs
-          test -d infra
-          test -d contracts
-          test -d .github
+          BASE="${{ github.event.pull_request.base.sha }}"
+          HEAD="${{ github.event.pull_request.head.sha }}"
+          echo "Base: $BASE"
+          echo "Head: $HEAD"
+          npx commitlint --from "$BASE" --to "$HEAD" --verbose
+
+  # --------------------------------------------------
+  # Unit tests — Java services (khi có code)
+  # --------------------------------------------------
+  test_java:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [gateway, auth-service]
+    defaults:
+      run:
+        working-directory: services/${{ matrix.service }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: maven
+      - name: Run tests
+        run: mvn -B test --no-transfer-progress
+
+  # --------------------------------------------------
+  # Unit tests — Frontend (khi có code)
+  # --------------------------------------------------
+  test_frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm ci
+      - run: npm test -- --run

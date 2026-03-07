@@ -1,27 +1,30 @@
-# 📜 contracts — API Contract Specs
+# 📜 contracts — API Contract Specs (Reference Only)
+
+> ⚠️ **Contracts chỉ để tham khảo, không enforced bởi CI.**
+> Source of truth là code trong từng service.
 
 ## Mục đích
 
-Chứa **contract-first API specifications** cho tất cả services. Viết spec trước, generate client/server code sau.
+Folder này chứa **OpenAPI / AsyncAPI specs** như tài liệu tham khảo để team thống nhất về API trước khi code. Không bắt buộc phải tuân theo 100% — phục vụ giao tiếp, không gây ràng buộc.
 
 ## Cấu trúc
 
 ```
 contracts/
 ├── openapi/
-│   ├── gateway.yaml         ← API Gateway routes
-│   ├── auth.yaml            ← Auth service
-│   ├── course.yaml          ← Course service
-│   ├── content.yaml         ← Content service
-│   ├── progress.yaml        ← Progress service
-│   ├── assessment.yaml      ← Assessment service
-│   └── ai-tutor.yaml        ← AI Tutor service
+│   ├── gateway.yaml
+│   ├── auth.yaml
+│   ├── course.yaml
+│   ├── content.yaml
+│   ├── progress.yaml
+│   ├── assessment.yaml
+│   └── ai-tutor.yaml
 ├── asyncapi/
-│   └── jobs.yaml            ← Async job events
-└── README.md                ← File này
+│   └── jobs.yaml
+└── README.md
 ```
 
-## Conventions
+## Conventions (gợi ý, không bắt buộc)
 
 | Quy ước | Giá trị |
 |---------|---------|
@@ -30,18 +33,13 @@ contracts/
 | Correlation header | `X-Correlation-Id` |
 | Auth header | `Authorization: Bearer <token>` |
 | ID format | UUID v4 |
-| Date format | ISO 8601 (`2026-03-07T10:00:00Z`) |
-| Pagination | `?page=1&size=20` → `{ data, meta: { page, size, total } }` |
 
-## Sử dụng
+## Sử dụng (optional)
 
 ```bash
-# Validate specs
-npx @redocly/cli lint contracts/openapi/*.yaml
-
-# Generate client (TypeScript)
-npx openapi-generator-cli generate -i contracts/openapi/auth.yaml -g typescript-axios -o apps/web/src/generated/auth
-
 # Preview docs
-npx @redocly/cli preview-docs contracts/openapi/gateway.yaml
+npx @redocly/cli preview-docs contracts/openapi/auth.yaml
+
+# Generate client (nếu muốn)
+npx openapi-generator-cli generate -i contracts/openapi/auth.yaml -g typescript-axios -o apps/web/src/generated/auth
 ```

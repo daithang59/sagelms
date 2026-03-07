@@ -62,11 +62,11 @@ docker compose -f infra/docker/docker-compose.yml ps
 ## 5. Chạy service (khi đã có code)
 
 ```bash
-# Java (Spring Boot)
+# Java (Spring Boot) — ví dụ auth-service
 cd services/auth-service
 mvn spring-boot:run
 
-# Python (FastAPI)
+# Python (FastAPI) — ví dụ ai-tutor
 cd services/ai-tutor-service
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
@@ -75,6 +75,22 @@ uvicorn main:app --reload --port 8086
 # Frontend
 cd apps/web
 npm install && npm run dev
+```
+
+---
+
+## 5b. Chạy tests
+
+```bash
+# Backend — Java (từ thư mục service)
+cd services/gateway && mvn test
+cd services/auth-service && mvn test
+
+# Frontend
+cd apps/web
+npm install   # lần đầu
+npm test      # chạy Vitest (watch mode)
+npm test -- --run   # chạy 1 lần (CI mode)
 ```
 
 ---

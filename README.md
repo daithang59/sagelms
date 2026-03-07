@@ -21,6 +21,17 @@
 
 ---
 
+## 🛠 Tech Stack
+
+- **Frontend:** React, Next.js
+- **Backend:** Spring Boot, NestJS, FastAPI
+- **Database & Cache:** PostgreSQL 16, Redis 7
+- **Message Queue & Background Jobs:** RabbitMQ, Celery, BullMQ
+- **AI / LLM:** LangChain
+- **Infrastructure & Deployment:** Docker, Kubernetes
+
+---
+
 ## 🏗 Kiến trúc Microservices
 
 ```
@@ -101,6 +112,15 @@ docker compose -f infra/docker/docker-compose.yml up -d
 3. Mở PR → Ít nhất 1 approval + CI xanh → Merge.
 
 > Chi tiết xem [CONTRIBUTING.md](./CONTRIBUTING.md).
+
+---
+
+## 👥 Danh sách thành viên
+
+- **Huỳnh Lê Đại Thắng** - Leader
+- **Trần Nguyễn Việt Hoàng** - Member
+- **Bùi Ngọc Thái** - Member
+- **Nguyễn Trường Duy** - Member
 
 ---
 
