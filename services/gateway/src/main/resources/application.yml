@@ -4,6 +4,15 @@ server:
 spring:
   application:
     name: sagelms-gateway
+  cloud:
+    gateway:
+      routes:
+        - id: auth-service
+          uri: http://${AUTH_SERVICE_HOST:localhost}:${AUTH_SERVICE_PORT:8081}
+          predicates:
+            - Path=/auth/**
+          filters:
+            - StripPrefix=1
 
 management:
   endpoints:

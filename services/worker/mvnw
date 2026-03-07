@@ -1,0 +1,43 @@
+#!/bin/sh
+# Maven Wrapper script — downloads Maven automatically if not installed
+# Based on Apache Maven Wrapper 3.x (no jar needed)
+
+set -e
+
+WRAPPER_DIR="$(cd -- "$(dirname -- "$0")" && pwd -P)"
+PROPERTIES_FILE="$WRAPPER_DIR/.mvn/wrapper/maven-wrapper.properties"
+
+# Read distributionUrl
+DIST_URL=$(grep '^distributionUrl=' "$PROPERTIES_FILE" | cut -d'=' -f2-)
+DIST_NAME=$(basename "$DIST_URL" .zip)
+MAVEN_HOME="$HOME/.m2/wrapper/dists/$DIST_NAME"
+
+# Download Maven if not present
+if [ ! -d "$MAVEN_HOME/bin" ]; then
+  # Look for extracted dir inside MAVEN_HOME
+  if [ ! -d "$MAVEN_HOME" ] || [ -z "$(ls -A "$MAVEN_HOME" 2>/dev/null)" ]; then
+    echo "Downloading Maven: $DIST_URL"
+    mkdir -p "$MAVEN_HOME"
+    TMP_ZIP="$MAVEN_HOME/maven.zip"
+    if command -v curl > /dev/null 2>&1; then
+      curl -fsSL "$DIST_URL" -o "$TMP_ZIP"
+    elif command -v wget > /dev/null 2>&1; then
+      wget -q "$DIST_URL" -O "$TMP_ZIP"
+    else
+      echo "Error: curl or wget is required" >&2
+      exit 1
+    fi
+    unzip -q -o "$TMP_ZIP" -d "$MAVEN_HOME"
+    rm -f "$TMP_ZIP"
+  fi
+fi
+
+# Find mvn binary
+MVN_CMD=$(find "$MAVEN_HOME" -name 'mvn' -path '*/bin/mvn' -not -name '*.cmd' 2>/dev/null | head -1)
+if [ -z "$MVN_CMD" ]; then
+  echo "Error: Could not find mvn in $MAVEN_HOME" >&2
+  exit 1
+fi
+
+chmod +x "$MVN_CMD"
+exec "$MVN_CMD" "$@"

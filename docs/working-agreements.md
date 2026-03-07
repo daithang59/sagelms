@@ -89,3 +89,23 @@ Reviewer nên kiểm tra:
 - **Thời gian:** 9:00 AM (15 phút)
 - **Format:** What I did / What I'll do / Blockers
 - **Channel:** Slack/Discord dự án
+
+---
+
+## Port Conventions
+
+| Service | Port |
+|---------|------|
+| Web (Frontend) | `3000` |
+| API Gateway | `8080` |
+| Auth Service | `8081` |
+| Course Service | `8082` |
+| Content Service | `8083` |
+| Progress Service | `8084` |
+| Assessment Service | `8085` |
+| AI Tutor Service | `8086` |
+| Worker | — (no port) |
+| PostgreSQL | `5432` |
+| Redis | `6379` |
+
+> Khi tạo service mới, chọn port tiếp theo (8087, 8088...) và cập nhật bảng này.

@@ -95,7 +95,14 @@ curl http://localhost:8081/actuator/health    # → {"status":"UP"}
 # Backend — Java (dùng Maven Wrapper)
 cd services/gateway && ./mvnw test
 cd services/auth-service && ./mvnw test
+cd services/course-service && ./mvnw test
+# ... tương tự cho content, progress, assessment, worker
 # Windows: mvnw.cmd test
+
+# AI Tutor — Python
+cd services/ai-tutor-service
+pip install -r requirements.txt
+pytest
 
 # Frontend
 cd apps/web
@@ -103,6 +110,37 @@ npm install   # lần đầu
 npm test      # chạy Vitest (watch mode)
 npm test -- --run   # chạy 1 lần (CI mode)
 ```
+
+---
+
+## 5c. Chạy full stack bằng Docker Compose
+
+```bash
+# Chỉ infra (Postgres + Redis)
+make up
+
+# Full stack (infra + gateway + auth-service)
+docker compose -f infra/docker/docker-compose.yml --profile app up -d
+
+# Test end-to-end
+curl http://localhost:8080/auth/ping    # → "ok" (qua Gateway)
+```
+
+---
+
+## 5d. Tạo service Spring Boot mới
+
+1. Copy skeleton từ `course-service`:
+   ```bash
+   cp -r services/course-service services/my-new-service
+   ```
+2. Đổi tên trong `pom.xml`: `artifactId`, `name`, `description`
+3. Đổi package: `dev.sagelms.course` → `dev.sagelms.mynew`
+4. Đổi port + schema trong `application.yml`
+5. Đăng ký port trong bảng conventions (xem `docs/working-agreements.md`)
+6. Thêm service vào CI matrix trong `.github/workflows/ci-pr.yml`
+
+> Template đầy đủ: xem `docs/templates/service-readme-template.md`
 
 ---
 

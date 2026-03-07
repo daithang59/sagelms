@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   # --------------------------------------------------
-  # Secret scan — always runs (bảo vệ không lộ secret)
+  # Secret scan — always runs
   # --------------------------------------------------
   secret_scan:
     runs-on: ubuntu-latest
@@ -28,7 +28,7 @@ jobs:
         run: gitleaks detect --source . --no-git --redact
 
   # --------------------------------------------------
-  # Conventions: PR Title (cho trường hợp squash merge)
+  # Conventions: PR Title
   # --------------------------------------------------
   pr_title:
     name: Validate PR title
@@ -98,13 +98,50 @@ jobs:
           npx commitlint --from "$BASE" --to "$HEAD" --verbose
 
   # --------------------------------------------------
-  # Unit tests — Java services (khi có code)
+  # Path filter — detect which services changed
+  # --------------------------------------------------
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      java: ${{ steps.filter.outputs.java }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      python: ${{ steps.filter.outputs.python }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            java:
+              - 'services/gateway/**'
+              - 'services/auth-service/**'
+              - 'services/course-service/**'
+              - 'services/content-service/**'
+              - 'services/progress-service/**'
+              - 'services/assessment-service/**'
+              - 'services/worker/**'
+            frontend:
+              - 'apps/web/**'
+            python:
+              - 'services/ai-tutor-service/**'
+
+  # --------------------------------------------------
+  # Unit tests — Java services (matrix)
   # --------------------------------------------------
   test_java:
+    needs: changes
+    if: needs.changes.outputs.java == 'true'
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        service: [gateway, auth-service]
+        service:
+          - gateway
+          - auth-service
+          - course-service
+          - content-service
+          - progress-service
+          - assessment-service
+          - worker
     defaults:
       run:
         working-directory: services/${{ matrix.service }}
@@ -124,9 +161,11 @@ jobs:
           fi
 
   # --------------------------------------------------
-  # Unit tests — Frontend (khi có code)
+  # Unit tests — Frontend
   # --------------------------------------------------
   test_frontend:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -140,3 +179,22 @@ jobs:
           cache-dependency-path: apps/web/package-lock.json
       - run: npm ci
       - run: npm test -- --run
+
+  # --------------------------------------------------
+  # Unit tests — Python (AI Tutor)
+  # --------------------------------------------------
+  test_python:
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/ai-tutor-service
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - run: pytest -v
