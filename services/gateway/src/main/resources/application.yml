@@ -4,13 +4,55 @@ server:
 spring:
   application:
     name: sagelms-gateway
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          secret: ${JWT_SECRET:default-dev-secret-change-in-production}
+
   cloud:
     gateway:
+      default-filters:
+        - AddRequestHeader=X-From-Gateway, true
       routes:
+        # --- Auth Service (PUBLIC) ---
         - id: auth-service
           uri: http://${AUTH_SERVICE_HOST:localhost}:${AUTH_SERVICE_PORT:8081}
           predicates:
             - Path=/auth/**
+          filters:
+            - StripPrefix=1
+
+        # --- Course Service ---
+        - id: course-service
+          uri: http://${COURSE_SERVICE_HOST:localhost}:${COURSE_SERVICE_PORT:8082}
+          predicates:
+            - Path=/courses/**
+
+        # --- Content Service ---
+        - id: content-service
+          uri: http://${CONTENT_SERVICE_HOST:localhost}:${CONTENT_SERVICE_PORT:8083}
+          predicates:
+            - Path=/content/**
+
+        # --- Progress Service ---
+        - id: progress-service
+          uri: http://${PROGRESS_SERVICE_HOST:localhost}:${PROGRESS_SERVICE_PORT:8084}
+          predicates:
+            - Path=/progress/**
+
+        # --- Assessment Service ---
+        - id: assessment-service
+          uri: http://${ASSESSMENT_SERVICE_HOST:localhost}:${ASSESSMENT_SERVICE_PORT:8085}
+          predicates:
+            - Path=/assessments/**
+
+        # --- AI Tutor Service ---
+        - id: ai-tutor-service
+          uri: http://${AI_TUTOR_SERVICE_HOST:localhost}:${AI_TUTOR_SERVICE_PORT:8086}
+          predicates:
+            - Path=/ai/**
           filters:
             - StripPrefix=1
 
