@@ -21,10 +21,14 @@
 
 | Công nghệ | Vai trò |
 |-----------|---------|
-| Spring Boot 3.x / FastAPI | Framework |
-| JDK 17 / Python 3.11 | Runtime |
-| PostgreSQL | Database (schema: `<schema_name>`) |
-| Flyway / Alembic | Migration |
+| Spring Boot 3.x | Framework |
+| JDK 17 | Runtime |
+| Spring Security + JWT | Auth |
+| PostgreSQL 16 | Database (schema: `<schema_name>`) |
+| Flyway | Migration |
+| Redis 7 | Cache / Queue |
+
+> **Ngoại lệ:** `ai-tutor-service` dùng FastAPI (Python 3.11) + LangChain + Alembic.
 
 ## Configuration
 
@@ -62,13 +66,11 @@ DELETE /api/v1/<resource>/:id       (role)
 ```bash
 cd services/<tên-service>
 
-# Java
+# Build & run
 mvn spring-boot:run
 
-# Python
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn main:app --reload --port 80xx
+# Chạy tests
+mvn test
 ```
 
 ## Owner

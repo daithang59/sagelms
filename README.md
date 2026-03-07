@@ -23,27 +23,33 @@
 
 ## 🛠 Tech Stack
 
-- **Frontend:** React, Next.js
-- **Backend:** Spring Boot, NestJS, FastAPI
-- **Database & Cache:** PostgreSQL 16, Redis 7
-- **Message Queue & Background Jobs:** RabbitMQ, Celery, BullMQ
-- **AI / LLM:** LangChain
-- **Infrastructure & Deployment:** Docker, Kubernetes
+| Layer | Công nghệ |
+|-------|-----------|
+| **Frontend** | React 18, Vite, TypeScript |
+| **Core Backend** | Spring Boot 3.x, Java 17 |
+| **AI Tutor** | FastAPI, Python 3.11, LangChain |
+| **API Gateway** | Spring Cloud Gateway |
+| **Database** | PostgreSQL 16 + pgvector |
+| **Cache / Queue** | Redis 7 |
+| **Migration** | Flyway (Java), Alembic (Python) |
+| **Auth** | Spring Security + JWT |
+| **Testing** | JUnit 5 + Mockito (Java), Vitest (Frontend) |
+| **Infra** | Docker Compose (local), Kubernetes (staging) |
 
 ---
 
 ## 🏗 Kiến trúc Microservices
 
 ```
-apps/web               → Frontend (React / Next.js)
-services/gateway        → API Gateway
-services/auth-service   → Xác thực & phân quyền
-services/course-service → Quản lý khoá học
-services/content-service→ Quản lý nội dung bài giảng
-services/progress-service→ Theo dõi tiến trình
-services/assessment-service → Đánh giá / bài kiểm tra
-services/ai-tutor-service   → AI Tutor chatbot
-services/worker         → Background jobs (email, video encoding…)
+apps/web               → Frontend (React 18 + Vite)
+services/gateway        → API Gateway (Spring Cloud Gateway)
+services/auth-service   → Xác thực & phân quyền (Spring Boot)
+services/course-service → Quản lý khoá học (Spring Boot)
+services/content-service→ Quản lý nội dung (Spring Boot)
+services/progress-service→ Theo dõi tiến trình (Spring Boot)
+services/assessment-service → Đánh giá / kiểm tra (Spring Boot)
+services/ai-tutor-service   → AI Tutor chatbot (FastAPI + LangChain)
+services/worker         → Background jobs (Spring Boot / Redis consumer)
 infra/docker            → Docker Compose cho local dev
 infra/k8s               → Kubernetes manifests
 ```
@@ -54,7 +60,7 @@ infra/k8s               → Kubernetes manifests
 
 ### Yêu cầu
 - Docker ≥ 24.x & Docker Compose v2
-- (Tuỳ chọn) Node.js 20+, Python 3.11+, Java 21+
+- JDK 17+, Node.js 20+, Python 3.11+ (cho ai-tutor)
 
 ### Bước chạy
 
@@ -81,18 +87,17 @@ docker compose -f infra/docker/docker-compose.yml up -d
 
 | Service | Port | Tech |
 |---------|------|------|
-| Web (Frontend) | `3000` | React / Next.js |
-| API Gateway | `8080` | Spring Cloud Gateway / Kong |
-| Auth Service | `8081` | Spring Boot / NestJS |
-| Course Service | `8082` | Spring Boot / NestJS |
-| Content Service | `8083` | FastAPI / NestJS |
-| Progress Service | `8084` | Spring Boot / NestJS |
-| Assessment Service | `8085` | Spring Boot / NestJS |
+| Web (Frontend) | `3000` | React 18 + Vite |
+| API Gateway | `8080` | Spring Cloud Gateway |
+| Auth Service | `8081` | Spring Boot 3.x |
+| Course Service | `8082` | Spring Boot 3.x |
+| Content Service | `8083` | Spring Boot 3.x |
+| Progress Service | `8084` | Spring Boot 3.x |
+| Assessment Service | `8085` | Spring Boot 3.x |
 | AI Tutor Service | `8086` | FastAPI + LangChain |
-| Worker | `—` | Celery / BullMQ |
-| PostgreSQL | `5432` | PostgreSQL 16 |
+| Worker | `—` | Spring Boot (Redis consumer) |
+| PostgreSQL | `5432` | PostgreSQL 16 + pgvector |
 | Redis | `6379` | Redis 7 |
-| RabbitMQ | `5672` / `15672` | RabbitMQ 3.13 |
 
 ---
 

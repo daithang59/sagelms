@@ -44,15 +44,16 @@ Xây dựng nền tảng học tập (LMS) theo kiến trúc **microservices**, 
 ## Tech Stack
 
 | Layer | Công nghệ |
-|-------|-----------|
+|-------|-----------| 
 | Gateway | Spring Cloud Gateway |
-| Backend (Java) | Spring Boot 3.x, JDK 17 |
-| Backend (Python) | FastAPI, Python 3.11 |
-| Frontend | React 18 + TypeScript, Vite, TailwindCSS, shadcn/ui |
+| Core Backend | Spring Boot 3.x, JDK 17 |
+| AI Tutor | FastAPI, Python 3.11, LangChain |
+| Frontend | React 18, Vite, TypeScript |
 | Database | PostgreSQL 16 + pgvector |
 | Cache/Queue | Redis 7 |
-| Container | Docker Compose (local), K8s/EKS (staging) |
-| IaC | Terraform |
+| Migration | Flyway (Java), Alembic (Python) |
+| Testing | JUnit 5, Mockito, Vitest |
+| Container | Docker Compose (local), K8s (staging) |
 
 ---
 

@@ -4,42 +4,63 @@
 
 SageLMS sử dụng kiến trúc **microservices** với API Gateway làm điểm vào duy nhất. Mỗi service quản lý schema riêng trong cùng một PostgreSQL instance (MVP).
 
+**Stack chính:** Spring Boot 3.x (Java 17) cho tất cả core services + Gateway.
+**Ngoại lệ:** AI Tutor dùng FastAPI (Python 3.11) vì cần LangChain + ML libs.
+
+> Xem chi tiết lý do tại [ADR-0002: Tech Stack Choice](../decisions/0002-tech-stack-choice.md).
+
 ---
 
 ## Component Diagram
 
 ```
-┌─────────────┐
-│   Browser    │
-│  (React SPA) │
-└──────┬───────┘
-       │ HTTPS
-┌──────▼───────┐
-│  API Gateway │  ← JWT validation, RBAC, rate-limit, correlation-id
-│  (Spring CG) │
-└──┬──┬──┬──┬──┘
-   │  │  │  │
-   │  │  │  └───► auth-service        (Spring Boot)
-   │  │  └──────► course-service       (Spring Boot)
-   │  └─────────► content-service      (Spring Boot)
-   └────────────► progress-service     (Spring Boot)
-                  assessment-service   (Spring Boot)
-                  ai-tutor-service     (FastAPI + LangChain)
-                        │
-                        ▼
-                  ┌───────────┐
-                  │   Worker   │ ← Redis Queue consumer
-                  │ (Celery/   │
-                  │  BullMQ)   │
-                  └───────────┘
++---------------+
+|   Browser     |
+|  (React SPA)  |
++-------+-------+
+        | HTTPS
++-------v-------+
+|  API Gateway  |  <-- JWT validation, RBAC, rate-limit, correlation-id
+|  (Spring CG)  |
++--+--+--+--+---+
+   |  |  |  |
+   |  |  |  +-----> auth-service        (Spring Boot)
+   |  |  +--------> course-service       (Spring Boot)
+   |  +-----------> content-service      (Spring Boot)
+   +--------------> progress-service     (Spring Boot)
+                    assessment-service   (Spring Boot)
+                    ai-tutor-service     (FastAPI + LangChain)
+                          |
+                          v
+                    +-----------+
+                    |   Worker   | <-- Redis Queue consumer
+                    | (Spring    |
+                    |  Boot)     |
+                    +-----------+
 
 Data stores:
-  ┌────────────────────┐    ┌───────────┐
-  │ PostgreSQL 16      │    │  Redis 7  │
-  │ + pgvector         │    │ cache +   │
-  │ (schema-per-svc)   │    │ queue     │
-  └────────────────────┘    └───────────┘
+  +--------------------+    +-----------+
+  | PostgreSQL 16      |    |  Redis 7  |
+  | + pgvector         |    | cache +   |
+  | (schema-per-svc)   |    | queue     |
+  +--------------------+    +-----------+
 ```
+
+---
+
+## Tech Stack Summary
+
+| Layer | Công nghệ |
+|-------|-----------|
+| Frontend | React 18 + Vite + TypeScript |
+| Core Backend | Spring Boot 3.x, Java 17 |
+| AI Tutor | FastAPI, Python 3.11, LangChain |
+| Gateway | Spring Cloud Gateway |
+| Database | PostgreSQL 16 + pgvector |
+| Cache / Queue | Redis 7 |
+| Migration | Flyway (Java), Alembic (Python) |
+| Auth | Spring Security + JWT |
+| Testing | JUnit 5 + Mockito (Java), pytest (Python), Vitest (Frontend) |
 
 ---
 

@@ -18,9 +18,9 @@ Consume và xử lý **tác vụ nặng / async** từ Redis queue, tách biệt
 
 | Công nghệ | Vai trò |
 |-----------|---------|
-| Python 3.11+ / Node.js | Runtime (tuỳ chọn) |
-| Celery / BullMQ | Job queue framework |
-| Redis | Message broker |
+| Spring Boot 3.x | Framework |
+| JDK 17 | Runtime |
+| Redis | Message broker / queue |
 | PostgreSQL | Job state persistence |
 
 ## Port: không expose (chỉ consume queue)
