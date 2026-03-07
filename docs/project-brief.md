@@ -48,7 +48,7 @@ Xây dựng nền tảng học tập (LMS) theo kiến trúc **microservices**, 
 | Gateway | Spring Cloud Gateway |
 | Core Backend | Spring Boot 3.x, JDK 17 |
 | AI Tutor | FastAPI, Python 3.11, LangChain |
-| Frontend | React 18, Vite, TypeScript |
+| Frontend | React 18, Vite, TypeScript, Tailwind CSS 3 |
 | Database | PostgreSQL 16 + pgvector |
 | Cache/Queue | Redis 7 |
 | Migration | Flyway (Java), Alembic (Python) |

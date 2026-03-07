@@ -1,51 +1,74 @@
-# 🌐 apps/web — Frontend Application
+# 🖥 apps/web — Frontend SPA
 
 ## Mục đích
 
-Chứa mã nguồn **Frontend SPA** (Single Page Application) của SageLMS.
+Single-page application cho SageLMS. Giao diện cho student, instructor, và admin.
 
 ## Tech Stack
 
 | Công nghệ | Vai trò |
 |-----------|---------|
-| React 18 | UI framework |
-| TypeScript | Type safety |
+| React 18 | UI library |
 | Vite | Build tool & dev server |
-| TailwindCSS | Styling |
-| shadcn/ui (Radix) | UI component library |
-| React Router v6+ | Client-side routing |
-| TanStack Query | Server-state management |
-| React Hook Form + Zod | Form handling & validation |
-| Axios | HTTP client |
+| TypeScript | Type safety |
+| Tailwind CSS 3 | Utility-first CSS framework |
+| React Router 6 | Client-side routing |
+| Axios | HTTP client (gọi API) |
+| Vitest | Unit testing |
+| Testing Library | Component testing |
 
-## Cấu trúc dự kiến
+## Cấu trúc thư mục (dự kiến)
 
 ```
 apps/web/
-├── public/               ← Static assets
-├── src/
-│   ├── components/       ← Reusable UI components
-│   ├── pages/            ← Route pages
-│   ├── hooks/            ← Custom React hooks
-│   ├── services/         ← API client functions
-│   ├── lib/              ← Utilities
-│   ├── types/            ← TypeScript types
-│   ├── App.tsx
-│   └── main.tsx
+├── index.html
 ├── package.json
+├── tailwind.config.js
+├── postcss.config.js
 ├── vite.config.ts
-└── tsconfig.json
+├── vitest.config.ts
+├── tsconfig.json
+└── src/
+    ├── main.tsx            ← Entry point
+    ├── App.tsx             ← Root component + routes
+    ├── index.css           ← Tailwind directives
+    ├── components/         ← Shared components
+    ├── pages/              ← Page-level components
+    ├── hooks/              ← Custom hooks
+    ├── services/           ← API calls (Axios)
+    ├── types/              ← TypeScript types
+    └── test/               ← Test files
 ```
 
 ## Chạy local
 
 ```bash
 cd apps/web
-npm install
-npm run dev
-# → http://localhost:3000
+npm install     # lần đầu
+npm run dev     # http://localhost:3000
 ```
 
-## Giao tiếp
+## Chạy tests
 
-Frontend gọi API thông qua **API Gateway** (`http://localhost:8080/api/v1/...`).
+```bash
+npm test            # watch mode
+npm test -- --run   # CI mode (1 lần)
+```
+
+## Port: `3000`
+
+## Build
+
+```bash
+npm run build   # → dist/
+npm run preview # preview production build
+```
+
+## Owner
+
+@daithang59
+
+## Links
+
+- [Architecture Overview](../../docs/architecture/overview.md)
+- [API Contracts](../../contracts/)

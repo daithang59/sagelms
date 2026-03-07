@@ -25,7 +25,7 @@
 
 | Layer | Công nghệ |
 |-------|-----------|
-| **Frontend** | React 18, Vite, TypeScript |
+| **Frontend** | React 18, Vite, TypeScript, Tailwind CSS 3, React Router 6 |
 | **Core Backend** | Spring Boot 3.x, Java 17 |
 | **AI Tutor** | FastAPI, Python 3.11, LangChain |
 | **API Gateway** | Spring Cloud Gateway |
