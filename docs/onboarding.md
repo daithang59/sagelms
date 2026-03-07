@@ -6,14 +6,15 @@
 
 ## 1. Yêu cầu hệ thống
 
-| Công cụ | Phiên bản tối thiểu |
-|---------|---------------------|
-| Git | 2.40+ |
-| Docker Desktop | 24.x + Compose v2 |
-| JDK | 17 LTS |
-| Node.js | 20 LTS |
-| Python | 3.11+ |
-| Make | (có sẵn trên Linux/macOS; Windows dùng `choco install make`) |
+| Công cụ | Phiên bản tối thiểu | Ghi chú |
+|---------|---------------------|----------|
+| Git | 2.40+ | |
+| Docker Desktop | 24.x + Compose v2 | |
+| JDK | 17 LTS | Bắt buộc cho backend |
+| Maven | 3.9+ | Hoặc dùng `./mvnw` (Maven Wrapper) trong mỗi service |
+| Node.js | 20 LTS | Cho frontend |
+| Python | 3.11+ | Cho ai-tutor-service |
+| Make | — | Có sẵn trên Linux/macOS; Windows: `choco install make` |
 
 ---
 
@@ -59,12 +60,13 @@ docker compose -f infra/docker/docker-compose.yml ps
 
 ---
 
-## 5. Chạy service (khi đã có code)
+## 5. Chạy service
 
 ```bash
-# Java (Spring Boot) — ví dụ auth-service
+# Java (Spring Boot) — dùng Maven Wrapper
 cd services/auth-service
-mvn spring-boot:run
+./mvnw spring-boot:run          # Linux/macOS
+mvnw.cmd spring-boot:run        # Windows
 
 # Python (FastAPI) — ví dụ ai-tutor
 cd services/ai-tutor-service
@@ -77,14 +79,23 @@ cd apps/web
 npm install && npm run dev
 ```
 
+### Smoke test (auth-service)
+
+```bash
+# Sau khi chạy auth-service:
+curl http://localhost:8081/ping              # → "ok"
+curl http://localhost:8081/actuator/health    # → {"status":"UP"}
+```
+
 ---
 
 ## 5b. Chạy tests
 
 ```bash
-# Backend — Java (từ thư mục service)
-cd services/gateway && mvn test
-cd services/auth-service && mvn test
+# Backend — Java (dùng Maven Wrapper)
+cd services/gateway && ./mvnw test
+cd services/auth-service && ./mvnw test
+# Windows: mvnw.cmd test
 
 # Frontend
 cd apps/web
