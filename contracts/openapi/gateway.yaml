@@ -1,0 +1,83 @@
+openapi: "3.0.3"
+info:
+  title: SageLMS — API Gateway
+  version: 0.1.0
+  description: |
+    API Gateway aggregates all service endpoints.
+    Handles JWT validation, RBAC, correlation-id, and routing.
+
+servers:
+  - url: http://localhost:8080
+    description: Local development
+
+# -------------------------------------------------------
+# Shared components (error format, auth, pagination, etc.)
+# -------------------------------------------------------
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    CorrelationId:
+      name: X-Correlation-Id
+      in: header
+      required: false
+      schema:
+        type: string
+        format: uuid
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        default: 1
+    Size:
+      name: size
+      in: query
+      schema:
+        type: integer
+        default: 20
+
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [timestamp, path, errorCode, message, correlationId]
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        path:
+          type: string
+        errorCode:
+          type: string
+        message:
+          type: string
+        correlationId:
+          type: string
+          format: uuid
+
+    PaginationMeta:
+      type: object
+      properties:
+        page:
+          type: integer
+        size:
+          type: integer
+        total:
+          type: integer
+
+security:
+  - BearerAuth: []
+
+paths: {}
+# Gateway routes will reference individual service specs.
+# Example:
+#   /api/v1/auth/**  → auth-service (8081)
+#   /api/v1/courses/** → course-service (8082)
+#   /api/v1/lessons/** → content-service (8083)
+#   /api/v1/progress/** → progress-service (8084)
+#   /api/v1/quizzes/** → assessment-service (8085)
+#   /api/v1/ai/**    → ai-tutor-service (8086)

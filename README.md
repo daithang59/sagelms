@@ -1,6 +1,10 @@
 # 📚 SageLMS — AI-Powered Learning Management System
 
+[![CI (PR)](https://github.com/daithang59/sagelms/actions/workflows/ci-pr.yml/badge.svg)](https://github.com/daithang59/sagelms/actions/workflows/ci-pr.yml)
+
 > **Vision:** Xây dựng nền tảng học trực tuyến thế hệ mới tích hợp AI Tutor, hỗ trợ cá nhân hoá lộ trình học và đánh giá tự động.
+
+📖 [Onboarding](./docs/onboarding.md) · 🏗 [Architecture](./docs/architecture/overview.md) · 📋 [Roadmap](./docs/roadmap.md) · 🤝 [Contributing](./CONTRIBUTING.md) · 📜 [API Contracts](./contracts/)
 
 ---
 
@@ -45,7 +49,7 @@ infra/k8s               → Kubernetes manifests
 
 ```bash
 # 1. Clone repo
-git clone https://github.com/<org>/sagelms.git
+git clone https://github.com/daithang59/sagelms.git
 cd sagelms
 
 # 2. Copy env mẫu

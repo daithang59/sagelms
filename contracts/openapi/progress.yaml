@@ -1,0 +1,51 @@
+openapi: "3.0.3"
+info:
+  title: SageLMS — Progress Service
+  version: 0.1.0
+  description: Student progress tracking per course/lesson.
+
+servers:
+  - url: http://localhost:8084
+    description: Local development
+
+paths:
+  /api/v1/progress/lessons/{lessonId}/complete:
+    parameters:
+      - name: lessonId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      summary: Mark lesson as completed (student)
+      tags: [Progress]
+      responses:
+        "200":
+          description: Lesson marked complete
+        "409":
+          description: Already completed
+
+  /api/v1/progress/courses/{courseId}:
+    parameters:
+      - name: courseId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      summary: Get student progress for a course
+      tags: [Progress]
+      responses:
+        "200":
+          description: Progress with percentage
+
+  /api/v1/progress/courses/{courseId}/students:
+    parameters:
+      - name: courseId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      summary: Get all students' progress (instructor)
+      tags: [Progress]
+      responses:
+        "200":
+          description: List of student progress

@@ -5,28 +5,34 @@
 # Docs: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
 
 # Default owner cho toàn bộ repo
-*                               @daithang59
+*                                   @daithang59
 
-# Frontend
-apps/web/                       @daithang59
-
-# API Gateway
-services/gateway/               @daithang59
-
-# Backend services
-services/auth-service/          @daithang59
-services/course-service/        @daithang59
-services/content-service/       @daithang59
-services/progress-service/      @daithang59
-services/assessment-service/    @daithang59
-services/ai-tutor-service/      @daithang59
-services/worker/                @daithang59
-
-# Infrastructure
-infra/                          @daithang59
-
-# CI/CD
-.github/                        @daithang59
+# GitHub config & CI/CD
+/.github/                           @daithang59
 
 # Documentation
-docs/                           @daithang59
+/docs/                              @daithang59
+
+# Infrastructure
+/infra/                             @daithang59
+
+# Scripts
+/scripts/                           @daithang59
+
+# Contracts / API specs
+/contracts/                         @daithang59
+
+# Frontend
+/apps/web/                          @daithang59
+
+# API Gateway
+/services/gateway/                  @daithang59
+
+# Backend microservices
+/services/auth-service/             @daithang59
+/services/course-service/           @daithang59
+/services/content-service/          @daithang59
+/services/progress-service/         @daithang59
+/services/assessment-service/       @daithang59
+/services/ai-tutor-service/         @daithang59
+/services/worker/                   @daithang59

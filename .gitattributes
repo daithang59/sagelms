@@ -1,0 +1,58 @@
+# =========================================
+# SageLMS — Git Attributes
+# =========================================
+# Ép LF cho tất cả text files (tránh CRLF trên Windows)
+# Docs: https://git-scm.com/docs/gitattributes
+
+# Default: auto-detect text, enforce LF
+* text=auto eol=lf
+
+# Source code
+*.java          text eol=lf
+*.py            text eol=lf
+*.js            text eol=lf
+*.ts            text eol=lf
+*.tsx           text eol=lf
+*.jsx           text eol=lf
+*.css           text eol=lf
+*.scss          text eol=lf
+*.html          text eol=lf
+*.sql           text eol=lf
+
+# Config & data
+*.json          text eol=lf
+*.yaml          text eol=lf
+*.yml           text eol=lf
+*.toml          text eol=lf
+*.xml           text eol=lf
+*.properties    text eol=lf
+*.env           text eol=lf
+
+# Documentation
+*.md            text eol=lf
+*.txt           text eol=lf
+
+# Build / CI
+Makefile        text eol=lf
+Dockerfile      text eol=lf
+*.sh            text eol=lf
+
+# Windows scripts — keep CRLF
+*.bat           text eol=crlf
+*.cmd           text eol=crlf
+*.ps1           text eol=crlf
+
+# Binary files — no text processing
+*.png           binary
+*.jpg           binary
+*.jpeg          binary
+*.gif           binary
+*.ico           binary
+*.jar           binary
+*.war           binary
+*.zip           binary
+*.tar.gz        binary
+*.woff          binary
+*.woff2         binary
+*.ttf           binary
+*.eot           binary

@@ -1,0 +1,88 @@
+openapi: "3.0.3"
+info:
+  title: SageLMS — Course Service
+  version: 0.1.0
+  description: Course management and enrollment.
+
+servers:
+  - url: http://localhost:8082
+    description: Local development
+
+paths:
+  /api/v1/courses:
+    get:
+      summary: List courses
+      tags: [Courses]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: size
+          in: query
+          schema: { type: integer, default: 20 }
+      responses:
+        "200":
+          description: Paginated list of courses
+    post:
+      summary: Create a course (instructor/admin)
+      tags: [Courses]
+      responses:
+        "201":
+          description: Course created
+        "403":
+          description: Forbidden
+
+  /api/v1/courses/{courseId}:
+    parameters:
+      - name: courseId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      summary: Get course details
+      tags: [Courses]
+      responses:
+        "200":
+          description: Course details
+        "404":
+          description: Not found
+    put:
+      summary: Update course (instructor/admin)
+      tags: [Courses]
+      responses:
+        "200":
+          description: Updated
+    delete:
+      summary: Delete course (admin)
+      tags: [Courses]
+      responses:
+        "204":
+          description: Deleted
+
+  /api/v1/courses/{courseId}/enroll:
+    parameters:
+      - name: courseId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      summary: Enroll in a course (student)
+      tags: [Enrollment]
+      responses:
+        "201":
+          description: Enrolled
+        "409":
+          description: Already enrolled
+
+  /api/v1/courses/{courseId}/students:
+    parameters:
+      - name: courseId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      summary: List enrolled students (instructor)
+      tags: [Enrollment]
+      responses:
+        "200":
+          description: List of students

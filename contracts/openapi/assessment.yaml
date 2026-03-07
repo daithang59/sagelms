@@ -1,0 +1,94 @@
+openapi: "3.0.3"
+info:
+  title: SageLMS — Assessment Service
+  version: 0.1.0
+  description: Quizzes, questions, attempts, and auto-grading.
+
+servers:
+  - url: http://localhost:8085
+    description: Local development
+
+paths:
+  /api/v1/courses/{courseId}/quizzes:
+    parameters:
+      - name: courseId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      summary: List quizzes for a course
+      tags: [Quizzes]
+      responses:
+        "200":
+          description: List of quizzes
+    post:
+      summary: Create a quiz (instructor)
+      tags: [Quizzes]
+      responses:
+        "201":
+          description: Quiz created
+
+  /api/v1/quizzes/{quizId}:
+    parameters:
+      - name: quizId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      summary: Get quiz details
+      tags: [Quizzes]
+      responses:
+        "200":
+          description: Quiz with questions
+
+  /api/v1/quizzes/{quizId}/questions:
+    parameters:
+      - name: quizId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      summary: Add a question to quiz (instructor)
+      tags: [Questions]
+      responses:
+        "201":
+          description: Question added
+
+  /api/v1/quizzes/{quizId}/attempts:
+    parameters:
+      - name: quizId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      summary: Start a quiz attempt (student)
+      tags: [Attempts]
+      responses:
+        "201":
+          description: Attempt started
+
+  /api/v1/attempts/{attemptId}/submit:
+    parameters:
+      - name: attemptId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    put:
+      summary: Submit quiz attempt (student)
+      tags: [Attempts]
+      responses:
+        "200":
+          description: Graded result
+
+  /api/v1/attempts/{attemptId}/result:
+    parameters:
+      - name: attemptId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      summary: Get attempt result (student)
+      tags: [Attempts]
+      responses:
+        "200":
+          description: Score and answers

@@ -8,7 +8,32 @@ permissions:
   contents: read
 
 jobs:
+  # --------------------------------------------------
+  # Detect which file types changed (path-filter)
+  # --------------------------------------------------
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      markdown: ${{ steps.filter.outputs.markdown }}
+      yaml: ${{ steps.filter.outputs.yaml }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            markdown:
+              - '**/*.md'
+            yaml:
+              - '**/*.yml'
+              - '**/*.yaml'
+
+  # --------------------------------------------------
+  # Markdown lint (only if .md files changed)
+  # --------------------------------------------------
   markdown_lint:
+    needs: changes
+    if: needs.changes.outputs.markdown == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,7 +42,12 @@ jobs:
           globs: |
             **/*.md
 
+  # --------------------------------------------------
+  # YAML lint (only if .yml/.yaml files changed)
+  # --------------------------------------------------
   yaml_lint:
+    needs: changes
+    if: needs.changes.outputs.yaml == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -29,6 +59,9 @@ jobs:
             rules:
               line-length: disable
 
+  # --------------------------------------------------
+  # Secret scan (always runs)
+  # --------------------------------------------------
   secret_scan:
     runs-on: ubuntu-latest
     steps:
@@ -44,6 +77,9 @@ jobs:
       - name: Run gitleaks
         run: gitleaks detect --source . --no-git --redact
 
+  # --------------------------------------------------
+  # Repo policy (always runs — ensure required files)
+  # --------------------------------------------------
   repo_policy:
     runs-on: ubuntu-latest
     steps:
@@ -54,7 +90,10 @@ jobs:
           test -f CONTRIBUTING.md
           test -f SECURITY.md
           test -f .gitignore
+          test -f .gitattributes
           test -f .env.example
+          test -f .editorconfig
           test -d docs
           test -d infra
+          test -d contracts
           test -d .github

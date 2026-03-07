@@ -1,0 +1,114 @@
+openapi: "3.0.3"
+info:
+  title: SageLMS — AI Tutor Service
+  version: 0.1.0
+  description: RAG-based AI Tutor for course Q&A.
+
+servers:
+  - url: http://localhost:8086
+    description: Local development
+
+paths:
+  /api/v1/ai/ingest:
+    post:
+      summary: Trigger content ingestion (async job)
+      tags: [AI Tutor]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [courseId]
+              properties:
+                courseId:
+                  type: string
+                  format: uuid
+                lessonId:
+                  type: string
+                  format: uuid
+                  description: Optional — ingest specific lesson only
+      responses:
+        "202":
+          description: Job accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jobId:
+                    type: string
+                    format: uuid
+
+  /api/v1/ai/ask:
+    post:
+      summary: Ask AI Tutor a question
+      tags: [AI Tutor]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [courseId, question]
+              properties:
+                courseId:
+                  type: string
+                  format: uuid
+                question:
+                  type: string
+                  maxLength: 2000
+      responses:
+        "200":
+          description: AI answer with citations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  answer:
+                    type: string
+                  citations:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        chunkId:
+                          type: string
+                        lessonId:
+                          type: string
+                        snippet:
+                          type: string
+
+  /api/v1/ai/jobs/{jobId}:
+    parameters:
+      - name: jobId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      summary: Get job status
+      tags: [Jobs]
+      responses:
+        "200":
+          description: Job status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  type:
+                    type: string
+                    enum: [INGEST_CONTENT, GENERATE_QUIZ]
+                  status:
+                    type: string
+                    enum: [QUEUED, RUNNING, SUCCEEDED, FAILED]
+                  error:
+                    type: string
+                    nullable: true
+                  createdAt:
+                    type: string
+                    format: date-time

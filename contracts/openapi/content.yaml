@@ -1,0 +1,67 @@
+openapi: "3.0.3"
+info:
+  title: SageLMS — Content Service
+  version: 0.1.0
+  description: Lesson and material management.
+
+servers:
+  - url: http://localhost:8083
+    description: Local development
+
+paths:
+  /api/v1/courses/{courseId}/lessons:
+    parameters:
+      - name: courseId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      summary: List lessons for a course
+      tags: [Lessons]
+      responses:
+        "200":
+          description: Ordered list of lessons
+    post:
+      summary: Create a lesson (instructor)
+      tags: [Lessons]
+      responses:
+        "201":
+          description: Lesson created
+
+  /api/v1/lessons/{lessonId}:
+    parameters:
+      - name: lessonId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      summary: Get lesson details
+      tags: [Lessons]
+      responses:
+        "200":
+          description: Lesson details
+    put:
+      summary: Update lesson (instructor)
+      tags: [Lessons]
+      responses:
+        "200":
+          description: Updated
+    delete:
+      summary: Delete lesson (instructor)
+      tags: [Lessons]
+      responses:
+        "204":
+          description: Deleted
+
+  /api/v1/lessons/{lessonId}/content:
+    parameters:
+      - name: lessonId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      summary: Get lesson text content (for AI ingestion)
+      tags: [Lessons]
+      responses:
+        "200":
+          description: Raw text content

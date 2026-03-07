@@ -1,0 +1,49 @@
+asyncapi: "2.6.0"
+info:
+  title: SageLMS — Async Jobs
+  version: 0.1.0
+  description: |
+    Async job events processed via Redis queue.
+    Worker consumes jobs and updates status in database.
+
+channels:
+  sagelms/jobs:
+    description: Redis queue for background jobs
+    subscribe:
+      summary: Worker consumes job messages
+      message:
+        payload:
+          type: object
+          required: [id, type, payload, status]
+          properties:
+            id:
+              type: string
+              format: uuid
+              description: Unique job ID
+            type:
+              type: string
+              enum:
+                - INGEST_CONTENT
+                - GENERATE_QUIZ
+              description: Job type
+            payload:
+              type: object
+              properties:
+                courseId:
+                  type: string
+                  format: uuid
+                lessonId:
+                  type: string
+                  format: uuid
+              description: Job-specific parameters
+            status:
+              type: string
+              enum:
+                - QUEUED
+                - RUNNING
+                - SUCCEEDED
+                - FAILED
+              description: Current job status
+            createdAt:
+              type: string
+              format: date-time

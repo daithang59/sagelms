@@ -106,9 +106,58 @@ services/ai-tutor-service/  → AI Tutor (RAG)
 services/worker/         → Background jobs
 infra/docker/            → Docker Compose (local)
 infra/k8s/               → Kubernetes manifests
+contracts/               → OpenAPI / AsyncAPI specs
 docs/                    → Documentation
 scripts/                 → Build/deploy scripts
 ```
+
+---
+
+## 8. Pre-commit hooks (khuyến nghị)
+
+Giúp kiểm tra trước khi commit, giảm ~80% lỗi vặt trong PR.
+
+```bash
+# Cài pre-commit (Python)
+pip install pre-commit
+
+# Cài hooks vào repo
+pre-commit install
+```
+
+Nếu chưa có `.pre-commit-config.yaml`, tạo thủ công:
+
+```yaml
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-merge-conflict
+      - id: detect-private-key
+
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks
+```
+
+> Không bắt buộc nhưng **cực kỳ đáng** — detect secrets, trailing whitespace, YAML errors trước khi code đến CI.
+
+---
+
+## 9. Tài liệu tham khảo
+
+| Tài liệu | Link |
+|-----------|------|
+| Contributing | [CONTRIBUTING.md](../CONTRIBUTING.md) |
+| Architecture | [docs/architecture/overview.md](./architecture/overview.md) |
+| API Contracts | [contracts/](../contracts/) |
+| Roadmap | [docs/roadmap.md](./roadmap.md) |
+| Working Agreements | [docs/working-agreements.md](./working-agreements.md) |
+| Runbooks | [docs/runbooks/local-dev.md](./runbooks/local-dev.md) |
 
 ---
 
@@ -117,3 +166,4 @@ scripts/                 → Build/deploy scripts
 1. Đọc [docs/runbooks/local-dev.md](./runbooks/local-dev.md).
 2. Search [GitHub Issues](../../issues).
 3. Hỏi trên Slack/Discord channel dự án.
+
