@@ -1,7 +1,7 @@
 # 📊 SageLMS — Tổng hợp trạng thái dự án & Phân công công việc
 
-> **Cập nhật lần cuối:** 2026-03-08 (tối)
-> **Giai đoạn hiện tại:** Milestone 1.1 hoàn tất + Database schema implemented — sẵn sàng bắt đầu Milestone 1.2+
+> **Cập nhật lần cuối:** 2026-03-09
+> **Giai đoạn hiện tại:** Milestone 1.1 hoàn tất + DB + Frontend scaffold + JPA Entities — sẵn sàng bắt đầu Milestone 1.2+
 
 ---
 
@@ -132,8 +132,8 @@ sagelms/
 | **Governance kit** | `.github/`: CI workflow, PR template, issue templates, CODEOWNERS, dependabot |
 | **CI Pipeline** (`ci-pr.yml`) | Secret scan (gitleaks), PR title/branch/commit lint, path-based test matrix cho Java/Frontend/Python |
 | **Docker Compose** | PostgreSQL 16 + pgvector, Redis 7, **pgAdmin 4** (DB UI), optional gateway + auth-service (`--profile app`) |
-| **7 Java service skeletons** | Mỗi service có: `pom.xml`, `mvnw`/`mvnw.cmd` (Maven Wrapper), `application.yml`, Actuator health endpoint, 1 smoke test |
-| **Frontend skeleton** | React 18 + Vite + TypeScript + Tailwind CSS 3 + React Router 6, 1 test file, Vitest config |
+| **7 Java service skeletons** | Mỗi service có: `pom.xml`, `mvnw`/`mvnw.cmd` (Maven Wrapper), `application.yml`, Actuator health endpoint, 1 smoke test, **JPA Entity classes + Enums** |
+| **Frontend scaffold** | React 18 + Vite + TypeScript + Tailwind CSS 3 + React Router 6, **layout (sidebar + header)**, **auth pages (login/register)**, **6 UI components**, **API client (Axios + JWT)**, **4 placeholder pages**, Vitest + 4 tests |
 | **AI Tutor placeholder** | FastAPI `main.py` + health endpoint + **Alembic migration setup** (config, env.py, initial migration) |
 | **OpenAPI contracts** | 7 files YAML reference specs (gateway, auth, course, content, progress, assessment, ai-tutor) |
 | **AsyncAPI contract** | `jobs.yaml` cho async job specs |
@@ -157,30 +157,56 @@ sagelms/
 - **AI Tutor**: Chạy `uvx --with psycopg2-binary alembic upgrade head` trong thư mục `services/ai-tutor-service/`
 - **pgAdmin 4**: Truy cập `http://localhost:5050` (email: `admin@sagelms.dev`, password: `admin`) để xem DB trực quan
 
-### ✅ Kết quả kiểm tra (2026-03-08)
+### ✅ JPA Entity Classes (2026-03-09)
+
+> Entity classes map 1:1 với Flyway/Alembic migration. Mỗi service có `BaseEntity` (UUID id + timestamps + `@PreUpdate`).
+
+| Service | Entities | Enums |
+|---------|----------|-------|
+| auth-service | `User`, `RefreshToken` | `UserRole` |
+| course-service | `Course`, `Enrollment` | `CourseStatus`, `EnrollmentStatus` |
+| content-service | `Lesson` | `ContentType` |
+| progress-service | `LessonProgress` | `ProgressStatus` |
+| assessment-service | `Quiz`, `Question`, `Choice`, `Attempt`, `AttemptAnswer` | `QuestionType` |
+
+### ✅ Frontend Scaffold (2026-03-09)
+
+> 26 files mới cho frontend. Team clone về có sẵn layout, auth pages, UI components, routing.
+
+| Hạng mục | Chi tiết |
+|----------|---------|
+| **Design System** | Tailwind extended config (primary/accent/sage colors), Google Font Inter, custom scrollbar, focus ring |
+| **API Client** | Axios instance + JWT interceptor + type-safe helpers (`lib/axios.ts`, `lib/api.ts`) |
+| **Auth Context** | `AuthProvider`, `useAuth()` hook, `ProtectedRoute` (role-based), token persist localStorage |
+| **Layout** | `DashboardLayout` (collapsible Sidebar + Header), `AuthLayout` (split-screen branding) |
+| **UI Components** | `Button` (5 variants), `Input` (label/error/icon), `Card`, `Modal`, `Loading` (Spinner/Skeleton), `Badge` |
+| **Pages** | `LoginPage`, `RegisterPage`, `DashboardPage`, `CoursesPage` (placeholder), `QuizzesPage` (placeholder), `AiTutorPage` (placeholder), `NotFoundPage` (404) |
+| **Router** | Public routes (auth), Protected routes (dashboard), redirect `/` → `/dashboard`, 404 catch-all |
+
+### ✅ Kết quả kiểm tra (2026-03-09)
 
 | # | Hạng mục | Kết quả |
 |---|----------|---------|
 | 1 | Docker: PostgreSQL + Redis + pgAdmin | ✅ Healthy |
-| 2 | Gateway unit test | ✅ BUILD SUCCESS (0 errors) |
-| 3 | Auth Service unit test | ✅ BUILD SUCCESS (0 errors) |
-| 4 | Course Service unit test | ✅ BUILD SUCCESS (0 errors) |
-| 5 | Content Service unit test | ✅ BUILD SUCCESS (0 errors) |
-| 6 | Progress Service unit test | ✅ BUILD SUCCESS (0 errors) |
-| 7 | Assessment Service unit test | ✅ BUILD SUCCESS (0 errors) |
-| 8 | Worker unit test | ✅ BUILD SUCCESS (0 errors) |
-| 9 | Frontend unit test | ✅ PASS |
-| 10 | Frontend build (tsc + vite) | ✅ PASS |
-| 11 | Gateway `spring-boot:run` + `/actuator/health` | ✅ `{"status":"UP"}` |
-| 12 | Frontend dev server | ✅ Running tại `http://localhost:3000` |
-| 13 | Flyway migrations (5 Java services) | ✅ `mvnw compile` thành công |
-| 14 | Alembic migration (ai-tutor-service) | ✅ `alembic upgrade head` thành công |
-| 15 | Database: 15 bảng / 6 schemas tạo thành công | ✅ Verified via `psql` + pgAdmin ERD |
+| 2 | Gateway unit test | ✅ BUILD SUCCESS |
+| 3 | Auth Service compile (+ entities) | ✅ BUILD SUCCESS |
+| 4 | Course Service compile (+ entities) | ✅ BUILD SUCCESS |
+| 5 | Content Service compile (+ entities) | ✅ BUILD SUCCESS |
+| 6 | Progress Service compile (+ entities) | ✅ BUILD SUCCESS |
+| 7 | Assessment Service compile (+ entities) | ✅ BUILD SUCCESS |
+| 8 | Worker unit test | ✅ BUILD SUCCESS |
+| 9 | Frontend unit test (4 tests) | ✅ PASS |
+| 10 | Frontend `tsc --noEmit` | ✅ 0 errors |
+| 11 | Frontend `npm run build` | ✅ BUILD SUCCESS (~222kB gzipped) |
+| 12 | Flyway migrations (5 services) | ✅ Tables created |
+| 13 | Alembic migration (ai-tutor) | ✅ Tables created |
+| 14 | Database: 15 bảng / 6 schemas | ✅ Verified via pgAdmin ERD |
 
 ### ⚠️ Lưu ý
 
 - **Chỉ Gateway + Auth Service** có Dockerfile. Các services khác cần bổ sung.
 - **AI Tutor** có FastAPI skeleton + Alembic migration, chưa có business logic (RAG, LLM).
+- **Frontend** có scaffold hoàn chỉnh, chưa kết nối API thực (cần backend API xong trước).
 
 ---
 
@@ -190,8 +216,8 @@ sagelms/
 
 | Task | Service | Mô tả chi tiết | Kỹ năng cần |
 |------|---------|----------------|------------|
-| ~~**Auth: User entity + migration**~~ | auth-service | ✅ ĐÃ XONG — Flyway migration `V1__create_auth_tables.sql` (users + refresh_tokens). Còn lại: JPA Entity class | ~~Java, SQL, Flyway~~ |
-| **Auth: JPA Entity classes** | auth-service | Tạo `User.java`, `RefreshToken.java` entity + `BaseEntity.java` (`@PreUpdate`) | Java, JPA |
+| ~~**Auth: User entity + migration**~~ | auth-service | ✅ ĐÃ XONG — Migration + JPA Entity (`User`, `RefreshToken`, `BaseEntity`, `UserRole` enum) | ~~Java, SQL, Flyway~~ |
+| ~~**Auth: JPA Entity classes**~~ | auth-service | ✅ ĐÃ XONG — `BaseEntity.java`, `User.java`, `RefreshToken.java`, `UserRole.java` | ~~Java, JPA~~ |
 | **Auth: Register endpoint** | auth-service | `POST /api/v1/auth/register` — hash password (BCrypt), lưu user, trả JWT | Spring Security, JWT |
 | **Auth: Login endpoint** | auth-service | `POST /api/v1/auth/login` — validate credentials, trả JWT access + refresh token | Spring Security, JWT |
 | **Auth: User CRUD** | auth-service | `GET/PUT/DELETE /api/v1/users/{id}` — admin quản lý users | Spring Boot, JPA |
@@ -207,13 +233,13 @@ sagelms/
 
 | Task | Service | Mô tả chi tiết | Kỹ năng cần |
 |------|---------|----------------|------------|
-| ~~**Course entity + migration**~~ | course-service | ✅ ĐÃ XONG — `V1__create_course_tables.sql` (courses + enrollments). Còn lại: JPA Entity class | ~~SQL, Flyway~~ |
-| **Course CRUD API** | course-service | JPA Entity + `POST/GET/PUT/DELETE /api/v1/courses` | Spring Boot, JPA |
+| ~~**Course entity + migration**~~ | course-service | ✅ ĐÃ XONG — Migration + Entity (`Course`, `Enrollment`, `CourseStatus`, `EnrollmentStatus`) | ~~SQL, Flyway~~ |
+| **Course CRUD API** | course-service | Repository + Service + Controller: `POST/GET/PUT/DELETE /api/v1/courses` | Spring Boot, JPA |
 | **Enrollment logic** | course-service | `POST /api/v1/courses/{id}/enroll`, `GET /api/v1/users/{id}/enrollments` | Spring Boot, JPA |
-| ~~**Content entity + migration**~~ | content-service | ✅ ĐÃ XONG — `V1__create_content_tables.sql` (lessons). Còn lại: JPA Entity class | ~~SQL, Flyway~~ |
-| **Content CRUD API** | content-service | JPA Entity + `POST/GET/PUT/DELETE /api/v1/lessons` | Spring Boot, JPA |
-| ~~**Progress entity + migration**~~ | progress-service | ✅ ĐÃ XONG — `V1__create_progress_tables.sql` (lesson_progress). Còn lại: JPA Entity class | ~~SQL, Flyway~~ |
-| **Progress tracking API** | progress-service | JPA Entity + `POST /api/v1/progress` (mark complete), `GET /api/v1/progress?userId=&courseId=` (% hoàn thành) | Spring Boot, JPA |
+| ~~**Content entity + migration**~~ | content-service | ✅ ĐÃ XONG — Migration + Entity (`Lesson`, `ContentType`) | ~~SQL, Flyway~~ |
+| **Content CRUD API** | content-service | Repository + Service + Controller: `POST/GET/PUT/DELETE /api/v1/lessons` | Spring Boot, JPA |
+| ~~**Progress entity + migration**~~ | progress-service | ✅ ĐÃ XONG — Migration + Entity (`LessonProgress`, `ProgressStatus`) | ~~SQL, Flyway~~ |
+| **Progress tracking API** | progress-service | Repository + Service + Controller: `POST /api/v1/progress`, `GET /api/v1/progress?userId=&courseId=` | Spring Boot, JPA |
 | **Dockerfile cho services** | course/content/progress | Copy từ auth-service Dockerfile, chỉnh port | Docker |
 | **Docker Compose mở rộng** | infra/docker | Thêm course, content, progress vào `docker-compose.yml` (profile app) | Docker Compose |
 
@@ -223,8 +249,8 @@ sagelms/
 
 | Task | Service | Mô tả chi tiết | Kỹ năng cần |
 |------|---------|----------------|------------|
-| ~~**Quiz/Question entity + migration**~~ | assessment-service | ✅ ĐÃ XONG — `V1__create_assessment_tables.sql` (5 bảng). Còn lại: JPA Entity classes | ~~SQL, Flyway~~ |
-| **Quiz CRUD API** | assessment-service | JPA Entity + `POST/GET/PUT/DELETE /api/v1/quizzes` | Spring Boot, JPA |
+| ~~**Quiz/Question entity + migration**~~ | assessment-service | ✅ ĐÃ XONG — Migration + Entity (`Quiz`, `Question`, `Choice`, `Attempt`, `AttemptAnswer`, `QuestionType`) | ~~SQL, Flyway~~ |
+| **Quiz CRUD API** | assessment-service | Repository + Service + Controller: `POST/GET/PUT/DELETE /api/v1/quizzes` | Spring Boot, JPA |
 | **Attempt & auto-grading** | assessment-service | `POST /api/v1/quizzes/{id}/attempt` — nhận answers, chấm điểm, lưu score (theo scoring contract) | Spring Boot |
 | **Score reporting** | assessment-service | `GET /api/v1/quizzes/{id}/results` — thống kê điểm | Spring Boot, JPA |
 
@@ -246,14 +272,15 @@ sagelms/
 
 | Task | Component | Mô tả chi tiết | Kỹ năng cần |
 |------|-----------|----------------|------------|
-| **Auth pages** | apps/web | Login + Register forms, JWT storage (localStorage/cookie), protected routes | React, TypeScript |
-| **Layout & Navigation** | apps/web | Sidebar/header, role-based menu (admin/instructor/student) | React Router, Tailwind |
-| **Course listing & detail** | apps/web | Danh sách courses, trang chi tiết course, nút Enroll | React, Axios |
-| **Lesson viewer** | apps/web | Hiển thị nội dung lesson (video/text/pdf), nút "Mark as Complete" | React |
-| **Progress dashboard** | apps/web | Hiển thị % hoàn thành course, progress bar | React, Chart lib |
-| **Quiz taking UI** | apps/web | Hiển thị câu hỏi, chọn đáp án, submit, hiển thị kết quả | React |
-| **AI Tutor chat** | apps/web | Chat interface, gửi câu hỏi, hiển thị answer + citation | React, WebSocket/REST |
-| **API client setup** | apps/web | Axios instance với JWT interceptor, base URL config, error handling | Axios, TypeScript |
+| ~~**Auth pages**~~ | apps/web | ✅ ĐÃ XONG — Login + Register forms, JWT localStorage, ProtectedRoute, AuthContext | ~~React, TypeScript~~ |
+| ~~**Layout & Navigation**~~ | apps/web | ✅ ĐÃ XONG — DashboardLayout (Sidebar collapsible + Header), AuthLayout, role-based menu | ~~React Router, Tailwind~~ |
+| ~~**UI Components**~~ | apps/web | ✅ ĐÃ XONG — Button, Input, Card, Modal, Loading (Spinner/Skeleton), Badge | ~~React, TypeScript~~ |
+| ~~**API client setup**~~ | apps/web | ✅ ĐÃ XONG — Axios instance + JWT interceptor + type-safe helpers | ~~Axios, TypeScript~~ |
+| **Course listing & detail** | apps/web | Kết nối `course-service` API, danh sách courses, trang chi tiết, nút Enroll | React, Axios |
+| **Lesson viewer** | apps/web | Kết nối `content-service` API, hiển thị lesson (video/text/pdf), "Mark as Complete" | React |
+| **Progress dashboard** | apps/web | Kết nối `progress-service` API, hiển thị % hoàn thành, progress bar | React, Chart lib |
+| **Quiz taking UI** | apps/web | Kết nối `assessment-service` API, hiển thị câu hỏi, chọn đáp án, submit, kết quả | React |
+| **AI Tutor chat** | apps/web | Kết nối `ai-tutor-service` API, chat interface, answer + citation | React, WebSocket/REST |
 
 ---
 
