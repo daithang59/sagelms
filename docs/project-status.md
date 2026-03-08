@@ -1,7 +1,7 @@
 # 📊 SageLMS — Tổng hợp trạng thái dự án & Phân công công việc
 
-> **Cập nhật lần cuối:** 2026-03-08
-> **Giai đoạn hiện tại:** Milestone 1.1 hoàn tất — sẵn sàng bắt đầu Milestone 1.2+
+> **Cập nhật lần cuối:** 2026-03-08 (tối)
+> **Giai đoạn hiện tại:** Milestone 1.1 hoàn tất + Database schema implemented — sẵn sàng bắt đầu Milestone 1.2+
 
 ---
 
@@ -131,20 +131,37 @@ sagelms/
 | **Mono-repo structure** | Tất cả services + frontend + infra + docs trong 1 repo |
 | **Governance kit** | `.github/`: CI workflow, PR template, issue templates, CODEOWNERS, dependabot |
 | **CI Pipeline** (`ci-pr.yml`) | Secret scan (gitleaks), PR title/branch/commit lint, path-based test matrix cho Java/Frontend/Python |
-| **Docker Compose** | PostgreSQL 16 + pgvector, Redis 7, optional gateway + auth-service (`--profile app`) |
+| **Docker Compose** | PostgreSQL 16 + pgvector, Redis 7, **pgAdmin 4** (DB UI), optional gateway + auth-service (`--profile app`) |
 | **7 Java service skeletons** | Mỗi service có: `pom.xml`, `mvnw`/`mvnw.cmd` (Maven Wrapper), `application.yml`, Actuator health endpoint, 1 smoke test |
 | **Frontend skeleton** | React 18 + Vite + TypeScript + Tailwind CSS 3 + React Router 6, 1 test file, Vitest config |
-| **AI Tutor placeholder** | Thư mục `ai-tutor-service/` tạo sẵn (chưa có code Python) |
+| **AI Tutor placeholder** | FastAPI `main.py` + health endpoint + **Alembic migration setup** (config, env.py, initial migration) |
 | **OpenAPI contracts** | 7 files YAML reference specs (gateway, auth, course, content, progress, assessment, ai-tutor) |
 | **AsyncAPI contract** | `jobs.yaml` cho async job specs |
-| **Docs đầy đủ** | Architecture overview, onboarding guide, roadmap, project brief, working agreements, ADRs, runbooks |
+| **Docs đầy đủ** | Architecture overview, onboarding guide, roadmap, project brief, working agreements, ADRs, runbooks, **database-design.md** |
 | **Kubernetes placeholder** | Namespace `dev.yaml`, kustomization base |
+
+### ✅ Database Schema Implementation (2026-03-08 tối)
+
+> Thiết kế DB hoàn chỉnh tại `docs/database-design.md` (15 bảng, 6 schemas). Migration files đã tạo cho tất cả services.
+
+| Schema | Service | Migration Tool | Bảng | File |
+|--------|---------|---------------|------|------|
+| `auth` | auth-service | Flyway | `users`, `refresh_tokens` | `V1__create_auth_tables.sql` |
+| `course` | course-service | Flyway | `courses`, `enrollments` | `V1__create_course_tables.sql` |
+| `content` | content-service | Flyway | `lessons` | `V1__create_content_tables.sql` |
+| `progress` | progress-service | Flyway | `lesson_progress` | `V1__create_progress_tables.sql` |
+| `assessment` | assessment-service | Flyway | `quizzes`, `questions`, `choices`, `attempts`, `attempt_answers` | `V1__create_assessment_tables.sql` |
+| `ai_tutor` | ai-tutor-service | Alembic | `documents`, `document_chunks`, `chat_history`, `jobs` | `0001_create_ai_tutor_tables.py` |
+
+- **Java services**: Flyway tự chạy migration khi `spring-boot:run` (không cần lệnh thủ công)
+- **AI Tutor**: Chạy `uvx --with psycopg2-binary alembic upgrade head` trong thư mục `services/ai-tutor-service/`
+- **pgAdmin 4**: Truy cập `http://localhost:5050` (email: `admin@sagelms.dev`, password: `admin`) để xem DB trực quan
 
 ### ✅ Kết quả kiểm tra (2026-03-08)
 
 | # | Hạng mục | Kết quả |
 |---|----------|---------|
-| 1 | Docker: PostgreSQL + Redis | ✅ Healthy |
+| 1 | Docker: PostgreSQL + Redis + pgAdmin | ✅ Healthy |
 | 2 | Gateway unit test | ✅ BUILD SUCCESS (0 errors) |
 | 3 | Auth Service unit test | ✅ BUILD SUCCESS (0 errors) |
 | 4 | Course Service unit test | ✅ BUILD SUCCESS (0 errors) |
@@ -156,12 +173,14 @@ sagelms/
 | 10 | Frontend build (tsc + vite) | ✅ PASS |
 | 11 | Gateway `spring-boot:run` + `/actuator/health` | ✅ `{"status":"UP"}` |
 | 12 | Frontend dev server | ✅ Running tại `http://localhost:3000` |
+| 13 | Flyway migrations (5 Java services) | ✅ `mvnw compile` thành công |
+| 14 | Alembic migration (ai-tutor-service) | ✅ `alembic upgrade head` thành công |
+| 15 | Database: 15 bảng / 6 schemas tạo thành công | ✅ Verified via `psql` + pgAdmin ERD |
 
 ### ⚠️ Lưu ý
 
-- **Auth Service** (và các DB-dependent services) chưa chạy được bằng `spring-boot:run` vì **chưa có Flyway migration SQL files** → Hibernate validate fail. Đây là bình thường ở giai đoạn skeleton.
 - **Chỉ Gateway + Auth Service** có Dockerfile. Các services khác cần bổ sung.
-- **AI Tutor** chưa có code Python, chỉ có thư mục placeholder.
+- **AI Tutor** có FastAPI skeleton + Alembic migration, chưa có business logic (RAG, LLM).
 
 ---
 
@@ -171,7 +190,8 @@ sagelms/
 
 | Task | Service | Mô tả chi tiết | Kỹ năng cần |
 |------|---------|----------------|------------|
-| **Auth: User entity + migration** | auth-service | Tạo Flyway migration SQL: bảng `users` (id, email, password_hash, role, created_at). Entity JPA tương ứng | Java, SQL, Flyway |
+| ~~**Auth: User entity + migration**~~ | auth-service | ✅ ĐÃ XONG — Flyway migration `V1__create_auth_tables.sql` (users + refresh_tokens). Còn lại: JPA Entity class | ~~Java, SQL, Flyway~~ |
+| **Auth: JPA Entity classes** | auth-service | Tạo `User.java`, `RefreshToken.java` entity + `BaseEntity.java` (`@PreUpdate`) | Java, JPA |
 | **Auth: Register endpoint** | auth-service | `POST /api/v1/auth/register` — hash password (BCrypt), lưu user, trả JWT | Spring Security, JWT |
 | **Auth: Login endpoint** | auth-service | `POST /api/v1/auth/login` — validate credentials, trả JWT access + refresh token | Spring Security, JWT |
 | **Auth: User CRUD** | auth-service | `GET/PUT/DELETE /api/v1/users/{id}` — admin quản lý users | Spring Boot, JPA |
@@ -187,13 +207,13 @@ sagelms/
 
 | Task | Service | Mô tả chi tiết | Kỹ năng cần |
 |------|---------|----------------|------------|
-| **Course entity + migration** | course-service | Bảng `courses` (id, title, description, instructor_id, status, created_at) | SQL, Flyway, JPA |
-| **Course CRUD API** | course-service | `POST/GET/PUT/DELETE /api/v1/courses` | Spring Boot |
+| ~~**Course entity + migration**~~ | course-service | ✅ ĐÃ XONG — `V1__create_course_tables.sql` (courses + enrollments). Còn lại: JPA Entity class | ~~SQL, Flyway~~ |
+| **Course CRUD API** | course-service | JPA Entity + `POST/GET/PUT/DELETE /api/v1/courses` | Spring Boot, JPA |
 | **Enrollment logic** | course-service | `POST /api/v1/courses/{id}/enroll`, `GET /api/v1/users/{id}/enrollments` | Spring Boot, JPA |
-| **Content entity + migration** | content-service | Bảng `lessons` (id, course_id, title, type, content_url, order) | SQL, Flyway, JPA |
-| **Content CRUD API** | content-service | `POST/GET/PUT/DELETE /api/v1/lessons` | Spring Boot |
-| **Progress entity + migration** | progress-service | Bảng `progress` (user_id, lesson_id, completed, completed_at) | SQL, Flyway, JPA |
-| **Progress tracking API** | progress-service | `POST /api/v1/progress` (mark complete), `GET /api/v1/progress?userId=&courseId=` (% hoàn thành) | Spring Boot |
+| ~~**Content entity + migration**~~ | content-service | ✅ ĐÃ XONG — `V1__create_content_tables.sql` (lessons). Còn lại: JPA Entity class | ~~SQL, Flyway~~ |
+| **Content CRUD API** | content-service | JPA Entity + `POST/GET/PUT/DELETE /api/v1/lessons` | Spring Boot, JPA |
+| ~~**Progress entity + migration**~~ | progress-service | ✅ ĐÃ XONG — `V1__create_progress_tables.sql` (lesson_progress). Còn lại: JPA Entity class | ~~SQL, Flyway~~ |
+| **Progress tracking API** | progress-service | JPA Entity + `POST /api/v1/progress` (mark complete), `GET /api/v1/progress?userId=&courseId=` (% hoàn thành) | Spring Boot, JPA |
 | **Dockerfile cho services** | course/content/progress | Copy từ auth-service Dockerfile, chỉnh port | Docker |
 | **Docker Compose mở rộng** | infra/docker | Thêm course, content, progress vào `docker-compose.yml` (profile app) | Docker Compose |
 
@@ -203,9 +223,9 @@ sagelms/
 
 | Task | Service | Mô tả chi tiết | Kỹ năng cần |
 |------|---------|----------------|------------|
-| **Quiz/Question entity + migration** | assessment-service | Bảng `quizzes`, `questions`, `choices` | SQL, Flyway, JPA |
-| **Quiz CRUD API** | assessment-service | `POST/GET/PUT/DELETE /api/v1/quizzes` | Spring Boot |
-| **Attempt & auto-grading** | assessment-service | `POST /api/v1/quizzes/{id}/attempt` — nhận answers, chấm điểm, lưu score | Spring Boot |
+| ~~**Quiz/Question entity + migration**~~ | assessment-service | ✅ ĐÃ XONG — `V1__create_assessment_tables.sql` (5 bảng). Còn lại: JPA Entity classes | ~~SQL, Flyway~~ |
+| **Quiz CRUD API** | assessment-service | JPA Entity + `POST/GET/PUT/DELETE /api/v1/quizzes` | Spring Boot, JPA |
+| **Attempt & auto-grading** | assessment-service | `POST /api/v1/quizzes/{id}/attempt` — nhận answers, chấm điểm, lưu score (theo scoring contract) | Spring Boot |
 | **Score reporting** | assessment-service | `GET /api/v1/quizzes/{id}/results` — thống kê điểm | Spring Boot, JPA |
 
 ---
@@ -214,7 +234,7 @@ sagelms/
 
 | Task | Service | Mô tả chi tiết | Kỹ năng cần |
 |------|---------|----------------|------------|
-| **FastAPI project setup** | ai-tutor-service | Tạo `main.py`, `requirements.txt`, Alembic config, Dockerfile | Python, FastAPI |
+| ~~**FastAPI project setup**~~ | ai-tutor-service | ✅ ĐÃ XONG — `main.py`, `requirements.txt`, Alembic config + initial migration (4 bảng + pgvector). Còn lại: Dockerfile | ~~Python, FastAPI~~ |
 | **Ingestion pipeline** | ai-tutor-service | Chunking documents → generate embeddings → lưu pgvector | LangChain, pgvector |
 | **Vector search endpoint** | ai-tutor-service | `POST /api/v1/tutor/ask` — query → retrieve relevant chunks → LLM → answer + citation | LangChain, OpenAI |
 | **Worker: async jobs** | worker | Redis queue consumer — xử lý ingestion jobs bất đồng bộ | Spring Boot, Redis |
@@ -257,19 +277,29 @@ cd sagelms
 # 2. Copy env
 cp .env.example .env
 
-# 3. Khởi chạy infrastructure (PostgreSQL + Redis)
+# 3. Khởi chạy infrastructure (PostgreSQL + Redis + pgAdmin)
 docker compose -f infra/docker/docker-compose.yml --env-file .env up -d
 
 # 4. Chạy service đang phát triển (ví dụ auth-service)
+#    Flyway tự tạo schema + tables khi service khởi động
 cd services/auth-service
 ./mvnw spring-boot:run          # Linux/macOS
 .\mvnw.cmd spring-boot:run      # Windows
 
-# 5. Chạy frontend
+# 5. Chạy AI Tutor migration (chỉ cần 1 lần)
+cd services/ai-tutor-service
+uvx --with psycopg2-binary alembic upgrade head
+
+# 6. Xem DB trực quan
+# Mở http://localhost:5050 (pgAdmin)
+# Login: admin@sagelms.dev / admin
+# Add Server: host=postgres, port=5432, db=sagelms, user=sagelms, pass=sagelms
+
+# 7. Chạy frontend
 cd apps/web
 npm install && npm run dev      # → http://localhost:3000
 
-# 6. Chạy tests
+# 8. Chạy tests
 cd services/<service-name>
 ./mvnw test                     # Java services
 cd apps/web && npm test -- --run  # Frontend
@@ -294,6 +324,7 @@ cd apps/web && npm test -- --run  # Frontend
 | Tài liệu | Đường dẫn |
 |-----------|-----------|
 | README chính | `README.md` |
+| **Database Design** | **`docs/database-design.md`** |
 | Onboarding Guide | `docs/onboarding.md` |
 | Architecture | `docs/architecture/overview.md` |
 | Roadmap | `docs/roadmap.md` |
