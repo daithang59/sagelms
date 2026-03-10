@@ -10,7 +10,7 @@ describe('App', () => {
         <App />
       </MemoryRouter>,
     );
-    expect(screen.getByText('Đăng nhập')).toBeDefined();
+    expect(screen.getByRole('heading', { name: 'Đăng nhập' })).toBeDefined();
   });
 
   it('renders register page on /register route', () => {
@@ -29,7 +29,7 @@ describe('App', () => {
       </MemoryRouter>,
     );
     // Should redirect to login page
-    expect(screen.getByText('Đăng nhập')).toBeDefined();
+    expect(screen.getByRole('heading', { name: 'Đăng nhập' })).toBeDefined();
   });
 
   it('renders 404 page for unknown routes', () => {
