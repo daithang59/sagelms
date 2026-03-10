@@ -8,6 +8,10 @@ permissions:
   contents: read
   pull-requests: read
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # --------------------------------------------------
   # Secret scan — always runs
@@ -106,6 +110,7 @@ jobs:
       java: ${{ steps.filter.outputs.java }}
       frontend: ${{ steps.filter.outputs.frontend }}
       python: ${{ steps.filter.outputs.python }}
+      docker: ${{ steps.filter.outputs.docker }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -124,6 +129,10 @@ jobs:
               - 'apps/web/**'
             python:
               - 'services/ai-tutor-service/**'
+            docker:
+              - 'services/gateway/Dockerfile'
+              - 'services/auth-service/Dockerfile'
+              - 'infra/docker/**'
 
   # --------------------------------------------------
   # Unit tests — Java services (matrix)
@@ -133,6 +142,7 @@ jobs:
     if: needs.changes.outputs.java == 'true'
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         service:
           - gateway
@@ -161,9 +171,10 @@ jobs:
           fi
 
   # --------------------------------------------------
-  # Unit tests — Frontend
+  # Frontend — ESLint
   # --------------------------------------------------
-  test_frontend:
+  lint_frontend:
+    name: "Frontend: ESLint"
     needs: changes
     if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
@@ -177,13 +188,100 @@ jobs:
           node-version: 20
           cache: npm
           cache-dependency-path: apps/web/package-lock.json
-      - run: npm ci
+      - run: npm ci --legacy-peer-deps
+      - run: npm run lint
+
+  # --------------------------------------------------
+  # Frontend — TypeScript Type Check
+  # --------------------------------------------------
+  typecheck_frontend:
+    name: "Frontend: TypeScript"
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm ci --legacy-peer-deps
+      - run: npm run typecheck
+
+  # --------------------------------------------------
+  # Frontend — Production Build
+  # --------------------------------------------------
+  build_frontend:
+    name: "Frontend: Build"
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm ci --legacy-peer-deps
+      - run: npm run build
+
+  # --------------------------------------------------
+  # Frontend — Unit Tests (Vitest)
+  # --------------------------------------------------
+  test_frontend:
+    name: "Frontend: Tests"
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - run: npm ci --legacy-peer-deps
       - run: npm test -- --run
 
   # --------------------------------------------------
-  # Unit tests — Python (AI Tutor)
+  # Python — Ruff Lint & Format Check
+  # --------------------------------------------------
+  lint_python:
+    name: "Python: Ruff"
+    needs: changes
+    if: needs.changes.outputs.python == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/ai-tutor-service
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install ruff
+        run: pip install ruff
+      - name: Ruff lint
+        run: ruff check .
+      - name: Ruff format check
+        run: ruff format --check .
+
+  # --------------------------------------------------
+  # Python — Unit Tests (pytest)
   # --------------------------------------------------
   test_python:
+    name: "Python: Tests"
     needs: changes
     if: needs.changes.outputs.python == 'true'
     runs-on: ubuntu-latest
@@ -198,3 +296,82 @@ jobs:
           cache: pip
       - run: pip install -r requirements.txt
       - run: pytest -v
+
+  # --------------------------------------------------
+  # Docker — Build smoke test (no push)
+  # --------------------------------------------------
+  docker_build:
+    name: "Docker: Build"
+    needs: changes
+    if: needs.changes.outputs.docker == 'true' || needs.changes.outputs.java == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: gateway
+            context: services/gateway
+          - service: auth-service
+            context: services/auth-service
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Docker image
+        run: docker build -t sagelms-${{ matrix.service }}:ci-test ${{ matrix.context }}
+
+  # --------------------------------------------------
+  # Status gate — single check for branch protection
+  # --------------------------------------------------
+  ci_status:
+    name: CI Status
+    if: always()
+    needs:
+      - secret_scan
+      - pr_title
+      - conventions_branch
+      - conventions_commits
+      - test_java
+      - lint_frontend
+      - typecheck_frontend
+      - build_frontend
+      - test_frontend
+      - lint_python
+      - test_python
+      - docker_build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check all job statuses
+        run: |
+          echo "=== CI Status Report ==="
+          results=(
+            "secret_scan:${{ needs.secret_scan.result }}"
+            "pr_title:${{ needs.pr_title.result }}"
+            "conventions_branch:${{ needs.conventions_branch.result }}"
+            "conventions_commits:${{ needs.conventions_commits.result }}"
+            "test_java:${{ needs.test_java.result }}"
+            "lint_frontend:${{ needs.lint_frontend.result }}"
+            "typecheck_frontend:${{ needs.typecheck_frontend.result }}"
+            "build_frontend:${{ needs.build_frontend.result }}"
+            "test_frontend:${{ needs.test_frontend.result }}"
+            "lint_python:${{ needs.lint_python.result }}"
+            "test_python:${{ needs.test_python.result }}"
+            "docker_build:${{ needs.docker_build.result }}"
+          )
+          failed=0
+          for r in "${results[@]}"; do
+            name="${r%%:*}"
+            status="${r##*:}"
+            if [[ "$status" == "failure" || "$status" == "cancelled" ]]; then
+              echo "❌ $name: $status"
+              failed=1
+            else
+              echo "✅ $name: $status"
+            fi
+          done
+          if [[ $failed -eq 1 ]]; then
+            echo ""
+            echo "❌ CI FAILED — one or more required jobs did not pass"
+            exit 1
+          fi
+          echo ""
+          echo "✅ All CI checks passed!"
+

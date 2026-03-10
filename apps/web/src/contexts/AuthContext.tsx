@@ -1,7 +1,7 @@
 import api from '@/lib/api';
 import type { AuthResponse, LoginRequest, RegisterRequest, User } from '@/types/auth';
 import type { ReactNode } from 'react';
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 
 interface AuthContextType {
   user: User | null;
@@ -16,25 +16,20 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  // Restore session from localStorage on mount
-  useEffect(() => {
-    const savedToken = localStorage.getItem('accessToken');
-    const savedUser = localStorage.getItem('user');
-    if (savedToken && savedUser) {
-      try {
-        setToken(savedToken);
-        setUser(JSON.parse(savedUser));
-      } catch {
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('user');
-      }
+  const [user, setUser] = useState<User | null>(() => {
+    try {
+      const savedUser = localStorage.getItem('user');
+      return savedUser ? JSON.parse(savedUser) : null;
+    } catch {
+      return null;
     }
-    setIsLoading(false);
-  }, []);
+  });
+  const [token, setToken] = useState<string | null>(
+    () => localStorage.getItem('accessToken'),
+  );
+  // Session is restored synchronously from localStorage above,
+  // so we are never in a "loading" state.
+  const isLoading = false;
 
   const login = useCallback(async (data: LoginRequest) => {
     const res = await api.post<AuthResponse>('/auth/login', data);
