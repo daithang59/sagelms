@@ -40,6 +40,96 @@
 
 ## 🏗 Kiến trúc Microservices
 
+### Sơ đồ tổng quan
+
+```mermaid
+graph TB
+    subgraph Client
+        Browser["🌐 Browser<br/><i>React 18 + Vite + TS</i>"]
+    end
+
+    subgraph Gateway["API Gateway :8080"]
+        GW["🚪 Spring Cloud Gateway<br/><i>JWT · RBAC · Correlation-ID · Routing</i>"]
+    end
+
+    Browser -->|"HTTPS / REST"| GW
+
+    subgraph Services["Backend Microservices"]
+        AUTH["🔐 Auth Service :8081<br/><i>Spring Boot</i><br/>Đăng ký · Đăng nhập · JWT · RBAC"]
+        COURSE["📚 Course Service :8082<br/><i>Spring Boot</i><br/>CRUD khoá học · Enrollment"]
+        CONTENT["📄 Content Service :8083<br/><i>Spring Boot</i><br/>Lessons · Materials · Ordering"]
+        PROGRESS["📊 Progress Service :8084<br/><i>Spring Boot</i><br/>Tiến trình · % hoàn thành"]
+        ASSESS["📝 Assessment Service :8085<br/><i>Spring Boot</i><br/>Quiz · Câu hỏi · Chấm điểm"]
+        AI["🤖 AI Tutor Service :8086<br/><i>FastAPI + LangChain</i><br/>RAG · Q&A · Ingestion"]
+    end
+
+    GW -->|"/auth/**"| AUTH
+    GW -->|"/courses/**"| COURSE
+    GW -->|"/content/**"| CONTENT
+    GW -->|"/progress/**"| PROGRESS
+    GW -->|"/assessments/**"| ASSESS
+    GW -->|"/ai/**"| AI
+
+    subgraph Async["Async Processing"]
+        REDIS[("🔴 Redis 7<br/><i>Cache + Message Queue</i>")]
+        WORKER["⚙️ Worker<br/><i>Spring Boot</i><br/>Ingest · Generate Quiz"]
+    end
+
+    AI -->|"Publish Job"| REDIS
+    REDIS -->|"Consume"| WORKER
+
+    subgraph Data["Data Stores"]
+        PG[("🐘 PostgreSQL 16<br/><i>+ pgvector</i><br/>Schema-per-service")]
+    end
+
+    AUTH --> PG
+    COURSE --> PG
+    CONTENT --> PG
+    PROGRESS --> PG
+    ASSESS --> PG
+    AI --> PG
+    WORKER --> PG
+
+    classDef gateway fill:#f59e0b,stroke:#d97706,color:#000
+    classDef service fill:#3b82f6,stroke:#2563eb,color:#fff
+    classDef python fill:#10b981,stroke:#059669,color:#fff
+    classDef data fill:#6366f1,stroke:#4f46e5,color:#fff
+    classDef async fill:#f43f5e,stroke:#e11d48,color:#fff
+    classDef client fill:#8b5cf6,stroke:#7c3aed,color:#fff
+
+    class GW gateway
+    class AUTH,COURSE,CONTENT,PROGRESS,ASSESS service
+    class AI python
+    class PG data
+    class REDIS async
+    class WORKER async
+    class Browser client
+```
+
+### Luồng xử lý Request
+
+```mermaid
+sequenceDiagram
+    actor User as 👤 User
+    participant FE as 🌐 Frontend
+    participant GW as 🚪 Gateway
+    participant SVC as ⚙️ Service
+    participant DB as 🐘 PostgreSQL
+
+    User->>FE: Tương tác UI
+    FE->>GW: REST API + Bearer JWT
+    GW->>GW: Verify JWT (HS256)
+    GW->>GW: Inject X-User-Id, X-Correlation-Id
+    GW->>SVC: Forward request + headers
+    SVC->>DB: Query/Mutate (schema riêng)
+    DB-->>SVC: Result
+    SVC-->>GW: JSON Response
+    GW-->>FE: JSON Response
+    FE-->>User: Cập nhật UI
+```
+
+### Cấu trúc thư mục
+
 ```
 apps/web               → Frontend (React 18 + Vite)
 services/gateway        → API Gateway (Spring Cloud Gateway)
