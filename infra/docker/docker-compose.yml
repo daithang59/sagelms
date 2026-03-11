@@ -41,6 +41,16 @@ services:
     volumes:
       - sagelms_pgadmin:/var/lib/pgadmin
 
+  swagger-ui:
+    image: swaggerapi/swagger-ui
+    container_name: swagger-ui
+    environment:
+      SWAGGER_JSON: /specs/gateway.yaml
+    ports:
+      - "9090:8080"
+    volumes:
+      - ../../contracts/openapi:/specs:ro
+
   # --- Application Services (optional, build from source) ---
 
   gateway:
