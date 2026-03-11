@@ -41,7 +41,7 @@ public class RbacFilter implements GlobalFilter, Ordered {
             }
         }
 
-        // No rule → pass through
+        // No rule -> pass through
         if (requiredRoles == null) {
             return chain.filter(exchange);
         }
@@ -51,15 +51,18 @@ public class RbacFilter implements GlobalFilter, Ordered {
         return exchange.getPrincipal()
                 .filter(p -> p instanceof JwtAuthenticationToken)
                 .cast(JwtAuthenticationToken.class)
-                .flatMap(jwtAuth -> {
+                .map(jwtAuth -> {
                     Jwt jwt = jwtAuth.getToken();
                     List<String> roles = jwt.getClaimAsStringList("roles");
-                    if (roles != null && roles.stream().anyMatch(finalRequired::contains)) {
+                    return roles != null && roles.stream().anyMatch(finalRequired::contains);
+                })
+                .defaultIfEmpty(false)
+                .flatMap(allowed -> {
+                    if (allowed) {
                         return chain.filter(exchange);
                     }
                     return forbidden(exchange);
-                })
-                .switchIfEmpty(forbidden(exchange));
+                });
     }
 
     private Mono<Void> forbidden(ServerWebExchange exchange) {

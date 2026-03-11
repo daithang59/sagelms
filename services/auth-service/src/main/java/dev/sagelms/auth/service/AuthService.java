@@ -107,8 +107,22 @@ public class AuthService {
                 Math.max(0, page - 1), // API uses 1-based pages
                 Math.min(size, 100),
                 Sort.by(Sort.Direction.DESC, "createdAt"));
-        return userRepository.findAllWithFilters(role, search, pageable)
-                .map(UserProfileResponse::from);
+
+        Page<User> users;
+        boolean hasRole = role != null;
+        boolean hasSearch = search != null && !search.isBlank();
+
+        if (hasRole && hasSearch) {
+            users = userRepository.findByRoleAndSearch(role, search, pageable);
+        } else if (hasRole) {
+            users = userRepository.findByRole(role, pageable);
+        } else if (hasSearch) {
+            users = userRepository.findBySearch(search, pageable);
+        } else {
+            users = userRepository.findAll(pageable);
+        }
+
+        return users.map(UserProfileResponse::from);
     }
 
     @Transactional
