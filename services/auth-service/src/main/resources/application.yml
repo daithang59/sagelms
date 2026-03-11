@@ -21,6 +21,12 @@ spring:
     schemas: auth
     baseline-on-migrate: true
 
+app:
+  jwt:
+    secret: ${JWT_SECRET:default-dev-secret-change-in-production}
+    access-token-expiry-ms: 1800000
+    refresh-token-expiry-ms: 604800000
+
 management:
   endpoints:
     web:

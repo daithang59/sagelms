@@ -22,21 +22,29 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error),
 );
 
-// ── Response interceptor: handle 401 ──
+// ── Response interceptor: handle 401 + extract error messages ──
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-      localStorage.removeItem('user');
+      // Don't clear tokens if this is a login/register attempt (not yet authenticated)
+      const url = error.config?.url || '';
+      const isAuthEndpoint = url.includes('/auth/login') || url.includes('/auth/register');
 
-      // Redirect to login (avoid infinite loop if already on /login)
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login';
+      if (!isAuthEndpoint) {
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('user');
+
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login';
+        }
       }
     }
-    return Promise.reject(error);
+
+    // Extract meaningful error message from response body
+    const message = error.response?.data?.message || error.message || 'An error occurred.';
+    return Promise.reject(new Error(message));
   },
 );
 

@@ -15,46 +15,61 @@ spring:
     gateway:
       default-filters:
         - AddRequestHeader=X-From-Gateway, true
+      globalcors:
+        corsConfigurations:
+          '[/**]':
+            allowedOrigins: "http://localhost:5173"
+            allowedMethods: "*"
+            allowedHeaders: "*"
+            allowCredentials: true
       routes:
         # --- Auth Service (PUBLIC) ---
         - id: auth-service
           uri: http://${AUTH_SERVICE_HOST:localhost}:${AUTH_SERVICE_PORT:8081}
           predicates:
-            - Path=/auth/**
-          filters:
-            - StripPrefix=1
+            - Path=/api/v1/auth/**
+
+        # --- User Management (via Auth Service) ---
+        - id: user-management
+          uri: http://${AUTH_SERVICE_HOST:localhost}:${AUTH_SERVICE_PORT:8081}
+          predicates:
+            - Path=/api/v1/users/**
 
         # --- Course Service ---
         - id: course-service
           uri: http://${COURSE_SERVICE_HOST:localhost}:${COURSE_SERVICE_PORT:8082}
           predicates:
-            - Path=/courses/**
+            - Path=/api/v1/courses/**
 
         # --- Content Service ---
         - id: content-service
           uri: http://${CONTENT_SERVICE_HOST:localhost}:${CONTENT_SERVICE_PORT:8083}
           predicates:
-            - Path=/content/**
+            - Path=/api/v1/content/**
 
         # --- Progress Service ---
         - id: progress-service
           uri: http://${PROGRESS_SERVICE_HOST:localhost}:${PROGRESS_SERVICE_PORT:8084}
           predicates:
-            - Path=/progress/**
+            - Path=/api/v1/progress/**
 
         # --- Assessment Service ---
         - id: assessment-service
           uri: http://${ASSESSMENT_SERVICE_HOST:localhost}:${ASSESSMENT_SERVICE_PORT:8085}
           predicates:
-            - Path=/assessments/**
+            - Path=/api/v1/assessments/**
 
         # --- AI Tutor Service ---
         - id: ai-tutor-service
           uri: http://${AI_TUTOR_SERVICE_HOST:localhost}:${AI_TUTOR_SERVICE_PORT:8086}
           predicates:
-            - Path=/ai/**
-          filters:
-            - StripPrefix=1
+            - Path=/api/v1/ai/**
+
+        # --- Worker (Job API) ---
+        - id: worker-service
+          uri: http://${WORKER_SERVICE_HOST:localhost}:${WORKER_SERVICE_PORT:8087}
+          predicates:
+            - Path=/api/v1/jobs/**
 
 management:
   endpoints:

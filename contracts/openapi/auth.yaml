@@ -94,6 +94,26 @@ components:
           minLength: 8
 
     # ── Responses ─────────────────────────────────────────
+    AuthResponse:
+      type: object
+      description: Login/register response — tokens + user profile.
+      properties:
+        accessToken:
+          type: string
+          description: JWT access token (HS256).
+        refreshToken:
+          type: string
+          description: Opaque refresh token.
+        expiresIn:
+          type: integer
+          description: Access token TTL in seconds.
+          example: 1800
+        tokenType:
+          type: string
+          example: Bearer
+        user:
+          $ref: "#/components/schemas/UserProfile"
+
     TokenResponse:
       type: object
       properties:
@@ -106,7 +126,7 @@ components:
         expiresIn:
           type: integer
           description: Access token TTL in seconds.
-          example: 3600
+          example: 1800
         tokenType:
           type: string
           example: Bearer
@@ -204,7 +224,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/UserProfile"
+                $ref: "#/components/schemas/AuthResponse"
         "400":
           description: Validation error (missing fields, weak password, etc.)
           content:
@@ -236,7 +256,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/TokenResponse"
+                $ref: "#/components/schemas/AuthResponse"
         "401":
           description: Invalid credentials.
           content:
