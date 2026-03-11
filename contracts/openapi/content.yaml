@@ -3,56 +3,338 @@ info:
   title: SageLMS — Content Service
   version: 0.1.0
   description: Lesson and material management.
+  contact:
+    name: SageLMS Team
+  license:
+    name: MIT
 
 servers:
   - url: http://localhost:8083
     description: Local development
 
+tags:
+  - name: Lessons
+    description: CRUD for course lessons
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    # ── Requests ──────────────────────────────────────────
+    CreateLessonRequest:
+      type: object
+      required: [title, type]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+          example: "Lesson 1: What is Machine Learning?"
+        type:
+          type: string
+          enum: [VIDEO, TEXT, PDF, LINK]
+          example: TEXT
+        contentUrl:
+          type: string
+          format: uri
+          nullable: true
+          description: URL for VIDEO, PDF, or LINK types.
+          example: https://www.youtube.com/watch?v=abc123
+        textContent:
+          type: string
+          nullable: true
+          description: Markdown/HTML body for TEXT type.
+        sortOrder:
+          type: integer
+          default: 0
+          description: Display order within the course.
+          example: 1
+        durationMinutes:
+          type: integer
+          nullable: true
+          description: Estimated duration.
+          example: 30
+        isPublished:
+          type: boolean
+          default: false
+
+    UpdateLessonRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+        type:
+          type: string
+          enum: [VIDEO, TEXT, PDF, LINK]
+        contentUrl:
+          type: string
+          format: uri
+          nullable: true
+        textContent:
+          type: string
+          nullable: true
+        sortOrder:
+          type: integer
+        durationMinutes:
+          type: integer
+          nullable: true
+        isPublished:
+          type: boolean
+
+    # ── Responses ─────────────────────────────────────────
+    LessonResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        courseId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        type:
+          type: string
+          enum: [VIDEO, TEXT, PDF, LINK]
+        contentUrl:
+          type: string
+          format: uri
+          nullable: true
+        textContent:
+          type: string
+          nullable: true
+        sortOrder:
+          type: integer
+        durationMinutes:
+          type: integer
+          nullable: true
+        isPublished:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    LessonSummary:
+      type: object
+      description: Lightweight representation (no textContent body).
+      properties:
+        id:
+          type: string
+          format: uuid
+        courseId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        type:
+          type: string
+          enum: [VIDEO, TEXT, PDF, LINK]
+        sortOrder:
+          type: integer
+        durationMinutes:
+          type: integer
+          nullable: true
+        isPublished:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    LessonListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/LessonSummary"
+        meta:
+          $ref: "#/components/schemas/PaginationMeta"
+
+    LessonTextContent:
+      type: object
+      properties:
+        lessonId:
+          type: string
+          format: uuid
+        courseId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        textContent:
+          type: string
+          description: Raw text extracted from lesson for AI ingestion.
+
+    PaginationMeta:
+      type: object
+      properties:
+        page:
+          type: integer
+        size:
+          type: integer
+        totalElements:
+          type: integer
+        totalPages:
+          type: integer
+
+    ErrorResponse:
+      type: object
+      required: [timestamp, path, errorCode, message]
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        path:
+          type: string
+        errorCode:
+          type: string
+        message:
+          type: string
+        correlationId:
+          type: string
+          format: uuid
+
 paths:
+  # ── Lessons per Course ────────────────────────────────
   /api/v1/courses/{courseId}/lessons:
     parameters:
       - name: courseId
         in: path
         required: true
         schema: { type: string, format: uuid }
+
     get:
+      operationId: listLessons
       summary: List lessons for a course
+      description: Returns lessons ordered by sortOrder. Students only see published lessons.
       tags: [Lessons]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: size
+          in: query
+          schema: { type: integer, default: 50 }
       responses:
         "200":
-          description: Ordered list of lessons
+          description: Ordered list of lessons.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LessonListResponse"
+        "404":
+          description: Course not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
     post:
+      operationId: createLesson
       summary: Create a lesson (instructor)
       tags: [Lessons]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateLessonRequest"
       responses:
         "201":
-          description: Lesson created
+          description: Lesson created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LessonResponse"
+        "400":
+          description: Validation error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden — instructor role required.
+        "404":
+          description: Course not found.
 
+  # ── Single Lesson ─────────────────────────────────────
   /api/v1/lessons/{lessonId}:
     parameters:
       - name: lessonId
         in: path
         required: true
         schema: { type: string, format: uuid }
+
     get:
+      operationId: getLesson
       summary: Get lesson details
       tags: [Lessons]
       responses:
         "200":
-          description: Lesson details
+          description: Full lesson details (includes textContent).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LessonResponse"
+        "404":
+          description: Lesson not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
     put:
+      operationId: updateLesson
       summary: Update lesson (instructor)
       tags: [Lessons]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateLessonRequest"
       responses:
         "200":
-          description: Updated
+          description: Lesson updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LessonResponse"
+        "400":
+          description: Validation error.
+        "403":
+          description: Forbidden.
+        "404":
+          description: Lesson not found.
+
     delete:
+      operationId: deleteLesson
       summary: Delete lesson (instructor)
       tags: [Lessons]
+      security:
+        - BearerAuth: []
       responses:
         "204":
-          description: Deleted
+          description: Lesson deleted.
+        "403":
+          description: Forbidden.
+        "404":
+          description: Lesson not found.
 
+  # ── Lesson Text Content (internal / AI) ───────────────
   /api/v1/lessons/{lessonId}/content:
     parameters:
       - name: lessonId
@@ -60,8 +342,18 @@ paths:
         required: true
         schema: { type: string, format: uuid }
     get:
+      operationId: getLessonTextContent
       summary: Get lesson text content (for AI ingestion)
+      description: Returns raw text content of a lesson. Used internally by the AI Tutor service.
       tags: [Lessons]
+      security:
+        - BearerAuth: []
       responses:
         "200":
-          description: Raw text content
+          description: Raw text content.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LessonTextContent"
+        "404":
+          description: Lesson not found.

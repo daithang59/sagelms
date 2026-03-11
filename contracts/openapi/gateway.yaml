@@ -3,16 +3,63 @@ info:
   title: SageLMS — API Gateway
   version: 0.1.0
   description: |
-    API Gateway aggregates all service endpoints.
-    Handles JWT validation, RBAC, correlation-id, and routing.
+    Unified API Gateway for SageLMS.
+    All client requests flow through this gateway which handles:
+    - JWT validation & RBAC enforcement
+    - X-Correlation-Id propagation
+    - Route-based proxying to downstream microservices
+
+    **Routing table:**
+    | Prefix               | Service              | Port |
+    |----------------------|----------------------|------|
+    | /api/v1/auth/**      | auth-service         | 8081 |
+    | /api/v1/users/**     | auth-service         | 8081 |
+    | /api/v1/courses/**   | course-service       | 8082 |
+    | /api/v1/enrollments/**| course-service      | 8082 |
+    | /api/v1/lessons/**   | content-service      | 8083 |
+    | /api/v1/progress/**  | progress-service     | 8084 |
+    | /api/v1/quizzes/**   | assessment-service   | 8085 |
+    | /api/v1/questions/** | assessment-service   | 8085 |
+    | /api/v1/attempts/**  | assessment-service   | 8085 |
+    | /api/v1/ai/**        | ai-tutor-service     | 8086 |
+  contact:
+    name: SageLMS Team
+  license:
+    name: MIT
 
 servers:
   - url: http://localhost:8080
     description: Local development
 
-# -------------------------------------------------------
-# Shared components (error format, auth, pagination, etc.)
-# -------------------------------------------------------
+tags:
+  - name: Auth
+    description: Registration, login, token management
+  - name: Users
+    description: User management (admin)
+  - name: Courses
+    description: Course CRUD
+  - name: Enrollment
+    description: Student enrollment
+  - name: Lessons
+    description: Lesson/content management
+  - name: Progress
+    description: Student progress tracking
+  - name: Quizzes
+    description: Quiz management
+  - name: Questions
+    description: Question & choice management
+  - name: Attempts
+    description: Quiz attempts & grading
+  - name: AI Tutor
+    description: RAG-based AI Q&A
+  - name: Jobs
+    description: Async job status
+  - name: Health
+    description: Gateway health
+
+# ─────────────────────────────────────────────────────────
+# Shared Components
+# ─────────────────────────────────────────────────────────
 components:
   securitySchemes:
     BearerAuth:
@@ -25,23 +72,21 @@ components:
       name: X-Correlation-Id
       in: header
       required: false
+      description: Optional correlation ID. Gateway auto-generates one if absent.
       schema:
         type: string
         format: uuid
     Page:
       name: page
       in: query
-      schema:
-        type: integer
-        default: 1
+      schema: { type: integer, default: 1, minimum: 1 }
     Size:
       name: size
       in: query
-      schema:
-        type: integer
-        default: 20
+      schema: { type: integer, default: 20, minimum: 1, maximum: 100 }
 
   schemas:
+    # ── Shared ────────────────────────────────────────────
     ErrorResponse:
       type: object
       required: [timestamp, path, errorCode, message, correlationId]
@@ -66,18 +111,1743 @@ components:
           type: integer
         size:
           type: integer
-        total:
+        totalElements:
+          type: integer
+        totalPages:
           type: integer
 
+    # ── Auth Schemas ──────────────────────────────────────
+    RegisterRequest:
+      type: object
+      required: [email, password, fullName, role]
+      properties:
+        email:
+          type: string
+          format: email
+          example: student@example.com
+        password:
+          type: string
+          minLength: 8
+        fullName:
+          type: string
+          maxLength: 255
+          example: Nguyen Van A
+        role:
+          type: string
+          enum: [STUDENT, INSTRUCTOR, ADMIN]
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    RefreshTokenRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+
+    TokenResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        expiresIn:
+          type: integer
+          example: 3600
+        tokenType:
+          type: string
+          example: Bearer
+
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        fullName:
+          type: string
+        role:
+          type: string
+          enum: [STUDENT, INSTRUCTOR, ADMIN]
+        avatarUrl:
+          type: string
+          format: uri
+          nullable: true
+        isActive:
+          type: boolean
+        lastLoginAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+
+    UserListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserProfile"
+        meta:
+          $ref: "#/components/schemas/PaginationMeta"
+
+    # ── Course Schemas ────────────────────────────────────
+    CreateCourseRequest:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+          maxLength: 5000
+        thumbnailUrl:
+          type: string
+          format: uri
+        category:
+          type: string
+        status:
+          type: string
+          enum: [DRAFT, PUBLISHED, ARCHIVED]
+          default: DRAFT
+
+    UpdateCourseRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        thumbnailUrl:
+          type: string
+          format: uri
+        category:
+          type: string
+        status:
+          type: string
+          enum: [DRAFT, PUBLISHED, ARCHIVED]
+
+    CourseResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        thumbnailUrl:
+          type: string
+          nullable: true
+        instructorId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [DRAFT, PUBLISHED, ARCHIVED]
+        category:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CourseListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/CourseResponse"
+        meta:
+          $ref: "#/components/schemas/PaginationMeta"
+
+    EnrollmentResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        courseId:
+          type: string
+          format: uuid
+        studentId:
+          type: string
+          format: uuid
+        enrolledAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [ACTIVE, DROPPED, COMPLETED]
+
+    EnrolledStudentResponse:
+      type: object
+      properties:
+        studentId:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        fullName:
+          type: string
+        enrolledAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [ACTIVE, DROPPED, COMPLETED]
+
+    StudentListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/EnrolledStudentResponse"
+        meta:
+          $ref: "#/components/schemas/PaginationMeta"
+
+    # ── Content Schemas ───────────────────────────────────
+    CreateLessonRequest:
+      type: object
+      required: [title, type]
+      properties:
+        title:
+          type: string
+          maxLength: 255
+        type:
+          type: string
+          enum: [VIDEO, TEXT, PDF, LINK]
+        contentUrl:
+          type: string
+          format: uri
+          nullable: true
+        textContent:
+          type: string
+          nullable: true
+        sortOrder:
+          type: integer
+          default: 0
+        durationMinutes:
+          type: integer
+          nullable: true
+        isPublished:
+          type: boolean
+          default: false
+
+    UpdateLessonRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        type:
+          type: string
+          enum: [VIDEO, TEXT, PDF, LINK]
+        contentUrl:
+          type: string
+          format: uri
+          nullable: true
+        textContent:
+          type: string
+          nullable: true
+        sortOrder:
+          type: integer
+        durationMinutes:
+          type: integer
+          nullable: true
+        isPublished:
+          type: boolean
+
+    LessonResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        courseId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        type:
+          type: string
+          enum: [VIDEO, TEXT, PDF, LINK]
+        contentUrl:
+          type: string
+          nullable: true
+        textContent:
+          type: string
+          nullable: true
+        sortOrder:
+          type: integer
+        durationMinutes:
+          type: integer
+          nullable: true
+        isPublished:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    LessonSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        courseId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        type:
+          type: string
+          enum: [VIDEO, TEXT, PDF, LINK]
+        sortOrder:
+          type: integer
+        durationMinutes:
+          type: integer
+          nullable: true
+        isPublished:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    LessonListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/LessonSummary"
+        meta:
+          $ref: "#/components/schemas/PaginationMeta"
+
+    # ── Progress Schemas ──────────────────────────────────
+    LessonProgressResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        lessonId:
+          type: string
+          format: uuid
+        courseId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [NOT_STARTED, IN_PROGRESS, COMPLETED]
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    CourseProgressResponse:
+      type: object
+      properties:
+        courseId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        totalLessons:
+          type: integer
+        completedLessons:
+          type: integer
+        progressPercent:
+          type: number
+          format: double
+        lessons:
+          type: array
+          items:
+            $ref: "#/components/schemas/LessonProgressResponse"
+
+    StudentProgressSummary:
+      type: object
+      properties:
+        studentId:
+          type: string
+          format: uuid
+        email:
+          type: string
+        fullName:
+          type: string
+        completedLessons:
+          type: integer
+        totalLessons:
+          type: integer
+        progressPercent:
+          type: number
+          format: double
+
+    StudentProgressListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/StudentProgressSummary"
+        meta:
+          $ref: "#/components/schemas/PaginationMeta"
+
+    # ── Assessment Schemas ────────────────────────────────
+    CreateQuizRequest:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+          maxLength: 255
+        description:
+          type: string
+        timeLimitMinutes:
+          type: integer
+          nullable: true
+        passScore:
+          type: number
+          format: double
+          default: 50.0
+        maxAttempts:
+          type: integer
+          default: 3
+        isPublished:
+          type: boolean
+          default: false
+
+    QuizResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        courseId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        timeLimitMinutes:
+          type: integer
+          nullable: true
+        passScore:
+          type: number
+          format: double
+        maxAttempts:
+          type: integer
+        isPublished:
+          type: boolean
+        questionCount:
+          type: integer
+        totalPoints:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    QuizDetailResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        courseId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        timeLimitMinutes:
+          type: integer
+          nullable: true
+        passScore:
+          type: number
+          format: double
+        maxAttempts:
+          type: integer
+        isPublished:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        questions:
+          type: array
+          items:
+            $ref: "#/components/schemas/QuestionResponse"
+
+    QuestionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        text:
+          type: string
+        type:
+          type: string
+          enum: [SINGLE_CHOICE, TRUE_FALSE]
+        points:
+          type: integer
+        sortOrder:
+          type: integer
+        choices:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChoiceResponse"
+
+    ChoiceResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        text:
+          type: string
+        sortOrder:
+          type: integer
+        isCorrect:
+          type: boolean
+
+    CreateQuestionRequest:
+      type: object
+      required: [text, type, points, choices]
+      properties:
+        text:
+          type: string
+        type:
+          type: string
+          enum: [SINGLE_CHOICE, TRUE_FALSE]
+        points:
+          type: integer
+          minimum: 1
+        sortOrder:
+          type: integer
+          default: 0
+        choices:
+          type: array
+          minItems: 2
+          items:
+            type: object
+            required: [text, isCorrect]
+            properties:
+              text:
+                type: string
+              isCorrect:
+                type: boolean
+              sortOrder:
+                type: integer
+
+    SubmitAttemptRequest:
+      type: object
+      required: [answers]
+      properties:
+        answers:
+          type: array
+          items:
+            type: object
+            required: [questionId, choiceId]
+            properties:
+              questionId:
+                type: string
+                format: uuid
+              choiceId:
+                type: string
+                format: uuid
+
+    AttemptResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        quizId:
+          type: string
+          format: uuid
+        studentId:
+          type: string
+          format: uuid
+        startedAt:
+          type: string
+          format: date-time
+        questions:
+          type: array
+          items:
+            $ref: "#/components/schemas/QuestionResponse"
+
+    AttemptResultResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        quizId:
+          type: string
+          format: uuid
+        score:
+          type: number
+          format: double
+        maxScore:
+          type: number
+          format: double
+        passed:
+          type: boolean
+        startedAt:
+          type: string
+          format: date-time
+        submittedAt:
+          type: string
+          format: date-time
+        answers:
+          type: array
+          items:
+            type: object
+            properties:
+              questionId:
+                type: string
+                format: uuid
+              questionText:
+                type: string
+              selectedChoiceId:
+                type: string
+                format: uuid
+              correctChoiceId:
+                type: string
+                format: uuid
+              isCorrect:
+                type: boolean
+              points:
+                type: integer
+
+    # ── AI Tutor Schemas ──────────────────────────────────
+    IngestRequest:
+      type: object
+      required: [courseId]
+      properties:
+        courseId:
+          type: string
+          format: uuid
+        lessonId:
+          type: string
+          format: uuid
+          nullable: true
+
+    IngestAcceptedResponse:
+      type: object
+      properties:
+        jobId:
+          type: string
+          format: uuid
+        message:
+          type: string
+
+    AskRequest:
+      type: object
+      required: [courseId, question]
+      properties:
+        courseId:
+          type: string
+          format: uuid
+        question:
+          type: string
+          maxLength: 2000
+
+    AskResponse:
+      type: object
+      properties:
+        answer:
+          type: string
+        citations:
+          type: array
+          items:
+            type: object
+            properties:
+              chunkId:
+                type: string
+                format: uuid
+              lessonId:
+                type: string
+                format: uuid
+              lessonTitle:
+                type: string
+              snippet:
+                type: string
+
+    JobStatusResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [INGEST_CONTENT, GENERATE_QUIZ]
+        status:
+          type: string
+          enum: [QUEUED, RUNNING, SUCCEEDED, FAILED]
+        progress:
+          type: integer
+          nullable: true
+        error:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+# ─────────────────────────────────────────────────────────
+# Security (default: JWT required)
+# ─────────────────────────────────────────────────────────
 security:
   - BearerAuth: []
 
-paths: {}
-# Gateway routes will reference individual service specs.
-# Example:
-#   /api/v1/auth/**  → auth-service (8081)
-#   /api/v1/courses/** → course-service (8082)
-#   /api/v1/lessons/** → content-service (8083)
-#   /api/v1/progress/** → progress-service (8084)
-#   /api/v1/quizzes/** → assessment-service (8085)
-#   /api/v1/ai/**    → ai-tutor-service (8086)
+# ─────────────────────────────────────────────────────────
+# Paths — aggregated from all services
+# ─────────────────────────────────────────────────────────
+paths:
+  # ═══════════════════════════════════════════════════════
+  #   AUTH SERVICE  (→ auth-service:8081)
+  # ═══════════════════════════════════════════════════════
+
+  /api/v1/auth/register:
+    post:
+      operationId: register
+      summary: Register a new user
+      tags: [Auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "201":
+          description: User created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "400":
+          description: Validation error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Email already exists.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/auth/login:
+    post:
+      operationId: login
+      summary: Login and get JWT
+      tags: [Auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Login successful.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+        "401":
+          description: Invalid credentials.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/auth/refresh:
+    post:
+      operationId: refreshToken
+      summary: Refresh access token
+      tags: [Auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshTokenRequest"
+      responses:
+        "200":
+          description: New token pair.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+        "401":
+          description: Refresh token expired or revoked.
+
+  /api/v1/auth/logout:
+    post:
+      operationId: logout
+      summary: Logout (revoke refresh token)
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshTokenRequest"
+      responses:
+        "204":
+          description: Logged out.
+        "401":
+          description: Unauthorized.
+
+  /api/v1/auth/me:
+    get:
+      operationId: getCurrentUser
+      summary: Get current user profile
+      tags: [Auth]
+      responses:
+        "200":
+          description: User profile.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "401":
+          description: Unauthorized.
+    put:
+      operationId: updateCurrentUser
+      summary: Update current user profile
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                fullName:
+                  type: string
+                avatarUrl:
+                  type: string
+                  format: uri
+      responses:
+        "200":
+          description: Profile updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "401":
+          description: Unauthorized.
+
+  /api/v1/auth/me/password:
+    put:
+      operationId: changePassword
+      summary: Change password
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword, newPassword]
+              properties:
+                currentPassword:
+                  type: string
+                newPassword:
+                  type: string
+                  minLength: 8
+      responses:
+        "204":
+          description: Password changed.
+        "400":
+          description: Current password incorrect.
+
+  /api/v1/users:
+    get:
+      operationId: listUsers
+      summary: List all users (admin)
+      tags: [Users]
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+        - name: role
+          in: query
+          schema:
+            type: string
+            enum: [STUDENT, INSTRUCTOR, ADMIN]
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Paginated user list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserListResponse"
+        "403":
+          description: Forbidden.
+
+  /api/v1/users/{userId}:
+    parameters:
+      - name: userId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      operationId: getUserById
+      summary: Get user by ID (admin)
+      tags: [Users]
+      responses:
+        "200":
+          description: User profile.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "404":
+          description: User not found.
+    put:
+      operationId: updateUser
+      summary: Update user (admin)
+      tags: [Users]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                role:
+                  type: string
+                  enum: [STUDENT, INSTRUCTOR, ADMIN]
+                isActive:
+                  type: boolean
+      responses:
+        "200":
+          description: User updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "403":
+          description: Forbidden.
+        "404":
+          description: User not found.
+
+  # ═══════════════════════════════════════════════════════
+  #   COURSE SERVICE  (→ course-service:8082)
+  # ═══════════════════════════════════════════════════════
+
+  /api/v1/courses:
+    get:
+      operationId: listCourses
+      summary: List courses (paginated)
+      tags: [Courses]
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [DRAFT, PUBLISHED, ARCHIVED]
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Paginated course list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CourseListResponse"
+
+    post:
+      operationId: createCourse
+      summary: Create a course (instructor/admin)
+      tags: [Courses]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCourseRequest"
+      responses:
+        "201":
+          description: Course created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CourseResponse"
+        "400":
+          description: Validation error.
+        "403":
+          description: Forbidden.
+
+  /api/v1/courses/{courseId}:
+    parameters:
+      - name: courseId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      operationId: getCourse
+      summary: Get course details
+      tags: [Courses]
+      security: []
+      responses:
+        "200":
+          description: Course details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CourseResponse"
+        "404":
+          description: Not found.
+    put:
+      operationId: updateCourse
+      summary: Update course (instructor/admin)
+      tags: [Courses]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCourseRequest"
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CourseResponse"
+        "403":
+          description: Forbidden.
+        "404":
+          description: Not found.
+    delete:
+      operationId: deleteCourse
+      summary: Delete course (admin)
+      tags: [Courses]
+      responses:
+        "204":
+          description: Deleted.
+        "403":
+          description: Forbidden.
+        "404":
+          description: Not found.
+
+  /api/v1/courses/{courseId}/enroll:
+    parameters:
+      - name: courseId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      operationId: enrollInCourse
+      summary: Enroll in a course (student)
+      tags: [Enrollment]
+      responses:
+        "201":
+          description: Enrolled.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnrollmentResponse"
+        "404":
+          description: Course not found.
+        "409":
+          description: Already enrolled.
+
+  /api/v1/courses/{courseId}/unenroll:
+    parameters:
+      - name: courseId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      operationId: unenrollFromCourse
+      summary: Drop a course (student)
+      tags: [Enrollment]
+      responses:
+        "204":
+          description: Unenrolled.
+        "404":
+          description: Enrollment not found.
+
+  /api/v1/courses/{courseId}/students:
+    parameters:
+      - name: courseId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      operationId: listEnrolledStudents
+      summary: List enrolled students (instructor/admin)
+      tags: [Enrollment]
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: Student list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudentListResponse"
+        "403":
+          description: Forbidden.
+        "404":
+          description: Course not found.
+
+  /api/v1/enrollments/my:
+    get:
+      operationId: listMyEnrollments
+      summary: List my enrolled courses (student)
+      tags: [Enrollment]
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [ACTIVE, DROPPED, COMPLETED]
+      responses:
+        "200":
+          description: My enrollments.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/EnrollmentResponse"
+                  meta:
+                    $ref: "#/components/schemas/PaginationMeta"
+
+  # ═══════════════════════════════════════════════════════
+  #   CONTENT SERVICE  (→ content-service:8083)
+  # ═══════════════════════════════════════════════════════
+
+  /api/v1/courses/{courseId}/lessons:
+    parameters:
+      - name: courseId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      operationId: listLessons
+      summary: List lessons for a course
+      tags: [Lessons]
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: Lesson list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LessonListResponse"
+        "404":
+          description: Course not found.
+
+    post:
+      operationId: createLesson
+      summary: Create a lesson (instructor)
+      tags: [Lessons]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateLessonRequest"
+      responses:
+        "201":
+          description: Lesson created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LessonResponse"
+        "400":
+          description: Validation error.
+        "403":
+          description: Forbidden.
+        "404":
+          description: Course not found.
+
+  /api/v1/lessons/{lessonId}:
+    parameters:
+      - name: lessonId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      operationId: getLesson
+      summary: Get lesson details
+      tags: [Lessons]
+      responses:
+        "200":
+          description: Lesson details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LessonResponse"
+        "404":
+          description: Not found.
+    put:
+      operationId: updateLesson
+      summary: Update lesson (instructor)
+      tags: [Lessons]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateLessonRequest"
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LessonResponse"
+        "403":
+          description: Forbidden.
+        "404":
+          description: Not found.
+    delete:
+      operationId: deleteLesson
+      summary: Delete lesson (instructor)
+      tags: [Lessons]
+      responses:
+        "204":
+          description: Deleted.
+        "403":
+          description: Forbidden.
+        "404":
+          description: Not found.
+
+  /api/v1/lessons/{lessonId}/content:
+    parameters:
+      - name: lessonId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      operationId: getLessonTextContent
+      summary: Get lesson text content (internal / AI)
+      tags: [Lessons]
+      responses:
+        "200":
+          description: Raw text content.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  lessonId:
+                    type: string
+                    format: uuid
+                  courseId:
+                    type: string
+                    format: uuid
+                  title:
+                    type: string
+                  textContent:
+                    type: string
+        "404":
+          description: Not found.
+
+  # ═══════════════════════════════════════════════════════
+  #   PROGRESS SERVICE  (→ progress-service:8084)
+  # ═══════════════════════════════════════════════════════
+
+  /api/v1/progress/lessons/{lessonId}/complete:
+    parameters:
+      - name: lessonId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      operationId: markLessonComplete
+      summary: Mark lesson as completed (student)
+      tags: [Progress]
+      responses:
+        "200":
+          description: Lesson marked complete.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LessonProgressResponse"
+        "404":
+          description: Lesson not found.
+        "409":
+          description: Already completed.
+
+  /api/v1/progress/lessons/{lessonId}/start:
+    parameters:
+      - name: lessonId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      operationId: markLessonInProgress
+      summary: Mark lesson as in-progress (student)
+      tags: [Progress]
+      responses:
+        "200":
+          description: Lesson marked in-progress.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LessonProgressResponse"
+        "404":
+          description: Lesson not found.
+
+  /api/v1/progress/courses/{courseId}:
+    parameters:
+      - name: courseId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      operationId: getCourseProgress
+      summary: Get student progress for a course
+      tags: [Progress]
+      responses:
+        "200":
+          description: Course progress with percentage.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CourseProgressResponse"
+        "404":
+          description: Course not found or not enrolled.
+
+  /api/v1/progress/courses/{courseId}/students:
+    parameters:
+      - name: courseId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      operationId: listStudentProgress
+      summary: Get all students' progress (instructor/admin)
+      tags: [Progress]
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Size"
+      responses:
+        "200":
+          description: Student progress list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudentProgressListResponse"
+        "403":
+          description: Forbidden.
+        "404":
+          description: Course not found.
+
+  # ═══════════════════════════════════════════════════════
+  #   ASSESSMENT SERVICE  (→ assessment-service:8085)
+  # ═══════════════════════════════════════════════════════
+
+  /api/v1/courses/{courseId}/quizzes:
+    parameters:
+      - name: courseId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      operationId: listQuizzes
+      summary: List quizzes for a course
+      tags: [Quizzes]
+      responses:
+        "200":
+          description: Quiz list.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/QuizResponse"
+        "404":
+          description: Course not found.
+    post:
+      operationId: createQuiz
+      summary: Create a quiz (instructor)
+      tags: [Quizzes]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateQuizRequest"
+      responses:
+        "201":
+          description: Quiz created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuizResponse"
+        "400":
+          description: Validation error.
+        "403":
+          description: Forbidden.
+
+  /api/v1/quizzes/{quizId}:
+    parameters:
+      - name: quizId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      operationId: getQuiz
+      summary: Get quiz with questions
+      tags: [Quizzes]
+      responses:
+        "200":
+          description: Quiz detail.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuizDetailResponse"
+        "404":
+          description: Not found.
+    put:
+      operationId: updateQuiz
+      summary: Update quiz (instructor)
+      tags: [Quizzes]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateQuizRequest"
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuizResponse"
+        "403":
+          description: Forbidden.
+        "404":
+          description: Not found.
+    delete:
+      operationId: deleteQuiz
+      summary: Delete quiz (instructor)
+      tags: [Quizzes]
+      responses:
+        "204":
+          description: Deleted.
+        "403":
+          description: Forbidden.
+        "404":
+          description: Not found.
+
+  /api/v1/quizzes/{quizId}/questions:
+    parameters:
+      - name: quizId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      operationId: addQuestion
+      summary: Add question to quiz (instructor)
+      tags: [Questions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateQuestionRequest"
+      responses:
+        "201":
+          description: Question added.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuestionResponse"
+        "400":
+          description: Validation error.
+        "403":
+          description: Forbidden.
+        "404":
+          description: Quiz not found.
+
+  /api/v1/questions/{questionId}:
+    parameters:
+      - name: questionId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    put:
+      operationId: updateQuestion
+      summary: Update question (instructor)
+      tags: [Questions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateQuestionRequest"
+      responses:
+        "200":
+          description: Updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuestionResponse"
+        "403":
+          description: Forbidden.
+        "404":
+          description: Not found.
+    delete:
+      operationId: deleteQuestion
+      summary: Delete question (instructor)
+      tags: [Questions]
+      responses:
+        "204":
+          description: Deleted.
+        "403":
+          description: Forbidden.
+        "404":
+          description: Not found.
+
+  /api/v1/quizzes/{quizId}/attempts:
+    parameters:
+      - name: quizId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      operationId: startAttempt
+      summary: Start a quiz attempt (student)
+      tags: [Attempts]
+      responses:
+        "201":
+          description: Attempt started.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttemptResponse"
+        "403":
+          description: Max attempts reached or quiz not published.
+        "404":
+          description: Quiz not found.
+
+  /api/v1/attempts/{attemptId}/submit:
+    parameters:
+      - name: attemptId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    put:
+      operationId: submitAttempt
+      summary: Submit quiz attempt (student)
+      tags: [Attempts]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitAttemptRequest"
+      responses:
+        "200":
+          description: Graded result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttemptResultResponse"
+        "400":
+          description: Already submitted.
+        "404":
+          description: Attempt not found.
+
+  /api/v1/attempts/{attemptId}/result:
+    parameters:
+      - name: attemptId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      operationId: getAttemptResult
+      summary: Get attempt result (student)
+      tags: [Attempts]
+      responses:
+        "200":
+          description: Score and breakdown.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttemptResultResponse"
+        "403":
+          description: Not your attempt.
+        "404":
+          description: Attempt not found.
+
+  # ═══════════════════════════════════════════════════════
+  #   AI TUTOR SERVICE  (→ ai-tutor-service:8086)
+  # ═══════════════════════════════════════════════════════
+
+  /api/v1/ai/ingest:
+    post:
+      operationId: triggerIngestion
+      summary: Trigger content ingestion (async)
+      tags: [AI Tutor]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IngestRequest"
+      responses:
+        "202":
+          description: Job queued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IngestAcceptedResponse"
+        "403":
+          description: Forbidden.
+        "404":
+          description: Course not found.
+
+  /api/v1/ai/ask:
+    post:
+      operationId: askQuestion
+      summary: Ask AI Tutor a question
+      tags: [AI Tutor]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AskRequest"
+      responses:
+        "200":
+          description: AI answer with citations.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AskResponse"
+        "403":
+          description: Not enrolled.
+        "404":
+          description: Course not found or no ingested content.
+
+  /api/v1/ai/jobs/{jobId}:
+    parameters:
+      - name: jobId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      operationId: getJobStatus
+      summary: Get job status
+      tags: [Jobs]
+      responses:
+        "200":
+          description: Job status.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobStatusResponse"
+        "404":
+          description: Job not found.
+
+  # ═══════════════════════════════════════════════════════
+  #   HEALTH
+  # ═══════════════════════════════════════════════════════
+
+  /health:
+    get:
+      operationId: healthCheck
+      summary: Gateway health check
+      tags: [Health]
+      security: []
+      responses:
+        "200":
+          description: Gateway is healthy.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: UP
+                  services:
+                    type: object
+                    additionalProperties:
+                      type: string
+                      enum: [UP, DOWN]
+                    example:
+                      auth-service: UP
+                      course-service: UP
+                      content-service: UP
+                      progress-service: UP
+                      assessment-service: UP
+                      ai-tutor-service: UP

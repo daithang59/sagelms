@@ -3,26 +3,51 @@ info:
   title: SageLMS — Auth Service
   version: 0.1.0
   description: Authentication & authorization (JWT, RBAC).
+  contact:
+    name: SageLMS Team
+  license:
+    name: MIT
 
 servers:
   - url: http://localhost:8081
     description: Local development
 
+tags:
+  - name: Auth
+    description: Registration, login, token refresh
+  - name: Users
+    description: User management (admin)
+
 components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
   schemas:
+    # ── Requests ──────────────────────────────────────────
     RegisterRequest:
       type: object
-      required: [email, password, role]
+      required: [email, password, fullName, role]
       properties:
         email:
           type: string
           format: email
+          example: student@example.com
         password:
           type: string
           minLength: 8
+          example: P@ssw0rd!
+        fullName:
+          type: string
+          minLength: 1
+          maxLength: 255
+          example: Nguyen Van A
         role:
           type: string
-          enum: [student, instructor, admin]
+          enum: [STUDENT, INSTRUCTOR, ADMIN]
+          example: STUDENT
 
     LoginRequest:
       type: object
@@ -31,16 +56,60 @@ components:
         email:
           type: string
           format: email
+          example: student@example.com
         password:
           type: string
+          example: P@ssw0rd!
 
+    RefreshTokenRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+          description: Opaque refresh token returned at login.
+          example: dGhpcyBpcyBhIHJlZnJlc2ggdG9rZW4...
+
+    UpdateProfileRequest:
+      type: object
+      properties:
+        fullName:
+          type: string
+          minLength: 1
+          maxLength: 255
+          example: Nguyen Van B
+        avatarUrl:
+          type: string
+          format: uri
+          example: https://cdn.sagelms.io/avatars/abc.png
+
+    ChangePasswordRequest:
+      type: object
+      required: [currentPassword, newPassword]
+      properties:
+        currentPassword:
+          type: string
+        newPassword:
+          type: string
+          minLength: 8
+
+    # ── Responses ─────────────────────────────────────────
     TokenResponse:
       type: object
       properties:
         accessToken:
           type: string
+          description: JWT access token (HS256).
+        refreshToken:
+          type: string
+          description: Opaque refresh token.
         expiresIn:
           type: integer
+          description: Access token TTL in seconds.
+          example: 3600
+        tokenType:
+          type: string
+          example: Bearer
 
     UserProfile:
       type: object
@@ -51,15 +120,76 @@ components:
         email:
           type: string
           format: email
+        fullName:
+          type: string
         role:
           type: string
+          enum: [STUDENT, INSTRUCTOR, ADMIN]
+        avatarUrl:
+          type: string
+          format: uri
+          nullable: true
+        isActive:
+          type: boolean
+        lastLoginAt:
+          type: string
+          format: date-time
+          nullable: true
         createdAt:
           type: string
           format: date-time
 
+    UserListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserProfile"
+        meta:
+          $ref: "#/components/schemas/PaginationMeta"
+
+    PaginationMeta:
+      type: object
+      properties:
+        page:
+          type: integer
+          example: 1
+        size:
+          type: integer
+          example: 20
+        totalElements:
+          type: integer
+          example: 150
+        totalPages:
+          type: integer
+          example: 8
+
+    ErrorResponse:
+      type: object
+      required: [timestamp, path, errorCode, message]
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        path:
+          type: string
+          example: /api/v1/auth/login
+        errorCode:
+          type: string
+          example: AUTH_INVALID_CREDENTIALS
+        message:
+          type: string
+          example: Invalid email or password.
+        correlationId:
+          type: string
+          format: uuid
+
 paths:
+  # ── Registration ──────────────────────────────────────
   /api/v1/auth/register:
     post:
+      operationId: register
       summary: Register a new user
       tags: [Auth]
       requestBody:
@@ -70,12 +200,28 @@ paths:
               $ref: "#/components/schemas/RegisterRequest"
       responses:
         "201":
-          description: User created
+          description: User created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "400":
+          description: Validation error (missing fields, weak password, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "409":
-          description: Email already exists
+          description: Email already exists.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
+  # ── Login ─────────────────────────────────────────────
   /api/v1/auth/login:
     post:
+      operationId: login
       summary: Login and get JWT
       tags: [Auth]
       requestBody:
@@ -86,38 +232,222 @@ paths:
               $ref: "#/components/schemas/LoginRequest"
       responses:
         "200":
-          description: Login successful
+          description: Login successful.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/TokenResponse"
         "401":
-          description: Invalid credentials
+          description: Invalid credentials.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
+  # ── Token Refresh ─────────────────────────────────────
+  /api/v1/auth/refresh:
+    post:
+      operationId: refreshToken
+      summary: Refresh access token
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshTokenRequest"
+      responses:
+        "200":
+          description: New token pair issued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+        "401":
+          description: Refresh token expired or revoked.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ── Logout ────────────────────────────────────────────
+  /api/v1/auth/logout:
+    post:
+      operationId: logout
+      summary: Logout (revoke refresh token)
+      tags: [Auth]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshTokenRequest"
+      responses:
+        "204":
+          description: Logged out successfully.
+        "401":
+          description: Unauthorized.
+
+  # ── Current User ──────────────────────────────────────
   /api/v1/auth/me:
     get:
+      operationId: getCurrentUser
       summary: Get current user profile
       tags: [Auth]
       security:
         - BearerAuth: []
       responses:
         "200":
-          description: User profile
+          description: User profile.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/UserProfile"
         "401":
-          description: Unauthorized
+          description: Unauthorized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    put:
+      operationId: updateCurrentUser
+      summary: Update current user profile
+      tags: [Auth]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProfileRequest"
+      responses:
+        "200":
+          description: Profile updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "401":
+          description: Unauthorized.
 
+  # ── Change Password ───────────────────────────────────
+  /api/v1/auth/me/password:
+    put:
+      operationId: changePassword
+      summary: Change current user password
+      tags: [Auth]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordRequest"
+      responses:
+        "204":
+          description: Password changed.
+        "400":
+          description: Current password incorrect or new password too weak.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized.
+
+  # ── Admin – User Management ───────────────────────────
   /api/v1/users:
     get:
+      operationId: listUsers
       summary: List all users (admin only)
+      tags: [Users]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: size
+          in: query
+          schema: { type: integer, default: 20 }
+        - name: role
+          in: query
+          description: Filter by role.
+          schema:
+            type: string
+            enum: [STUDENT, INSTRUCTOR, ADMIN]
+        - name: search
+          in: query
+          description: Search by email or name.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Paginated list of users.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserListResponse"
+        "403":
+          description: Forbidden — admin role required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/users/{userId}:
+    parameters:
+      - name: userId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      operationId: getUserById
+      summary: Get user by ID (admin only)
       tags: [Users]
       security:
         - BearerAuth: []
       responses:
         "200":
-          description: List of users
+          description: User profile.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
         "403":
-          description: Forbidden
+          description: Forbidden.
+        "404":
+          description: User not found.
+    put:
+      operationId: updateUser
+      summary: Update user (admin — activate/deactivate, change role)
+      tags: [Users]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                role:
+                  type: string
+                  enum: [STUDENT, INSTRUCTOR, ADMIN]
+                isActive:
+                  type: boolean
+      responses:
+        "200":
+          description: User updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "403":
+          description: Forbidden.
+        "404":
+          description: User not found.

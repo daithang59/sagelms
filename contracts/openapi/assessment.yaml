@@ -3,69 +3,596 @@ info:
   title: SageLMS — Assessment Service
   version: 0.1.0
   description: Quizzes, questions, attempts, and auto-grading.
+  contact:
+    name: SageLMS Team
+  license:
+    name: MIT
 
 servers:
   - url: http://localhost:8085
     description: Local development
 
+tags:
+  - name: Quizzes
+    description: Quiz CRUD
+  - name: Questions
+    description: Question & choice management
+  - name: Attempts
+    description: Student quiz attempts and grading
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    # ── Requests ──────────────────────────────────────────
+    CreateQuizRequest:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+          example: "Module 1 Quiz"
+        description:
+          type: string
+          maxLength: 2000
+        timeLimitMinutes:
+          type: integer
+          minimum: 1
+          nullable: true
+          example: 30
+        passScore:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 100
+          default: 50.0
+          description: Minimum percentage to pass.
+          example: 70.0
+        maxAttempts:
+          type: integer
+          minimum: 1
+          default: 3
+          example: 3
+        isPublished:
+          type: boolean
+          default: false
+
+    UpdateQuizRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          maxLength: 2000
+        timeLimitMinutes:
+          type: integer
+          nullable: true
+        passScore:
+          type: number
+          format: double
+        maxAttempts:
+          type: integer
+        isPublished:
+          type: boolean
+
+    CreateQuestionRequest:
+      type: object
+      required: [text, type, points, choices]
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          example: "What does ML stand for?"
+        type:
+          type: string
+          enum: [SINGLE_CHOICE, TRUE_FALSE]
+          example: SINGLE_CHOICE
+        points:
+          type: integer
+          minimum: 1
+          default: 1
+          example: 10
+        sortOrder:
+          type: integer
+          default: 0
+        choices:
+          type: array
+          minItems: 2
+          items:
+            $ref: "#/components/schemas/CreateChoiceRequest"
+
+    CreateChoiceRequest:
+      type: object
+      required: [text, isCorrect]
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 500
+          example: "Machine Learning"
+        isCorrect:
+          type: boolean
+          example: true
+        sortOrder:
+          type: integer
+          default: 0
+
+    SubmitAttemptRequest:
+      type: object
+      required: [answers]
+      properties:
+        answers:
+          type: array
+          items:
+            $ref: "#/components/schemas/SubmitAnswerRequest"
+
+    SubmitAnswerRequest:
+      type: object
+      required: [questionId, choiceId]
+      properties:
+        questionId:
+          type: string
+          format: uuid
+        choiceId:
+          type: string
+          format: uuid
+
+    # ── Responses ─────────────────────────────────────────
+    QuizResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        courseId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        timeLimitMinutes:
+          type: integer
+          nullable: true
+        passScore:
+          type: number
+          format: double
+        maxAttempts:
+          type: integer
+        isPublished:
+          type: boolean
+        questionCount:
+          type: integer
+          description: Number of questions in the quiz.
+        totalPoints:
+          type: integer
+          description: Sum of all question points.
+        createdAt:
+          type: string
+          format: date-time
+
+    QuizDetailResponse:
+      type: object
+      description: Quiz with its questions and choices (instructor view).
+      properties:
+        id:
+          type: string
+          format: uuid
+        courseId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        timeLimitMinutes:
+          type: integer
+          nullable: true
+        passScore:
+          type: number
+          format: double
+        maxAttempts:
+          type: integer
+        isPublished:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        questions:
+          type: array
+          items:
+            $ref: "#/components/schemas/QuestionResponse"
+
+    QuestionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        text:
+          type: string
+        type:
+          type: string
+          enum: [SINGLE_CHOICE, TRUE_FALSE]
+        points:
+          type: integer
+        sortOrder:
+          type: integer
+        choices:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChoiceResponse"
+
+    ChoiceResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        text:
+          type: string
+        sortOrder:
+          type: integer
+        isCorrect:
+          type: boolean
+          description: Only visible to instructors; hidden from students during attempts.
+
+    QuizListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/QuizResponse"
+
+    AttemptResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        quizId:
+          type: string
+          format: uuid
+        studentId:
+          type: string
+          format: uuid
+        startedAt:
+          type: string
+          format: date-time
+        submittedAt:
+          type: string
+          format: date-time
+          nullable: true
+        score:
+          type: number
+          format: double
+          nullable: true
+        maxScore:
+          type: number
+          format: double
+          nullable: true
+        passed:
+          type: boolean
+          nullable: true
+        questions:
+          type: array
+          description: Questions for the student to answer (no isCorrect revealed).
+          items:
+            $ref: "#/components/schemas/QuestionResponse"
+
+    AttemptResultResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        quizId:
+          type: string
+          format: uuid
+        studentId:
+          type: string
+          format: uuid
+        score:
+          type: number
+          format: double
+        maxScore:
+          type: number
+          format: double
+        passed:
+          type: boolean
+        startedAt:
+          type: string
+          format: date-time
+        submittedAt:
+          type: string
+          format: date-time
+        answers:
+          type: array
+          items:
+            $ref: "#/components/schemas/AttemptAnswerResponse"
+
+    AttemptAnswerResponse:
+      type: object
+      properties:
+        questionId:
+          type: string
+          format: uuid
+        questionText:
+          type: string
+        selectedChoiceId:
+          type: string
+          format: uuid
+        selectedChoiceText:
+          type: string
+        correctChoiceId:
+          type: string
+          format: uuid
+        correctChoiceText:
+          type: string
+        isCorrect:
+          type: boolean
+        points:
+          type: integer
+
+    ErrorResponse:
+      type: object
+      required: [timestamp, path, errorCode, message]
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        path:
+          type: string
+        errorCode:
+          type: string
+        message:
+          type: string
+        correlationId:
+          type: string
+          format: uuid
+
 paths:
+  # ── Quizzes per Course ────────────────────────────────
   /api/v1/courses/{courseId}/quizzes:
     parameters:
       - name: courseId
         in: path
         required: true
         schema: { type: string, format: uuid }
+
     get:
+      operationId: listQuizzes
       summary: List quizzes for a course
       tags: [Quizzes]
       responses:
         "200":
-          description: List of quizzes
+          description: List of quizzes.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuizListResponse"
+        "404":
+          description: Course not found.
+
     post:
+      operationId: createQuiz
       summary: Create a quiz (instructor)
       tags: [Quizzes]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateQuizRequest"
       responses:
         "201":
-          description: Quiz created
+          description: Quiz created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuizResponse"
+        "400":
+          description: Validation error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden — instructor role required.
 
+  # ── Single Quiz ───────────────────────────────────────
   /api/v1/quizzes/{quizId}:
     parameters:
       - name: quizId
         in: path
         required: true
         schema: { type: string, format: uuid }
+
     get:
-      summary: Get quiz details
+      operationId: getQuiz
+      summary: Get quiz details with questions
+      description: Instructor sees full detail (including correct answers). Students see only published questions without correct answers.
       tags: [Quizzes]
       responses:
         "200":
-          description: Quiz with questions
+          description: Quiz with questions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuizDetailResponse"
+        "404":
+          description: Quiz not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
+    put:
+      operationId: updateQuiz
+      summary: Update quiz (instructor)
+      tags: [Quizzes]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateQuizRequest"
+      responses:
+        "200":
+          description: Quiz updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuizResponse"
+        "403":
+          description: Forbidden.
+        "404":
+          description: Quiz not found.
+
+    delete:
+      operationId: deleteQuiz
+      summary: Delete quiz (instructor)
+      tags: [Quizzes]
+      security:
+        - BearerAuth: []
+      responses:
+        "204":
+          description: Quiz deleted.
+        "403":
+          description: Forbidden.
+        "404":
+          description: Quiz not found.
+
+  # ── Questions ─────────────────────────────────────────
   /api/v1/quizzes/{quizId}/questions:
     parameters:
       - name: quizId
         in: path
         required: true
         schema: { type: string, format: uuid }
+
     post:
+      operationId: addQuestion
       summary: Add a question to quiz (instructor)
       tags: [Questions]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateQuestionRequest"
       responses:
         "201":
-          description: Question added
+          description: Question added.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuestionResponse"
+        "400":
+          description: Validation error (e.g. no correct choice marked).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden.
+        "404":
+          description: Quiz not found.
 
+  /api/v1/questions/{questionId}:
+    parameters:
+      - name: questionId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+
+    put:
+      operationId: updateQuestion
+      summary: Update a question (instructor)
+      tags: [Questions]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateQuestionRequest"
+      responses:
+        "200":
+          description: Question updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuestionResponse"
+        "403":
+          description: Forbidden.
+        "404":
+          description: Question not found.
+
+    delete:
+      operationId: deleteQuestion
+      summary: Delete a question (instructor)
+      tags: [Questions]
+      security:
+        - BearerAuth: []
+      responses:
+        "204":
+          description: Question deleted.
+        "403":
+          description: Forbidden.
+        "404":
+          description: Question not found.
+
+  # ── Attempts ──────────────────────────────────────────
   /api/v1/quizzes/{quizId}/attempts:
     parameters:
       - name: quizId
         in: path
         required: true
         schema: { type: string, format: uuid }
+
     post:
+      operationId: startAttempt
       summary: Start a quiz attempt (student)
+      description: Creates a new attempt. Fails if the student exceeded maxAttempts or quiz is unpublished.
       tags: [Attempts]
+      security:
+        - BearerAuth: []
       responses:
         "201":
-          description: Attempt started
+          description: Attempt started — returns questions to answer.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttemptResponse"
+        "403":
+          description: Max attempts reached or quiz not published.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Quiz not found.
 
   /api/v1/attempts/{attemptId}/submit:
     parameters:
@@ -73,12 +600,35 @@ paths:
         in: path
         required: true
         schema: { type: string, format: uuid }
+
     put:
+      operationId: submitAttempt
       summary: Submit quiz attempt (student)
+      description: Submits answers, auto-grades, and returns the result.
       tags: [Attempts]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitAttemptRequest"
       responses:
         "200":
-          description: Graded result
+          description: Graded result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttemptResultResponse"
+        "400":
+          description: Attempt already submitted or answers invalid.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Attempt not found.
 
   /api/v1/attempts/{attemptId}/result:
     parameters:
@@ -86,9 +636,21 @@ paths:
         in: path
         required: true
         schema: { type: string, format: uuid }
+
     get:
+      operationId: getAttemptResult
       summary: Get attempt result (student)
       tags: [Attempts]
+      security:
+        - BearerAuth: []
       responses:
         "200":
-          description: Score and answers
+          description: Score, pass/fail, and per-question breakdown.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttemptResultResponse"
+        "403":
+          description: Not your attempt.
+        "404":
+          description: Attempt not found.

@@ -3,112 +3,251 @@ info:
   title: SageLMS — AI Tutor Service
   version: 0.1.0
   description: RAG-based AI Tutor for course Q&A.
+  contact:
+    name: SageLMS Team
+  license:
+    name: MIT
 
 servers:
   - url: http://localhost:8086
     description: Local development
 
+tags:
+  - name: AI Tutor
+    description: Content ingestion and Q&A
+  - name: Jobs
+    description: Async job tracking
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    # ── Requests ──────────────────────────────────────────
+    IngestRequest:
+      type: object
+      required: [courseId]
+      properties:
+        courseId:
+          type: string
+          format: uuid
+          description: Course whose content should be ingested.
+        lessonId:
+          type: string
+          format: uuid
+          nullable: true
+          description: Optional — ingest only a specific lesson.
+
+    AskRequest:
+      type: object
+      required: [courseId, question]
+      properties:
+        courseId:
+          type: string
+          format: uuid
+          description: Scope the answer to this course's knowledge base.
+        question:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          example: What is gradient descent?
+
+    # ── Responses ─────────────────────────────────────────
+    IngestAcceptedResponse:
+      type: object
+      properties:
+        jobId:
+          type: string
+          format: uuid
+          description: Use this ID to poll job status.
+        message:
+          type: string
+          example: Ingestion job queued.
+
+    AskResponse:
+      type: object
+      properties:
+        answer:
+          type: string
+          description: AI-generated answer in Markdown.
+          example: |
+            Gradient descent is an optimization algorithm used to minimize
+            the loss function in machine learning models ...
+        citations:
+          type: array
+          description: Source chunks referenced by the AI.
+          items:
+            $ref: "#/components/schemas/Citation"
+
+    Citation:
+      type: object
+      properties:
+        chunkId:
+          type: string
+          format: uuid
+        lessonId:
+          type: string
+          format: uuid
+        lessonTitle:
+          type: string
+          example: "Lesson 3: Optimization"
+        snippet:
+          type: string
+          description: Relevant text passage.
+          example: "...gradient descent works by iteratively adjusting parameters..."
+
+    JobStatusResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [INGEST_CONTENT, GENERATE_QUIZ]
+        status:
+          type: string
+          enum: [QUEUED, RUNNING, SUCCEEDED, FAILED]
+        progress:
+          type: integer
+          description: Percentage 0–100 (if trackable).
+          nullable: true
+        error:
+          type: string
+          nullable: true
+          description: Error message if status is FAILED.
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      required: [timestamp, path, errorCode, message]
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        path:
+          type: string
+        errorCode:
+          type: string
+        message:
+          type: string
+        correlationId:
+          type: string
+          format: uuid
+
 paths:
+  # ── Content Ingestion ─────────────────────────────────
   /api/v1/ai/ingest:
     post:
+      operationId: triggerIngestion
       summary: Trigger content ingestion (async job)
+      description: |
+        Queues an async job that fetches lesson content from the Content Service,
+        splits it into chunks, generates embeddings, and stores them in pgvector.
+        Requires instructor or admin role.
       tags: [AI Tutor]
+      security:
+        - BearerAuth: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required: [courseId]
-              properties:
-                courseId:
-                  type: string
-                  format: uuid
-                lessonId:
-                  type: string
-                  format: uuid
-                  description: Optional — ingest specific lesson only
+              $ref: "#/components/schemas/IngestRequest"
       responses:
         "202":
-          description: Job accepted
+          description: Job accepted and queued.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  jobId:
-                    type: string
-                    format: uuid
+                $ref: "#/components/schemas/IngestAcceptedResponse"
+        "400":
+          description: Validation error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden — instructor or admin role required.
+        "404":
+          description: Course or lesson not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
+  # ── Q&A ───────────────────────────────────────────────
   /api/v1/ai/ask:
     post:
+      operationId: askQuestion
       summary: Ask AI Tutor a question
+      description: |
+        Performs RAG: retrieves relevant chunks from the course's vector store,
+        augments the prompt, and generates an answer with citations.
+        Student must be enrolled in the course.
       tags: [AI Tutor]
+      security:
+        - BearerAuth: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required: [courseId, question]
-              properties:
-                courseId:
-                  type: string
-                  format: uuid
-                question:
-                  type: string
-                  maxLength: 2000
+              $ref: "#/components/schemas/AskRequest"
       responses:
         "200":
-          description: AI answer with citations
+          description: AI answer with citations.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  answer:
-                    type: string
-                  citations:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        chunkId:
-                          type: string
-                        lessonId:
-                          type: string
-                        snippet:
-                          type: string
+                $ref: "#/components/schemas/AskResponse"
+        "400":
+          description: Validation error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not enrolled in the course.
+        "404":
+          description: Course not found or no ingested content.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
+  # ── Job Status ────────────────────────────────────────
   /api/v1/ai/jobs/{jobId}:
     parameters:
       - name: jobId
         in: path
         required: true
         schema: { type: string, format: uuid }
+
     get:
+      operationId: getJobStatus
       summary: Get job status
       tags: [Jobs]
+      security:
+        - BearerAuth: []
       responses:
         "200":
-          description: Job status
+          description: Job status.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  id:
-                    type: string
-                    format: uuid
-                  type:
-                    type: string
-                    enum: [INGEST_CONTENT, GENERATE_QUIZ]
-                  status:
-                    type: string
-                    enum: [QUEUED, RUNNING, SUCCEEDED, FAILED]
-                  error:
-                    type: string
-                    nullable: true
-                  createdAt:
-                    type: string
-                    format: date-time
+                $ref: "#/components/schemas/JobStatusResponse"
+        "404":
+          description: Job not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"

@@ -3,16 +3,392 @@ info:
   title: SageLMS — Course Service
   version: 0.1.0
   description: Course management and enrollment.
+  contact:
+    name: SageLMS Team
+  license:
+    name: MIT
 
 servers:
   - url: http://localhost:8082
     description: Local development
 
+tags:
+  - name: Courses
+    description: CRUD operations on courses
+  - name: Enrollment
+    description: Student enrollment management
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    # ── Requests ──────────────────────────────────────────
+    CreateCourseRequest:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+          example: Introduction to Machine Learning
+        description:
+          type: string
+          maxLength: 5000
+          example: A comprehensive course covering ML fundamentals.
+        thumbnailUrl:
+          type: string
+          format: uri
+          example: https://cdn.sagelms.io/thumbnails/ml-101.jpg
+        category:
+          type: string
+          maxLength: 100
+          example: Computer Science
+        status:
+          type: string
+          enum: [DRAFT, PUBLISHED, ARCHIVED]
+          default: DRAFT
+
+    UpdateCourseRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          maxLength: 5000
+        thumbnailUrl:
+          type: string
+          format: uri
+        category:
+          type: string
+          maxLength: 100
+        status:
+          type: string
+          enum: [DRAFT, PUBLISHED, ARCHIVED]
+
+    # ── Responses ─────────────────────────────────────────
+    CourseResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        thumbnailUrl:
+          type: string
+          format: uri
+          nullable: true
+        instructorId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [DRAFT, PUBLISHED, ARCHIVED]
+        category:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CourseListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/CourseResponse"
+        meta:
+          $ref: "#/components/schemas/PaginationMeta"
+
+    EnrollmentResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        courseId:
+          type: string
+          format: uuid
+        studentId:
+          type: string
+          format: uuid
+        enrolledAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [ACTIVE, DROPPED, COMPLETED]
+
+    EnrolledStudentResponse:
+      type: object
+      properties:
+        studentId:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        fullName:
+          type: string
+        enrolledAt:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [ACTIVE, DROPPED, COMPLETED]
+
+    StudentListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/EnrolledStudentResponse"
+        meta:
+          $ref: "#/components/schemas/PaginationMeta"
+
+    PaginationMeta:
+      type: object
+      properties:
+        page:
+          type: integer
+          example: 1
+        size:
+          type: integer
+          example: 20
+        totalElements:
+          type: integer
+        totalPages:
+          type: integer
+
+    ErrorResponse:
+      type: object
+      required: [timestamp, path, errorCode, message]
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        path:
+          type: string
+        errorCode:
+          type: string
+        message:
+          type: string
+        correlationId:
+          type: string
+          format: uuid
+
 paths:
+  # ── Course CRUD ───────────────────────────────────────
   /api/v1/courses:
     get:
-      summary: List courses
+      operationId: listCourses
+      summary: List courses (paginated)
+      description: Returns published courses for students. Instructors/admins see their own.
       tags: [Courses]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1, minimum: 1 }
+        - name: size
+          in: query
+          schema: { type: integer, default: 20, minimum: 1, maximum: 100 }
+        - name: status
+          in: query
+          description: Filter by status (admin/instructor only).
+          schema:
+            type: string
+            enum: [DRAFT, PUBLISHED, ARCHIVED]
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: search
+          in: query
+          description: Search in title and description.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Paginated list of courses.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CourseListResponse"
+
+    post:
+      operationId: createCourse
+      summary: Create a course (instructor/admin)
+      tags: [Courses]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCourseRequest"
+      responses:
+        "201":
+          description: Course created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CourseResponse"
+        "400":
+          description: Validation error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden — instructor or admin role required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/courses/{courseId}:
+    parameters:
+      - name: courseId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      operationId: getCourse
+      summary: Get course details
+      tags: [Courses]
+      responses:
+        "200":
+          description: Course details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CourseResponse"
+        "404":
+          description: Course not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    put:
+      operationId: updateCourse
+      summary: Update course (instructor — owner / admin)
+      tags: [Courses]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCourseRequest"
+      responses:
+        "200":
+          description: Course updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CourseResponse"
+        "400":
+          description: Validation error.
+        "403":
+          description: Forbidden.
+        "404":
+          description: Course not found.
+
+    delete:
+      operationId: deleteCourse
+      summary: Delete course (admin)
+      tags: [Courses]
+      security:
+        - BearerAuth: []
+      responses:
+        "204":
+          description: Course deleted.
+        "403":
+          description: Forbidden — admin role required.
+        "404":
+          description: Course not found.
+
+  # ── Enrollment ────────────────────────────────────────
+  /api/v1/courses/{courseId}/enroll:
+    parameters:
+      - name: courseId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      operationId: enrollInCourse
+      summary: Enroll in a course (student)
+      tags: [Enrollment]
+      security:
+        - BearerAuth: []
+      responses:
+        "201":
+          description: Successfully enrolled.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EnrollmentResponse"
+        "404":
+          description: Course not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Already enrolled.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/courses/{courseId}/unenroll:
+    parameters:
+      - name: courseId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      operationId: unenrollFromCourse
+      summary: Drop a course (student)
+      tags: [Enrollment]
+      security:
+        - BearerAuth: []
+      responses:
+        "204":
+          description: Successfully unenrolled.
+        "404":
+          description: Enrollment not found.
+
+  /api/v1/courses/{courseId}/students:
+    parameters:
+      - name: courseId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      operationId: listEnrolledStudents
+      summary: List enrolled students (instructor/admin)
+      tags: [Enrollment]
+      security:
+        - BearerAuth: []
       parameters:
         - name: page
           in: query
@@ -22,67 +398,48 @@ paths:
           schema: { type: integer, default: 20 }
       responses:
         "200":
-          description: Paginated list of courses
-    post:
-      summary: Create a course (instructor/admin)
-      tags: [Courses]
-      responses:
-        "201":
-          description: Course created
+          description: Paginated list of enrolled students.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudentListResponse"
         "403":
-          description: Forbidden
-
-  /api/v1/courses/{courseId}:
-    parameters:
-      - name: courseId
-        in: path
-        required: true
-        schema: { type: string, format: uuid }
-    get:
-      summary: Get course details
-      tags: [Courses]
-      responses:
-        "200":
-          description: Course details
+          description: Forbidden.
         "404":
-          description: Not found
-    put:
-      summary: Update course (instructor/admin)
-      tags: [Courses]
-      responses:
-        "200":
-          description: Updated
-    delete:
-      summary: Delete course (admin)
-      tags: [Courses]
-      responses:
-        "204":
-          description: Deleted
+          description: Course not found.
 
-  /api/v1/courses/{courseId}/enroll:
-    parameters:
-      - name: courseId
-        in: path
-        required: true
-        schema: { type: string, format: uuid }
-    post:
-      summary: Enroll in a course (student)
-      tags: [Enrollment]
-      responses:
-        "201":
-          description: Enrolled
-        "409":
-          description: Already enrolled
-
-  /api/v1/courses/{courseId}/students:
-    parameters:
-      - name: courseId
-        in: path
-        required: true
-        schema: { type: string, format: uuid }
+  /api/v1/enrollments/my:
     get:
-      summary: List enrolled students (instructor)
+      operationId: listMyEnrollments
+      summary: List courses the current student is enrolled in
       tags: [Enrollment]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: size
+          in: query
+          schema: { type: integer, default: 20 }
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [ACTIVE, DROPPED, COMPLETED]
       responses:
         "200":
-          description: List of students
+          description: Paginated list of enrolled courses.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/EnrollmentResponse"
+                  meta:
+                    $ref: "#/components/schemas/PaginationMeta"
+        "401":
+          description: Unauthorized.

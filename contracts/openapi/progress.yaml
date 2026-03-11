@@ -3,12 +3,136 @@ info:
   title: SageLMS — Progress Service
   version: 0.1.0
   description: Student progress tracking per course/lesson.
+  contact:
+    name: SageLMS Team
+  license:
+    name: MIT
 
 servers:
   - url: http://localhost:8084
     description: Local development
 
+tags:
+  - name: Progress
+    description: Lesson completion and course progress tracking
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    # ── Responses ─────────────────────────────────────────
+    LessonProgressResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        lessonId:
+          type: string
+          format: uuid
+        courseId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [NOT_STARTED, IN_PROGRESS, COMPLETED]
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    CourseProgressResponse:
+      type: object
+      properties:
+        courseId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        totalLessons:
+          type: integer
+          example: 12
+        completedLessons:
+          type: integer
+          example: 7
+        progressPercent:
+          type: number
+          format: double
+          example: 58.33
+          description: Percentage of completed lessons (0–100).
+        lessons:
+          type: array
+          items:
+            $ref: "#/components/schemas/LessonProgressResponse"
+
+    StudentProgressSummary:
+      type: object
+      properties:
+        studentId:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        fullName:
+          type: string
+        completedLessons:
+          type: integer
+        totalLessons:
+          type: integer
+        progressPercent:
+          type: number
+          format: double
+
+    StudentProgressListResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/StudentProgressSummary"
+        meta:
+          $ref: "#/components/schemas/PaginationMeta"
+
+    PaginationMeta:
+      type: object
+      properties:
+        page:
+          type: integer
+        size:
+          type: integer
+        totalElements:
+          type: integer
+        totalPages:
+          type: integer
+
+    ErrorResponse:
+      type: object
+      required: [timestamp, path, errorCode, message]
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        path:
+          type: string
+        errorCode:
+          type: string
+        message:
+          type: string
+        correlationId:
+          type: string
+          format: uuid
+
 paths:
+  # ── Mark Lesson Complete ──────────────────────────────
   /api/v1/progress/lessons/{lessonId}/complete:
     parameters:
       - name: lessonId
@@ -16,14 +140,60 @@ paths:
         required: true
         schema: { type: string, format: uuid }
     post:
+      operationId: markLessonComplete
       summary: Mark lesson as completed (student)
       tags: [Progress]
+      security:
+        - BearerAuth: []
       responses:
         "200":
-          description: Lesson marked complete
+          description: Lesson marked complete.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LessonProgressResponse"
+        "401":
+          description: Unauthorized.
+        "404":
+          description: Lesson not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "409":
-          description: Already completed
+          description: Already completed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
+  # ── Mark Lesson In-Progress ───────────────────────────
+  /api/v1/progress/lessons/{lessonId}/start:
+    parameters:
+      - name: lessonId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      operationId: markLessonInProgress
+      summary: Mark lesson as in-progress (student)
+      description: Records that the student has started viewing a lesson.
+      tags: [Progress]
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Lesson marked in-progress.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LessonProgressResponse"
+        "401":
+          description: Unauthorized.
+        "404":
+          description: Lesson not found.
+
+  # ── Course Progress (student) ─────────────────────────
   /api/v1/progress/courses/{courseId}:
     parameters:
       - name: courseId
@@ -31,12 +201,29 @@ paths:
         required: true
         schema: { type: string, format: uuid }
     get:
+      operationId: getCourseProgress
       summary: Get student progress for a course
+      description: Returns the current student's lesson-by-lesson progress and overall percentage.
       tags: [Progress]
+      security:
+        - BearerAuth: []
       responses:
         "200":
-          description: Progress with percentage
+          description: Course progress with percentage.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CourseProgressResponse"
+        "401":
+          description: Unauthorized.
+        "404":
+          description: Course not found or student not enrolled.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 
+  # ── All Students' Progress (instructor) ───────────────
   /api/v1/progress/courses/{courseId}/students:
     parameters:
       - name: courseId
@@ -44,8 +231,31 @@ paths:
         required: true
         schema: { type: string, format: uuid }
     get:
-      summary: Get all students' progress (instructor)
+      operationId: listStudentProgress
+      summary: Get all students' progress (instructor/admin)
+      description: Returns a paginated summary of every enrolled student's progress in the course.
       tags: [Progress]
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: size
+          in: query
+          schema: { type: integer, default: 20 }
       responses:
         "200":
-          description: List of student progress
+          description: Paginated student progress list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudentProgressListResponse"
+        "403":
+          description: Forbidden — instructor or admin role required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Course not found.
