@@ -6,7 +6,7 @@ spring:
     name: sagelms-content-service
 
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5433}/${DB_NAME:sagelms}
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:sagelms}
     username: ${DB_USER:sagelms}
     password: ${DB_PASSWORD:sagelms}
 
