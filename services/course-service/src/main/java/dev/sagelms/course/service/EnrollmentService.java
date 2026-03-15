@@ -35,12 +35,23 @@ public class EnrollmentService {
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new CourseNotFoundException("Course not found: " + courseId));
 
-        // Check if already enrolled
-        if (enrollmentRepository.existsByStudentIdAndCourseId(studentId, courseId)) {
+        // Check if already actively enrolled
+        if (enrollmentRepository.existsByStudentIdAndCourseIdAndStatus(studentId, courseId, EnrollmentStatus.ACTIVE)) {
             throw new AlreadyEnrolledException("Student already enrolled in this course");
         }
 
-        // Create enrollment
+        // Check if there's a dropped enrollment - reactivate it instead of creating new
+        var existingEnrollment = enrollmentRepository.findByStudentIdAndCourseId(studentId, courseId);
+        if (existingEnrollment.isPresent()) {
+            Enrollment enrollment = existingEnrollment.get();
+            if (enrollment.getStatus() == EnrollmentStatus.DROPPED) {
+                enrollment.setStatus(EnrollmentStatus.ACTIVE);
+                Enrollment saved = enrollmentRepository.save(enrollment);
+                return EnrollmentResponse.fromEntity(saved, course.getTitle(), null);
+            }
+        }
+
+        // Create new enrollment
         Enrollment enrollment = new Enrollment();
         enrollment.setCourseId(courseId);
         enrollment.setStudentId(studentId);
@@ -92,11 +103,11 @@ public class EnrollmentService {
     }
 
     /**
-     * Check if student is enrolled in course
+     * Check if student is actively enrolled in course
      */
     @Transactional(readOnly = true)
     public boolean isEnrolled(UUID studentId, UUID courseId) {
-        return enrollmentRepository.existsByStudentIdAndCourseId(studentId, courseId);
+        return enrollmentRepository.existsByStudentIdAndCourseIdAndStatus(studentId, courseId, EnrollmentStatus.ACTIVE);
     }
 
     /**
