@@ -15,37 +15,47 @@ spring:
     gateway:
       default-filters:
         - AddRequestHeader=X-From-Gateway, true
-      globalcors:
-        corsConfigurations:
-          '[/**]':
-            allowedOrigins: "http://localhost:5173,http://localhost:3000,http://localhost:3001"
-            allowedMethods: "*"
-            allowedHeaders: "*"
-            allowCredentials: true
       routes:
         # --- Auth Service (PUBLIC) ---
         - id: auth-service
           uri: http://${AUTH_SERVICE_HOST:localhost}:${AUTH_SERVICE_PORT:8081}
           predicates:
             - Path=/api/v1/auth/**
+          filters:
+            - StripPrefix=0
 
         # --- User Management (via Auth Service) ---
         - id: user-management
           uri: http://${AUTH_SERVICE_HOST:localhost}:${AUTH_SERVICE_PORT:8081}
           predicates:
             - Path=/api/v1/users/**
+          filters:
+            - StripPrefix=0
 
-        # --- Course Service ---
-        - id: course-service
-          uri: http://${COURSE_SERVICE_HOST:localhost}:${COURSE_SERVICE_PORT:8082}
+        # --- Course Lessons (Content Service) - MUST come BEFORE course-service ---
+        - id: course-lessons
+          uri: http://${CONTENT_SERVICE_HOST:localhost}:${CONTENT_SERVICE_PORT:8083}
           predicates:
-            - Path=/api/v1/courses/**
+            - Path=/api/v1/courses/{courseId}/lessons/**
+          filters:
+            - StripPrefix=0
 
         # --- Content Service ---
         - id: content-service
           uri: http://${CONTENT_SERVICE_HOST:localhost}:${CONTENT_SERVICE_PORT:8083}
           predicates:
             - Path=/api/v1/content/**
+            - Path=/api/v1/lessons/**
+          filters:
+            - StripPrefix=0
+
+        # --- Course Service (less specific, comes after) ---
+        - id: course-service
+          uri: http://${COURSE_SERVICE_HOST:localhost}:${COURSE_SERVICE_PORT:8082}
+          predicates:
+            - Path=/api/v1/courses/**
+          filters:
+            - StripPrefix=0
 
         # --- Progress Service ---
         - id: progress-service
