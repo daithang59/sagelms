@@ -29,7 +29,7 @@ export default function Header() {
   };
 
   return (
-    <header className="h-20 bg-white/80 backdrop-blur-lg border-b border-surface-200 flex items-center justify-between px-8">
+    <header className="fixed top-0 right-0 left-0 h-20 bg-white/80 backdrop-blur-lg border-b border-surface-200 flex items-center justify-between px-8 z-50">
       {/* Left - Page title placeholder */}
       <div className="flex items-center gap-2">
         <h2 className="text-lg font-semibold text-surface-800">SageLMS</h2>
@@ -64,7 +64,7 @@ export default function Header() {
 
             {/* Dropdown menu */}
             {isDropdownOpen && (
-              <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-surface-100 py-2 z-50 animate-in">
+              <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-surface-100 py-2 z-[100] animate-in">
                 <div className="px-4 py-3 border-b border-surface-100">
                   <p className="text-sm font-medium text-surface-800">{user.fullName}</p>
                   <p className="text-xs text-surface-500">{user.email}</p>

@@ -14,12 +14,12 @@ export default function DashboardLayout() {
       />
 
       <div
-        className={`transition-all duration-300 ${
+        className={`transition-all duration-300 pt-20 min-h-screen ${
           sidebarCollapsed ? 'ml-20' : 'ml-64'
         }`}
       >
         <Header />
-        <main className="p-8">
+        <main className="p-8 relative z-10">
           <Outlet />
         </main>
       </div>

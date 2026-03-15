@@ -7,6 +7,7 @@ import {
   Bot,
   Users,
   ChevronLeft,
+  ChevronRight,
   LogOut,
   GraduationCap,
 } from 'lucide-react';
@@ -65,14 +66,14 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
   return (
     <aside
       className={`
-        fixed left-0 top-0 z-40 h-screen bg-white border-r border-surface-200
+        fixed left-0 top-0 z-40 h-screen bg-white border-r border-slate-200
         transition-all duration-300 flex flex-col shadow-xl
         ${isCollapsed ? 'w-20' : 'w-64'}
       `}
     >
       {/* Logo */}
-      <div className="h-20 flex items-center gap-3 px-4 border-b border-surface-100">
-        <div className="w-10 h-10 rounded-xl bg-gradient-brand flex items-center justify-center shadow-glow-brand">
+      <div className="h-20 flex items-center gap-3 px-4 border-b border-slate-100">
+        <div className="w-10 h-10 rounded-xl bg-gradient-brand flex items-center justify-center shadow-lg shadow-violet-500/20">
           <GraduationCap className="w-6 h-6 text-white" />
         </div>
         {!isCollapsed && (
@@ -80,28 +81,33 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
             <span className="text-lg font-bold bg-gradient-brand bg-clip-text text-transparent">
               SageLMS
             </span>
-            <span className="text-xs text-surface-400">Learning Platform</span>
+            <span className="text-xs text-slate-400">Learning Platform</span>
           </div>
         )}
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 py-6 px-3 space-y-1 overflow-y-auto">
+      <nav className="flex-1 py-6 px-3 space-y-1.5 overflow-y-auto">
         {filteredNav.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
             className={({ isActive }) =>
               `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 group
-              ${isActive
-                ? 'bg-brand-50 text-brand-700 shadow-sm'
-                : 'text-surface-600 hover:bg-surface-50 hover:text-surface-900'
+              ${
+                isActive
+                  ? 'bg-gradient-to-r from-violet-50 to-indigo-50 text-violet-700 shadow-sm'
+                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
               }`
             }
           >
             {({ isActive }) => (
               <>
-                <item.icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-brand-600' : 'text-surface-400 group-hover:text-surface-600'}`} />
+                <item.icon
+                  className={`w-5 h-5 flex-shrink-0 ${
+                    isActive ? 'text-violet-600' : 'text-slate-400 group-hover:text-slate-600'
+                  }`}
+                />
                 {!isCollapsed && <span>{item.name}</span>}
               </>
             )}
@@ -109,18 +115,31 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
         ))}
       </nav>
 
-      {/* Footer */}
-      <div className="border-t border-surface-100 p-3 space-y-1">
+      {/* Footer - Fixed alignment */}
+      <div className="border-t border-slate-100 p-3 space-y-1">
+        {/* Toggle Button */}
         <button
           onClick={onToggle}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-surface-500 hover:bg-surface-50 hover:text-surface-700 transition-colors"
+          className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-all duration-200 ${
+            isCollapsed ? 'justify-center' : ''
+          }`}
         >
-          <ChevronLeft className={`w-5 h-5 transition-transform duration-300 ${isCollapsed ? 'rotate-180' : ''}`} />
-          {!isCollapsed && <span>Thu gọn</span>}
+          {isCollapsed ? (
+            <ChevronRight className="w-5 h-5" />
+          ) : (
+            <>
+              <ChevronLeft className="w-5 h-5" />
+              <span>Thu gọn</span>
+            </>
+          )}
         </button>
+
+        {/* Logout Button - Softened red */}
         <button
           onClick={handleLogout}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-red-500 hover:bg-red-50 transition-colors"
+          className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-rose-600 hover:bg-rose-50 hover:text-rose-700 transition-all duration-200 ${
+            isCollapsed ? 'justify-center' : ''
+          }`}
         >
           <LogOut className="w-5 h-5" />
           {!isCollapsed && <span>Đăng xuất</span>}
