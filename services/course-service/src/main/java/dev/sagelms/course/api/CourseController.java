@@ -14,9 +14,6 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * REST Controller for Course operations
- */
 @RestController
 @RequestMapping("/api/v1/courses")
 public class CourseController {
@@ -37,14 +34,15 @@ public class CourseController {
             @RequestParam(required = false) String category,
             @RequestParam(required = false) String search
     ) {
-        // If search param provided, search by title
+        // Priority: search > status+category > all
         if (search != null && !search.isBlank()) {
             return ResponseEntity.ok(courseService.searchCourses(search, pageable));
         }
-
-        // Otherwise, return all or filtered
-        Page<CourseResponse> courses = courseService.getAllCourses(pageable);
-        return ResponseEntity.ok(courses);
+        if (status != null && !status.isBlank()) {
+            return ResponseEntity.ok(courseService.getCoursesByStatus(status, pageable));
+        }
+        // category filter is handled by /courses/category/{category} endpoint separately
+        return ResponseEntity.ok(courseService.getAllCourses(pageable));
     }
 
     /**

@@ -2,6 +2,7 @@ package dev.sagelms.content.service;
 
 import dev.sagelms.content.dto.LessonRequest;
 import dev.sagelms.content.dto.LessonResponse;
+import dev.sagelms.content.entity.ContentType;
 import dev.sagelms.content.entity.Lesson;
 import dev.sagelms.content.repository.LessonRepository;
 import org.springframework.stereotype.Service;
@@ -30,6 +31,8 @@ public class LessonService {
      * @param instructorId - the instructor creating the lesson (for ownership)
      */
     public LessonResponse createLesson(UUID courseId, LessonRequest request, UUID instructorId) {
+        validateLessonContent(request.type(), request.contentUrl(), request.textContent());
+
         Lesson lesson = new Lesson();
         lesson.setCourseId(courseId);
         lesson.setInstructorId(instructorId);  // Track ownership
@@ -63,16 +66,21 @@ public class LessonService {
                 .orElseThrow(() -> new LessonNotFoundException("Lesson not found: " + lessonId));
 
         // Ownership check - only the instructor who created the lesson can update it
+        // Ownership check - only the instructor who created the lesson can update it
         if (!lesson.getInstructorId().equals(instructorId)) {
             throw new LessonOwnershipException("You do not have permission to update this lesson");
         }
+
+        validateLessonContent(request.type(), request.contentUrl(), request.textContent());
 
         lesson.setTitle(request.title());
         lesson.setType(request.type());
         lesson.setContentUrl(request.contentUrl());
         lesson.setTextContent(request.textContent());
         lesson.setDurationMinutes(request.durationMinutes());
-        lesson.setIsPublished(request.isPublished());
+        if (request.isPublished() != null) {
+            lesson.setIsPublished(request.isPublished());
+        }
 
         if (request.sortOrder() != null) {
             lesson.setSortOrder(request.sortOrder());
@@ -174,6 +182,25 @@ public class LessonService {
         lesson.setIsPublished(publish);
         Lesson saved = lessonRepository.save(lesson);
         return LessonResponse.fromEntity(saved);
+    }
+
+    // ============== Validation ==============
+
+    /**
+     * Enforce business rule:
+     * - TEXT type must have textContent
+     * - VIDEO/PDF/LINK type must have contentUrl
+     */
+    private void validateLessonContent(ContentType type, String contentUrl, String textContent) {
+        if (type == ContentType.TEXT) {
+            if (textContent == null || textContent.isBlank()) {
+                throw new IllegalArgumentException("textContent is required for TEXT lesson type");
+            }
+        } else {
+            if (contentUrl == null || contentUrl.isBlank()) {
+                throw new IllegalArgumentException("contentUrl is required for " + type + " lesson type");
+            }
+        }
     }
 
     // ============== Exception Classes ==============

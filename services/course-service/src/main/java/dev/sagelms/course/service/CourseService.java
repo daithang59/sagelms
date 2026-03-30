@@ -132,6 +132,24 @@ public class CourseService {
     }
 
     /**
+     * Get courses by status (DRAFT, PUBLISHED, ARCHIVED)
+     */
+    @Transactional(readOnly = true)
+    public Page<CourseResponse> getCoursesByStatus(String status, Pageable pageable) {
+        try {
+            CourseStatus courseStatus = CourseStatus.valueOf(status.toUpperCase());
+            Page<Course> courses = courseRepository.findByStatus(courseStatus, pageable);
+            List<UUID> courseIds = courses.getContent().stream().map(Course::getId).toList();
+            Map<UUID, Long> enrollmentCounts = enrollmentRepository.countEnrollmentsByCourseIdsMap(courseIds);
+            return courses.map(course ->
+                CourseResponse.fromEntity(course, enrollmentCounts.getOrDefault(course.getId(), 0L))
+            );
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Invalid status: " + status + ". Must be DRAFT, PUBLISHED, or ARCHIVED");
+        }
+    }
+
+    /**
      * Get courses by instructor
      */
     @Transactional(readOnly = true)
