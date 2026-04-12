@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import type { Course } from '@/types/course';
 import LessonForm from './LessonForm';
+import CourseForm from './CourseForm';
 
 export default function CourseDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -34,6 +35,8 @@ export default function CourseDetailPage() {
   const [course, setCourse] = useState<Course | null>(null);
   const [isEnrolled, setIsEnrolled] = useState(false);
   const [showLessonForm, setShowLessonForm] = useState(false);
+  const [editingLesson, setEditingLesson] = useState(null);
+  const [showCourseForm, setShowCourseForm] = useState(false);
 
   const canCreateCourse = user?.role === 'INSTRUCTOR' || user?.role === 'ADMIN';
   const isOwner = canCreateCourse && course?.instructorId === user?.id;
@@ -70,19 +73,44 @@ export default function CourseDetailPage() {
     try {
       await enroll(id);
       setIsEnrolled(true);
+      showToast('Đăng ký khoá học thành công!', 'success');
     } catch (err) {
+      const message = err instanceof Error ? err.message : 'Đăng ký thất bại';
+      showToast(message, 'error');
       console.error('Failed to enroll:', err);
     }
   };
 
   const handleUnenroll = async () => {
     if (!id) return;
+    if (!confirm('Bạn có chắc chắn muốn hủy đăng ký khoá học này?')) return;
     try {
       await unenroll(id);
       setIsEnrolled(false);
+      showToast('Hủy đăng ký thành công!', 'success');
     } catch (err) {
+      const message = err instanceof Error ? err.message : 'Hủy đăng ký thất bại';
+      showToast(message, 'error');
       console.error('Failed to unenroll:', err);
     }
+  };
+
+  const handleStartLearning = () => {
+    if (lessons.length > 0) {
+      // Find first published lesson or just the first one
+      const firstLesson = lessons.find(l => l.isPublished) || lessons[0];
+      navigate(`/courses/${id}/lessons/${firstLesson.id}`);
+    } else {
+      showToast('Khoá học chưa có bài học nào', 'warning');
+    }
+  };
+
+  const handleLessonClick = (lessonId: string) => {
+    if (canEnroll && !isEnrolled) {
+      showToast('Vui lòng đăng ký khoá học để xem bài học này', 'warning');
+      return;
+    }
+    navigate(`/courses/${id}/lessons/${lessonId}`);
   };
 
   const getLessonIcon = (type: string) => {
@@ -219,9 +247,10 @@ export default function CourseDetailPage() {
               ) : lessons.length > 0 ? (
                 <div className="divide-y divide-slate-100">
                   {lessons.map((lesson) => (
-                    <div
+                    <button
                       key={lesson.id}
-                      className="p-4 flex items-center gap-4 hover:bg-slate-50 transition-colors"
+                      onClick={() => handleLessonClick(lesson.id)}
+                      className="w-full p-4 flex items-center gap-4 hover:bg-slate-50 transition-colors text-left"
                     >
                       <div className="w-10 h-10 rounded-xl bg-violet-100 text-violet-600 flex items-center justify-center">
                         {getLessonIcon(lesson.type)}
@@ -244,9 +273,10 @@ export default function CourseDetailPage() {
                         <Badge variant="warning">Bản nháp</Badge>
                       )}
                       {isOwner && (
-                        <div className="flex gap-2">
+                        <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
                           <button
-                            onClick={async () => {
+                            onClick={async (e) => {
+                              e.stopPropagation();
                               try {
                                 await publishLesson(lesson.id, !lesson.isPublished);
                                 showToast(
@@ -263,7 +293,8 @@ export default function CourseDetailPage() {
                             <Eye className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={async () => {
+                            onClick={async (e) => {
+                              e.stopPropagation();
                               if (confirm('Xóa bài học này?')) {
                                 try {
                                   await deleteLesson(lesson.id);
@@ -280,7 +311,7 @@ export default function CourseDetailPage() {
                           </button>
                         </div>
                       )}
-                    </div>
+                    </button>
                   ))}
                 </div>
               ) : (
@@ -315,7 +346,7 @@ export default function CourseDetailPage() {
                     <Button variant="secondary" className="w-full" onClick={handleUnenroll}>
                       Hủy đăng ký
                     </Button>
-                    <Button className="w-full">
+                    <Button className="w-full" onClick={handleStartLearning}>
                       <PlayCircle className="w-4 h-4 mr-2" />
                       Bắt đầu học
                     </Button>
@@ -334,9 +365,9 @@ export default function CourseDetailPage() {
                     <BookOpen className="w-5 h-5" />
                     <span className="font-medium">Bạn là giảng viên của khoá học này</span>
                   </div>
-                  <Button className="w-full" onClick={() => navigate(`/courses/${course.id}`)}>
-                    <BookOpen className="w-4 h-4 mr-2" />
-                    Quản lý khoá học
+                  <Button className="w-full" onClick={() => setShowCourseForm(true)}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Chỉnh sửa khoá học
                   </Button>
                 </div>
               ) : (
@@ -356,9 +387,29 @@ export default function CourseDetailPage() {
       {id && (
         <LessonForm
           isOpen={showLessonForm}
-          onClose={() => setShowLessonForm(false)}
+          onClose={() => {
+            setShowLessonForm(false);
+            setEditingLesson(null);
+          }}
           courseId={id}
           onSuccess={() => fetchLessonsByCourse(id)}
+          editLesson={editingLesson}
+        />
+      )}
+
+      {/* Course Form Modal */}
+      {course && (
+        <CourseForm
+          isOpen={showCourseForm}
+          onClose={() => setShowCourseForm(false)}
+          onSuccess={() => {
+            if (id) fetchCourse(id).then(setCourse);
+          }}
+          editCourse={{
+            ...course,
+            category: course.category || '',
+            status: course.status
+          }}
         />
       )}
     </div>

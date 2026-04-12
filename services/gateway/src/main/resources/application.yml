@@ -36,7 +36,7 @@ spring:
         - id: course-lessons
           uri: http://${CONTENT_SERVICE_HOST:localhost}:${CONTENT_SERVICE_PORT:8083}
           predicates:
-            - Path=/api/v1/courses/{courseId}/lessons/**
+            - Path=/api/v1/courses/{courseId}/lessons,/api/v1/courses/{courseId}/lessons/**
           filters:
             - StripPrefix=0
 
@@ -44,18 +44,20 @@ spring:
         - id: content-service
           uri: http://${CONTENT_SERVICE_HOST:localhost}:${CONTENT_SERVICE_PORT:8083}
           predicates:
-            - Path=/api/v1/content/**
-            - Path=/api/v1/lessons/**
+            - Path=/api/v1/content/**,/api/v1/lessons/**
           filters:
             - StripPrefix=0
 
         # --- Course Service (less specific, comes after) ---
+        # Note: gateway validates JWT for auth, course-service trusts gateway headers.
+        # This is secure because only frontend can reach gateway (not publicly exposed).
         - id: course-service
           uri: http://${COURSE_SERVICE_HOST:localhost}:${COURSE_SERVICE_PORT:8082}
           predicates:
             - Path=/api/v1/courses/**
           filters:
             - StripPrefix=0
+            - RemoveRequestHeader=X-Forwarded-Authorization
 
         # --- Progress Service (comment out nếu service chưa chạy — tránh network error khi demo) ---
         # - id: progress-service

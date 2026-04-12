@@ -14,6 +14,7 @@ import AiTutorPage from '@/pages/ai-tutor/AiTutorPage';
 import QuizzesPage from '@/pages/assessment/QuizzesPage';
 import CoursesPage from '@/pages/courses/CoursesPage';
 import CourseDetailPage from '@/pages/courses/CourseDetailPage';
+import LessonDetailPage from '@/pages/courses/LessonDetailPage';
 import DashboardPage from '@/pages/dashboard/DashboardPage';
 import NotFoundPage from '@/pages/NotFoundPage';
 
@@ -39,6 +40,7 @@ function App() {
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/courses" element={<CoursesPage />} />
           <Route path="/courses/:id" element={<CourseDetailPage />} />
+          <Route path="/courses/:courseId/lessons/:id" element={<LessonDetailPage />} />
           <Route path="/quizzes" element={<QuizzesPage />} />
           <Route path="/ai-tutor" element={<AiTutorPage />} />
         </Route>

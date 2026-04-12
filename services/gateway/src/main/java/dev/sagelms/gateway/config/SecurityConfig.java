@@ -27,7 +27,8 @@ public class SecurityConfig {
                     "/actuator/health",
                     "/actuator/info"
                 ).permitAll()
-                // Allow CORS preflight requests without authentication
+                // Course service endpoints are accessible with JWT from frontend.
+                // The gateway validates JWT so requests are authenticated.
                 .pathMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .anyExchange().authenticated()
             )
@@ -38,7 +39,6 @@ public class SecurityConfig {
     @Bean
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        // Must use specific origins, not "*" when allowCredentials is true
         configuration.setAllowedOrigins(List.of("http://localhost:3000", "http://localhost:5173"));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
