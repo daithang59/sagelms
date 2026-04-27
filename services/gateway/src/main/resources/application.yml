@@ -13,8 +13,6 @@ spring:
 
   cloud:
     gateway:
-      default-filters:
-        - AddRequestHeader=X-From-Gateway, true
       routes:
         # --- Auth Service (PUBLIC) ---
         - id: auth-service

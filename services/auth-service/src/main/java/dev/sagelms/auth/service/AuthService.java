@@ -48,7 +48,7 @@ public class AuthService {
         user.setEmail(request.email());
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setFullName(request.fullName());
-        user.setRole(request.role());
+        user.setRole(UserRole.STUDENT);
         user = userRepository.save(user);
 
         return buildAuthResponse(user);

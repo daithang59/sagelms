@@ -9,6 +9,8 @@ import org.springframework.core.annotation.Order;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.oauth2.jwt.JwtException;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.server.ServerWebExchange;
@@ -31,11 +33,18 @@ public class GatewayErrorHandler implements ErrorWebExceptionHandler {
 
     @Override
     public Mono<Void> handle(ServerWebExchange exchange, Throwable ex) {
-        log.error("Gateway error on {}: {}", exchange.getRequest().getURI().getPath(), ex.getMessage(), ex);
         HttpStatus status = HttpStatus.INTERNAL_SERVER_ERROR;
 
         if (ex instanceof ResponseStatusException rse) {
             status = HttpStatus.valueOf(rse.getStatusCode().value());
+        } else if (ex instanceof JwtException || ex instanceof AuthenticationException) {
+            status = HttpStatus.UNAUTHORIZED;
+        }
+
+        if (status.is5xxServerError()) {
+            log.error("Gateway error on {}: {}", exchange.getRequest().getURI().getPath(), ex.getMessage(), ex);
+        } else {
+            log.warn("Gateway rejected request on {}: {}", exchange.getRequest().getURI().getPath(), ex.getMessage());
         }
 
         // Don't override if already committed

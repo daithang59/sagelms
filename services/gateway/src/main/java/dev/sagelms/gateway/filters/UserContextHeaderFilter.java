@@ -6,7 +6,6 @@ import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
 import org.springframework.http.server.reactive.ServerHttpRequest;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Component;
@@ -26,7 +25,18 @@ public class UserContextHeaderFilter implements GlobalFilter, Ordered {
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
-        return exchange.getPrincipal()
+        ServerHttpRequest sanitizedRequest = exchange.getRequest().mutate()
+            .headers(headers -> {
+                headers.remove("X-User-Id");
+                headers.remove("X-User-Email");
+                headers.remove("X-User-Roles");
+                headers.remove("X-From-Gateway");
+            })
+            .header("X-From-Gateway", "true")
+            .build();
+        ServerWebExchange sanitizedExchange = exchange.mutate().request(sanitizedRequest).build();
+
+        return sanitizedExchange.getPrincipal()
             .filter(principal -> principal instanceof JwtAuthenticationToken)
             .cast(JwtAuthenticationToken.class)
             .flatMap(jwtAuth -> {
@@ -37,15 +47,15 @@ public class UserContextHeaderFilter implements GlobalFilter, Ordered {
                 List<String> roles = jwt.getClaimAsStringList("roles");
                 String rolesHeader = (roles == null) ? "" : String.join(",", roles);
 
-                ServerHttpRequest mutated = exchange.getRequest().mutate()
+                ServerHttpRequest mutated = sanitizedExchange.getRequest().mutate()
                     .header("X-User-Id",    userId != null ? userId : "")
                     .header("X-User-Email", email  != null ? email  : "")
                     .header("X-User-Roles", rolesHeader)
                     .build();
 
-                return chain.filter(exchange.mutate().request(mutated).build());
+                return chain.filter(sanitizedExchange.mutate().request(mutated).build());
             })
-            .switchIfEmpty(chain.filter(exchange));
+            .switchIfEmpty(chain.filter(sanitizedExchange));
     }
 
     @Override
