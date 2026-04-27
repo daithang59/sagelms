@@ -11,7 +11,6 @@ import {
   Clock,
   PlayCircle,
   FileText,
-  FileQuestion,
   Link as LinkIcon,
   CheckCircle,
   Plus,
@@ -28,7 +27,7 @@ export default function CourseDetailPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { fetchCourse, loading: courseLoading, error: courseError } = useCourses();
-  const { lessons, loading: lessonsLoading, fetchLessonsByCourse, deleteLesson, publishLesson } = useLessons();
+  const { lessons, loading: lessonsLoading, fetchLessonsByCourse, fetchLessonsForManagement, deleteLesson, publishLesson } = useLessons();
   const { enroll, unenroll, checkEnrollment } = useEnrollment();
   const { showToast } = useToast();
 
@@ -52,10 +51,11 @@ export default function CourseDetailPage() {
   }, [id, fetchCourse]);
 
   useEffect(() => {
-    if (id) {
-      fetchLessonsByCourse(id);
+    if (id && course) {
+      const loadLessons = isOwner || isAdmin ? fetchLessonsForManagement : fetchLessonsByCourse;
+      loadLessons(id);
     }
-  }, [id, fetchLessonsByCourse]);
+  }, [id, course, isOwner, isAdmin, fetchLessonsByCourse, fetchLessonsForManagement]);
 
   useEffect(() => {
     // Only check enrollment for students
@@ -119,8 +119,6 @@ export default function CourseDetailPage() {
         return <PlayCircle className="w-5 h-5" />;
       case 'TEXT':
         return <FileText className="w-5 h-5" />;
-      case 'QUIZ':
-        return <FileQuestion className="w-5 h-5" />;
       case 'LINK':
         return <LinkIcon className="w-5 h-5" />;
       default:
@@ -392,7 +390,7 @@ export default function CourseDetailPage() {
             setEditingLesson(null);
           }}
           courseId={id}
-          onSuccess={() => fetchLessonsByCourse(id)}
+          onSuccess={() => (isOwner || isAdmin ? fetchLessonsForManagement(id) : fetchLessonsByCourse(id))}
           editLesson={editingLesson}
         />
       )}

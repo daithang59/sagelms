@@ -19,9 +19,10 @@ const apiClient = axios.create({
 // ── Request interceptor: attach JWT token ──
 apiClient.interceptors.request.use(
   (config) => {
-    const fullUrl = (config.baseURL || '') + (config.url || '');
+    const url = config.url || '';
+    const isAuth = url.includes('/auth/login') || url.includes('/auth/register') || url.includes('/auth/refresh');
     const token = localStorage.getItem('accessToken');
-    if (token) config.headers.Authorization = `Bearer ${token}`;
+    if (token && !isAuth) config.headers.Authorization = `Bearer ${token}`;
     return config;
   },
   (error) => Promise.reject(error),

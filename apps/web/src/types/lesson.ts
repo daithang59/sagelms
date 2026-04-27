@@ -1,4 +1,4 @@
-export type ContentType = 'VIDEO' | 'TEXT' | 'QUIZ' | 'ASSIGNMENT' | 'PDF' | 'LINK';
+export type ContentType = 'VIDEO' | 'TEXT' | 'PDF' | 'LINK';
 
 export interface Lesson {
   id: string;

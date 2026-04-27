@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui';
 import { useCourses } from '@/hooks';
 import { useToast } from '@/components/Toast';
@@ -54,6 +54,16 @@ export default function CourseForm({ isOpen, onClose, onSuccess, editCourse }: C
     thumbnailUrl: editCourse?.thumbnailUrl || '',
     status: (editCourse?.status === 'DRAFT' || editCourse?.status === 'PUBLISHED' || editCourse?.status === 'ARCHIVED') ? editCourse.status : 'DRAFT',
   });
+
+  useEffect(() => {
+    setFormData({
+      title: editCourse?.title || '',
+      description: editCourse?.description || '',
+      category: editCourse?.category || '',
+      thumbnailUrl: editCourse?.thumbnailUrl || '',
+      status: (editCourse?.status === 'DRAFT' || editCourse?.status === 'PUBLISHED' || editCourse?.status === 'ARCHIVED') ? editCourse.status : 'DRAFT',
+    });
+  }, [editCourse, isOpen]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

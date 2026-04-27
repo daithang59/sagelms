@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui';
 import { useLessons } from '@/hooks';
 import { useToast } from '@/components/Toast';
-import { X, PlayCircle, FileText, FileQuestion, Link as LinkIcon, File, Edit } from 'lucide-react';
+import { X, PlayCircle, FileText, Link as LinkIcon, File } from 'lucide-react';
 import type { ContentType } from '@/types/lesson';
 
 interface LessonFormProps {
@@ -24,8 +24,6 @@ const lessonTypes = [
   { value: 'VIDEO' as const, label: 'Video', icon: PlayCircle },
   { value: 'TEXT' as const, label: 'Bài viết', icon: FileText },
   { value: 'PDF' as const, label: 'PDF', icon: File },
-  { value: 'QUIZ' as const, label: 'Kiểm tra', icon: FileQuestion },
-  { value: 'ASSIGNMENT' as const, label: 'Bài tập', icon: FileText },
   { value: 'LINK' as const, label: 'Liên kết', icon: LinkIcon },
 ];
 

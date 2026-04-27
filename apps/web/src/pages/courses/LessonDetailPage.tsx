@@ -3,12 +3,12 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardBody, Button, Badge } from '@/components/ui';
 import { useLessons } from '@/hooks';
 import { useToast } from '@/components/Toast';
+import DOMPurify from 'dompurify';
 import {
   ArrowLeft,
   PlayCircle,
   FileText,
   Link as LinkIcon,
-  FileQuestion,
   File,
   Clock,
   ExternalLink,
@@ -38,36 +38,15 @@ export default function LessonDetailPage() {
     switch (type) {
       case 'VIDEO': return <PlayCircle className="w-5 h-5" />;
       case 'TEXT': return <FileText className="w-5 h-5" />;
-      case 'QUIZ': return <FileQuestion className="w-5 h-5" />;
       case 'LINK': return <LinkIcon className="w-5 h-5" />;
       case 'PDF': return <File className="w-5 h-5" />;
-      case 'ASSIGNMENT': return <FileText className="w-5 h-5" />;
       default: return <FileText className="w-5 h-5" />;
-    }
-  };
-
-  const getYouTubeEmbedUrl = (url: string) => {
-    try {
-      let videoId = '';
-      if (url.includes('youtube.com/watch')) {
-        const urlParams = new URLSearchParams(new URL(url).search);
-        videoId = urlParams.get('v') || '';
-      } else if (url.includes('youtu.be/')) {
-        videoId = url.split('youtu.be/')[1].split('?')[0];
-      } else if (url.includes('youtube.com/embed/')) {
-        return url;
-      }
-      return videoId ? `https://www.youtube.com/embed/${videoId}` : url;
-    } catch {
-      return url;
     }
   };
 
   const typeLabels: Record<string, string> = {
     VIDEO: 'Video',
     TEXT: 'Bài đọc',
-    QUIZ: 'Bài kiểm tra',
-    ASSIGNMENT: 'Bài tập',
     PDF: 'Tài liệu PDF',
     LINK: 'Liên kết',
   };
@@ -162,7 +141,7 @@ export default function LessonDetailPage() {
               {lesson.textContent ? (
                 <div
                   className="text-slate-700 leading-relaxed whitespace-pre-wrap"
-                  dangerouslySetInnerHTML={{ __html: lesson.textContent }}
+                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(lesson.textContent) }}
                 />
               ) : (
                 <p className="text-slate-400 italic">Chưa có nội dung bài học.</p>
@@ -213,27 +192,6 @@ export default function LessonDetailPage() {
             </div>
           )}
 
-          {/* ── QUIZ / ASSIGNMENT ── */}
-          {(lesson.type === 'QUIZ' || lesson.type === 'ASSIGNMENT') && (
-            <div className="p-8 text-center rounded-xl bg-slate-50 border border-slate-200 space-y-3">
-              {lesson.type === 'QUIZ' ? (
-                <FileQuestion className="w-10 h-10 text-slate-400 mx-auto" />
-              ) : (
-                <FileText className="w-10 h-10 text-slate-400 mx-auto" />
-              )}
-              <p className="text-slate-600">
-                {lesson.type === 'QUIZ'
-                  ? 'Bài kiểm tra — tính năng đang được phát triển.'
-                  : 'Bài tập — tính năng đang được phát triển.'}
-              </p>
-              <Button
-                variant="secondary"
-                onClick={() => navigate(courseId ? `/courses/${courseId}` : '/courses')}
-              >
-                Quay lại khoá học
-              </Button>
-            </div>
-          )}
         </CardBody>
       </Card>
     </div>

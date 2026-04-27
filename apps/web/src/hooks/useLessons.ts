@@ -28,6 +28,22 @@ export function useLessons() {
     }
   }, []);
 
+  const fetchLessonsForManagement = useCallback(async (courseId: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await api.get<Lesson[]>(`/courses/${courseId}/lessons/manage`);
+      setLessons(response);
+      return response;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to fetch lessons';
+      setError(message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const fetchLesson = useCallback(async (id: string) => {
     setLoading(true);
     setError(null);
@@ -111,6 +127,7 @@ export function useLessons() {
     loading,
     error,
     fetchLessonsByCourse,
+    fetchLessonsForManagement,
     fetchLesson,
     createLesson,
     updateLesson,
