@@ -5,10 +5,13 @@ import dev.sagelms.content.dto.LessonResponse;
 import dev.sagelms.content.entity.ContentType;
 import dev.sagelms.content.entity.Lesson;
 import dev.sagelms.content.repository.LessonRepository;
+import dev.sagelms.content.security.RoleUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -19,9 +22,11 @@ import java.util.UUID;
 public class LessonService {
 
     private final LessonRepository lessonRepository;
+    private final CourseOwnershipClient courseOwnershipClient;
 
-    public LessonService(LessonRepository lessonRepository) {
+    public LessonService(LessonRepository lessonRepository, CourseOwnershipClient courseOwnershipClient) {
         this.lessonRepository = lessonRepository;
+        this.courseOwnershipClient = courseOwnershipClient;
     }
 
     /**
@@ -31,6 +36,11 @@ public class LessonService {
      * @param instructorId - the instructor creating the lesson (for ownership)
      */
     public LessonResponse createLesson(UUID courseId, LessonRequest request, UUID instructorId) {
+        return createLesson(courseId, request, instructorId, "INSTRUCTOR");
+    }
+
+    public LessonResponse createLesson(UUID courseId, LessonRequest request, UUID instructorId, String roles) {
+        requireCourseManager(courseId, instructorId, roles);
         validateLessonContent(request.type(), request.contentUrl(), request.textContent());
 
         Lesson lesson = new Lesson();
@@ -38,8 +48,8 @@ public class LessonService {
         lesson.setInstructorId(instructorId);  // Track ownership
         lesson.setTitle(request.title());
         lesson.setType(request.type());
-        lesson.setContentUrl(request.contentUrl());
-        lesson.setTextContent(request.textContent());
+        lesson.setContentUrl(request.type() == ContentType.TEXT ? null : request.contentUrl());
+        lesson.setTextContent(request.type() == ContentType.TEXT ? request.textContent() : null);
         lesson.setDurationMinutes(request.durationMinutes());
         lesson.setIsPublished(request.isPublished() != null ? request.isPublished() : false);
 
@@ -62,21 +72,21 @@ public class LessonService {
      * @param instructorId - the instructor making the update (for ownership check)
      */
     public LessonResponse updateLesson(UUID lessonId, LessonRequest request, UUID instructorId) {
+        return updateLesson(lessonId, request, instructorId, "INSTRUCTOR");
+    }
+
+    public LessonResponse updateLesson(UUID lessonId, LessonRequest request, UUID instructorId, String roles) {
         Lesson lesson = lessonRepository.findById(lessonId)
                 .orElseThrow(() -> new LessonNotFoundException("Lesson not found: " + lessonId));
 
-        // Ownership check - only the instructor who created the lesson can update it
-        // Ownership check - only the instructor who created the lesson can update it
-        if (!lesson.getInstructorId().equals(instructorId)) {
-            throw new LessonOwnershipException("You do not have permission to update this lesson");
-        }
+        requireCourseManager(lesson.getCourseId(), instructorId, roles);
 
         validateLessonContent(request.type(), request.contentUrl(), request.textContent());
 
         lesson.setTitle(request.title());
         lesson.setType(request.type());
-        lesson.setContentUrl(request.contentUrl());
-        lesson.setTextContent(request.textContent());
+        lesson.setContentUrl(request.type() == ContentType.TEXT ? null : request.contentUrl());
+        lesson.setTextContent(request.type() == ContentType.TEXT ? request.textContent() : null);
         lesson.setDurationMinutes(request.durationMinutes());
         if (request.isPublished() != null) {
             lesson.setIsPublished(request.isPublished());
@@ -96,13 +106,14 @@ public class LessonService {
      * @param instructorId - the instructor deleting (for ownership check)
      */
     public void deleteLesson(UUID lessonId, UUID instructorId) {
+        deleteLesson(lessonId, instructorId, "INSTRUCTOR");
+    }
+
+    public void deleteLesson(UUID lessonId, UUID instructorId, String roles) {
         Lesson lesson = lessonRepository.findById(lessonId)
                 .orElseThrow(() -> new LessonNotFoundException("Lesson not found: " + lessonId));
 
-        // Ownership check
-        if (!lesson.getInstructorId().equals(instructorId)) {
-            throw new LessonOwnershipException("You do not have permission to delete this lesson");
-        }
+        requireCourseManager(lesson.getCourseId(), instructorId, roles);
 
         lessonRepository.delete(lesson);
     }
@@ -117,11 +128,27 @@ public class LessonService {
         return LessonResponse.fromEntity(lesson);
     }
 
+    @Transactional(readOnly = true)
+    public LessonResponse getLessonById(UUID lessonId, UUID userId, String roles) {
+        Lesson lesson = lessonRepository.findById(lessonId)
+                .orElseThrow(() -> new LessonNotFoundException("Lesson not found: " + lessonId));
+        if (!Boolean.TRUE.equals(lesson.getIsPublished())) {
+            requireCourseManager(lesson.getCourseId(), userId, roles);
+        }
+        return LessonResponse.fromEntity(lesson);
+    }
+
     /**
      * Get all lessons for a course (including unpublished - for instructor)
      */
     @Transactional(readOnly = true)
     public List<LessonResponse> getLessonsByCourse(UUID courseId) {
+        return getPublishedLessonsByCourse(courseId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<LessonResponse> getLessonsByCourseForManagement(UUID courseId, UUID userId, String roles) {
+        requireCourseManager(courseId, userId, roles);
         return lessonRepository.findByCourseIdOrderBySortOrderAsc(courseId).stream()
                 .map(LessonResponse::fromEntity)
                 .toList();
@@ -144,23 +171,36 @@ public class LessonService {
      * @param instructorId - the instructor making the change (for ownership)
      */
     public void reorderLessons(UUID courseId, List<UUID> lessonIds, UUID instructorId) {
-        for (int i = 0; i < lessonIds.size(); i++) {
-            UUID lessonId = lessonIds.get(i);
-            Lesson lesson = lessonRepository.findById(lessonId)
-                    .orElseThrow(() -> new LessonNotFoundException("Lesson not found: " + lessonId));
+        reorderLessons(courseId, lessonIds, instructorId, "INSTRUCTOR");
+    }
 
-            // Verify lesson belongs to course
+    public void reorderLessons(UUID courseId, List<UUID> lessonIds, UUID instructorId, String roles) {
+        requireCourseManager(courseId, instructorId, roles);
+        Set<UUID> uniqueLessonIds = new HashSet<>(lessonIds);
+        if (uniqueLessonIds.size() != lessonIds.size()) {
+            throw new IllegalArgumentException("lessonIds must not contain duplicates");
+        }
+
+        List<Lesson> lessons = lessonIds.stream()
+                .map(lessonId -> lessonRepository.findById(lessonId)
+                        .orElseThrow(() -> new LessonNotFoundException("Lesson not found: " + lessonId)))
+                .toList();
+
+        for (Lesson lesson : lessons) {
             if (!lesson.getCourseId().equals(courseId)) {
-                throw new IllegalArgumentException("Lesson " + lessonId + " does not belong to course " + courseId);
+                throw new IllegalArgumentException("Lesson " + lesson.getId() + " does not belong to course " + courseId);
             }
+        }
 
-            // Ownership check
-            if (!lesson.getInstructorId().equals(instructorId)) {
-                throw new LessonOwnershipException("You do not have permission to reorder this lesson");
-            }
+        for (int i = 0; i < lessonIds.size(); i++) {
+            lessons.get(i).setSortOrder(-(i + 1));
+            lessonRepository.save(lessons.get(i));
+        }
+        lessonRepository.flush();
 
-            lesson.setSortOrder(i);
-            lessonRepository.save(lesson);
+        for (int i = 0; i < lessons.size(); i++) {
+            lessons.get(i).setSortOrder(i);
+            lessonRepository.save(lessons.get(i));
         }
     }
 
@@ -171,13 +211,14 @@ public class LessonService {
      * @param instructorId - the instructor making the change (for ownership)
      */
     public LessonResponse publishLesson(UUID lessonId, boolean publish, UUID instructorId) {
+        return publishLesson(lessonId, publish, instructorId, "INSTRUCTOR");
+    }
+
+    public LessonResponse publishLesson(UUID lessonId, boolean publish, UUID instructorId, String roles) {
         Lesson lesson = lessonRepository.findById(lessonId)
                 .orElseThrow(() -> new LessonNotFoundException("Lesson not found: " + lessonId));
 
-        // Ownership check
-        if (!lesson.getInstructorId().equals(instructorId)) {
-            throw new LessonOwnershipException("You do not have permission to publish this lesson");
-        }
+        requireCourseManager(lesson.getCourseId(), instructorId, roles);
 
         lesson.setIsPublished(publish);
         Lesson saved = lessonRepository.save(lesson);
@@ -192,6 +233,9 @@ public class LessonService {
      * - VIDEO/PDF/LINK type must have contentUrl
      */
     private void validateLessonContent(ContentType type, String contentUrl, String textContent) {
+        if (type == null) {
+            throw new IllegalArgumentException("Content type is required");
+        }
         if (type == ContentType.TEXT) {
             if (textContent == null || textContent.isBlank()) {
                 throw new IllegalArgumentException("textContent is required for TEXT lesson type");
@@ -200,6 +244,18 @@ public class LessonService {
             if (contentUrl == null || contentUrl.isBlank()) {
                 throw new IllegalArgumentException("contentUrl is required for " + type + " lesson type");
             }
+        }
+    }
+
+    private void requireCourseManager(UUID courseId, UUID userId, String roles) {
+        if (RoleUtils.isAdmin(roles)) {
+            return;
+        }
+        if (!RoleUtils.isInstructor(roles)) {
+            throw new LessonOwnershipException("Instructor or admin role required");
+        }
+        if (userId == null || !courseOwnershipClient.isCourseOwner(courseId, userId)) {
+            throw new LessonOwnershipException("You do not own this course");
         }
     }
 

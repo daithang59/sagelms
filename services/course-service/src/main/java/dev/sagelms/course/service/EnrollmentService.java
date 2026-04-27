@@ -6,6 +6,7 @@ import dev.sagelms.course.entity.Enrollment;
 import dev.sagelms.course.entity.EnrollmentStatus;
 import dev.sagelms.course.repository.CourseRepository;
 import dev.sagelms.course.repository.EnrollmentRepository;
+import dev.sagelms.course.security.RoleUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -61,6 +62,11 @@ public class EnrollmentService {
         return EnrollmentResponse.fromEntity(saved, course.getTitle(), null);
     }
 
+    public EnrollmentResponse enrollStudent(UUID courseId, UUID studentId, String roles) {
+        requireStudent(roles);
+        return enrollStudent(courseId, studentId);
+    }
+
     /**
      * Unenroll a student from a course
      */
@@ -72,6 +78,11 @@ public class EnrollmentService {
         enrollmentRepository.save(enrollment);
     }
 
+    public void unenrollStudent(UUID courseId, UUID studentId, String roles) {
+        requireStudent(roles);
+        unenrollStudent(courseId, studentId);
+    }
+
     /**
      * Get enrollments for a course (for instructor)
      */
@@ -80,6 +91,16 @@ public class EnrollmentService {
         return enrollmentRepository.findByCourseId(courseId).stream()
                 .map(EnrollmentResponse::fromEntity)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<EnrollmentResponse> getEnrollmentsByCourse(UUID courseId, UUID userId, String roles) {
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new CourseNotFoundException("Course not found: " + courseId));
+        if (!RoleUtils.isAdmin(roles) && !course.getInstructorId().equals(userId)) {
+            throw new CourseForbiddenException("Course owner or admin role required.");
+        }
+        return getEnrollmentsByCourse(courseId);
     }
 
     /**
@@ -124,6 +145,17 @@ public class EnrollmentService {
         return EnrollmentResponse.fromEntity(saved, course != null ? course.getTitle() : null, null);
     }
 
+    public EnrollmentResponse completeCourse(UUID courseId, UUID studentId, String roles) {
+        requireStudent(roles);
+        return completeCourse(courseId, studentId);
+    }
+
+    private void requireStudent(String roles) {
+        if (!RoleUtils.isStudent(roles)) {
+            throw new CourseForbiddenException("Student role required.");
+        }
+    }
+
     // ============== Exception Classes ==============
 
     public static class CourseNotFoundException extends RuntimeException {
@@ -140,6 +172,12 @@ public class EnrollmentService {
 
     public static class AlreadyEnrolledException extends RuntimeException {
         public AlreadyEnrolledException(String message) {
+            super(message);
+        }
+    }
+
+    public static class CourseForbiddenException extends RuntimeException {
+        public CourseForbiddenException(String message) {
             super(message);
         }
     }

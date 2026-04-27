@@ -6,6 +6,7 @@ import dev.sagelms.course.entity.Course;
 import dev.sagelms.course.entity.CourseStatus;
 import dev.sagelms.course.repository.CourseRepository;
 import dev.sagelms.course.repository.EnrollmentRepository;
+import dev.sagelms.course.security.RoleUtils;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -13,10 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 /**
  * Service layer for Course operations
@@ -36,7 +34,10 @@ public class CourseService {
     /**
      * Create a new course
      */
-    public CourseResponse createCourse(CourseRequest request, UUID instructorId) {
+    public CourseResponse createCourse(CourseRequest request, UUID instructorId, String roles) {
+        if (!RoleUtils.isInstructorOrAdmin(roles)) {
+            throw new CourseForbiddenException("Instructor or admin role required.");
+        }
         Course course = new Course();
         course.setTitle(request.title());
         course.setDescription(request.description());
@@ -52,12 +53,11 @@ public class CourseService {
     /**
      * Update an existing course
      */
-    public CourseResponse updateCourse(UUID courseId, CourseRequest request, UUID instructorId) {
+    public CourseResponse updateCourse(UUID courseId, CourseRequest request, UUID userId, String roles) {
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new CourseNotFoundException("Course not found: " + courseId));
 
-        // Check ownership
-        if (!course.getInstructorId().equals(instructorId)) {
+        if (!RoleUtils.isAdmin(roles) && !course.getInstructorId().equals(userId)) {
             throw new CourseOwnershipException("You do not own this course");
         }
 
@@ -75,16 +75,22 @@ public class CourseService {
     /**
      * Delete a course
      */
-    public void deleteCourse(UUID courseId, UUID instructorId) {
+    public void deleteCourse(UUID courseId, UUID userId, String roles) {
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new CourseNotFoundException("Course not found: " + courseId));
 
-        // Check ownership
-        if (!course.getInstructorId().equals(instructorId)) {
+        if (!RoleUtils.isAdmin(roles) && !course.getInstructorId().equals(userId)) {
             throw new CourseOwnershipException("You do not own this course");
         }
 
         courseRepository.delete(course);
+    }
+
+    @Transactional(readOnly = true)
+    public boolean isCourseOwner(UUID courseId, UUID userId) {
+        return courseRepository.findById(courseId)
+                .map(course -> course.getInstructorId().equals(userId))
+                .orElse(false);
     }
 
     /**
@@ -204,6 +210,12 @@ public class CourseService {
 
     public static class CourseOwnershipException extends RuntimeException {
         public CourseOwnershipException(String message) {
+            super(message);
+        }
+    }
+
+    public static class CourseForbiddenException extends RuntimeException {
+        public CourseForbiddenException(String message) {
             super(message);
         }
     }

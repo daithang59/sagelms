@@ -17,6 +17,8 @@ import java.util.UUID;
 public class EnrollmentController {
 
     private final EnrollmentService enrollmentService;
+    private static final String USER_ID_HEADER = "X-User-Id";
+    private static final String ROLES_HEADER = "X-User-Roles";
 
     public EnrollmentController(EnrollmentService enrollmentService) {
         this.enrollmentService = enrollmentService;
@@ -28,9 +30,10 @@ public class EnrollmentController {
     @PostMapping("/{courseId}/enroll")
     public ResponseEntity<EnrollmentResponse> enroll(
             @PathVariable UUID courseId,
-            @RequestHeader("X-User-Id") UUID userId
+            @RequestHeader(USER_ID_HEADER) UUID userId,
+            @RequestHeader(ROLES_HEADER) String roles
     ) {
-        EnrollmentResponse enrollment = enrollmentService.enrollStudent(courseId, userId);
+        EnrollmentResponse enrollment = enrollmentService.enrollStudent(courseId, userId, roles);
         return ResponseEntity.status(HttpStatus.CREATED).body(enrollment);
     }
 
@@ -40,9 +43,10 @@ public class EnrollmentController {
     @DeleteMapping("/{courseId}/enroll")
     public ResponseEntity<Void> unenroll(
             @PathVariable UUID courseId,
-            @RequestHeader("X-User-Id") UUID userId
+            @RequestHeader(USER_ID_HEADER) UUID userId,
+            @RequestHeader(ROLES_HEADER) String roles
     ) {
-        enrollmentService.unenrollStudent(courseId, userId);
+        enrollmentService.unenrollStudent(courseId, userId, roles);
         return ResponseEntity.noContent().build();
     }
 
@@ -51,9 +55,11 @@ public class EnrollmentController {
      */
     @GetMapping("/{courseId}/enrollments")
     public ResponseEntity<List<EnrollmentResponse>> getCourseEnrollments(
-            @PathVariable UUID courseId
+            @PathVariable UUID courseId,
+            @RequestHeader(USER_ID_HEADER) UUID userId,
+            @RequestHeader(ROLES_HEADER) String roles
     ) {
-        return ResponseEntity.ok(enrollmentService.getEnrollmentsByCourse(courseId));
+        return ResponseEntity.ok(enrollmentService.getEnrollmentsByCourse(courseId, userId, roles));
     }
 
     /**
@@ -61,7 +67,7 @@ public class EnrollmentController {
      */
     @GetMapping("/enrolled")
     public ResponseEntity<List<EnrollmentResponse>> getMyEnrollments(
-            @RequestHeader("X-User-Id") UUID userId
+            @RequestHeader(USER_ID_HEADER) UUID userId
     ) {
         return ResponseEntity.ok(enrollmentService.getActiveEnrollmentsByStudent(userId));
     }
@@ -72,9 +78,10 @@ public class EnrollmentController {
     @PostMapping("/{courseId}/complete")
     public ResponseEntity<EnrollmentResponse> completeCourse(
             @PathVariable UUID courseId,
-            @RequestHeader("X-User-Id") UUID userId
+            @RequestHeader(USER_ID_HEADER) UUID userId,
+            @RequestHeader(ROLES_HEADER) String roles
     ) {
-        return ResponseEntity.ok(enrollmentService.completeCourse(courseId, userId));
+        return ResponseEntity.ok(enrollmentService.completeCourse(courseId, userId, roles));
     }
 
     /**
@@ -83,7 +90,7 @@ public class EnrollmentController {
     @GetMapping("/{courseId}/enroll/check")
     public ResponseEntity<EnrollmentCheckResponse> checkEnrollment(
             @PathVariable UUID courseId,
-            @RequestHeader("X-User-Id") UUID userId
+            @RequestHeader(USER_ID_HEADER) UUID userId
     ) {
         boolean enrolled = enrollmentService.isEnrolled(userId, courseId);
         return ResponseEntity.ok(new EnrollmentCheckResponse(enrolled));

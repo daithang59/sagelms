@@ -30,6 +30,9 @@ class LessonServiceTest {
     @Mock
     private LessonRepository lessonRepository;
 
+    @Mock
+    private CourseOwnershipClient courseOwnershipClient;
+
     @InjectMocks
     private LessonService lessonService;
 
@@ -53,6 +56,8 @@ class LessonServiceTest {
         testLesson.setType(ContentType.VIDEO);
         testLesson.setSortOrder(0);
         testLesson.setIsPublished(true);
+
+        lenient().when(courseOwnershipClient.isCourseOwner(courseId, instructorId)).thenReturn(true);
     }
 
     // ============== CREATE TESTS ==============
@@ -158,6 +163,7 @@ class LessonServiceTest {
         );
 
         when(lessonRepository.findById(lessonId)).thenReturn(Optional.of(testLesson));
+        when(courseOwnershipClient.isCourseOwner(courseId, otherInstructorId)).thenReturn(false);
 
         // Act & Assert - the header instructorId (otherInstructorId) is checked against lesson's instructorId
         assertThrows(LessonService.LessonOwnershipException.class, () ->
@@ -208,6 +214,7 @@ class LessonServiceTest {
         // Arrange
         UUID otherInstructorId = UUID.randomUUID();
         when(lessonRepository.findById(lessonId)).thenReturn(Optional.of(testLesson));
+        when(courseOwnershipClient.isCourseOwner(courseId, otherInstructorId)).thenReturn(false);
 
         // Act & Assert
         assertThrows(LessonService.LessonOwnershipException.class, () ->
@@ -247,7 +254,7 @@ class LessonServiceTest {
     void getLessonsByCourse_Success() {
         // Arrange
         List<Lesson> lessons = List.of(testLesson);
-        when(lessonRepository.findByCourseIdOrderBySortOrderAsc(courseId)).thenReturn(lessons);
+        when(lessonRepository.findByCourseIdAndIsPublishedTrueOrderBySortOrderAsc(courseId)).thenReturn(lessons);
 
         // Act
         List<LessonResponse> responses = lessonService.getLessonsByCourse(courseId);
@@ -302,7 +309,8 @@ class LessonServiceTest {
         lessonService.reorderLessons(courseId, newOrder, instructorId);
 
         // Assert
-        verify(lessonRepository, times(2)).save(any(Lesson.class));
+        verify(lessonRepository, times(4)).save(any(Lesson.class));
+        verify(lessonRepository).flush();
     }
 
     @Test
@@ -318,7 +326,7 @@ class LessonServiceTest {
 
         List<UUID> newOrder = List.of(lessonId1);
 
-        when(lessonRepository.findById(lessonId1)).thenReturn(Optional.of(lesson1));
+        when(courseOwnershipClient.isCourseOwner(courseId, otherInstructorId)).thenReturn(false);
 
         // Act & Assert
         assertThrows(LessonService.LessonOwnershipException.class, () ->
@@ -346,10 +354,63 @@ class LessonServiceTest {
         // Arrange
         UUID otherInstructorId = UUID.randomUUID();
         when(lessonRepository.findById(lessonId)).thenReturn(Optional.of(testLesson));
+        when(courseOwnershipClient.isCourseOwner(courseId, otherInstructorId)).thenReturn(false);
 
         // Act & Assert
         assertThrows(LessonService.LessonOwnershipException.class, () ->
             lessonService.publishLesson(lessonId, true, otherInstructorId)
         );
+    }
+
+    @Test
+    void createLesson_CourseNotOwned_ThrowsException() {
+        UUID otherInstructorId = UUID.randomUUID();
+        LessonRequest request = new LessonRequest(
+                "New Lesson",
+                ContentType.VIDEO,
+                "https://video.com/1",
+                null,
+                null,
+                30,
+                true,
+                null
+        );
+
+        when(courseOwnershipClient.isCourseOwner(courseId, otherInstructorId)).thenReturn(false);
+
+        assertThrows(LessonService.LessonOwnershipException.class, () ->
+                lessonService.createLesson(courseId, request, otherInstructorId, "INSTRUCTOR")
+        );
+    }
+
+    @Test
+    void getLessonsByCourse_DefaultOnlyPublished() {
+        when(lessonRepository.findByCourseIdAndIsPublishedTrueOrderBySortOrderAsc(courseId))
+                .thenReturn(List.of(testLesson));
+
+        List<LessonResponse> responses = lessonService.getLessonsByCourse(courseId);
+
+        assertEquals(1, responses.size());
+        verify(lessonRepository, never()).findByCourseIdOrderBySortOrderAsc(courseId);
+    }
+
+    @Test
+    void getLessonsByCourseForManagement_NonOwnerThrowsException() {
+        UUID otherInstructorId = UUID.randomUUID();
+        when(courseOwnershipClient.isCourseOwner(courseId, otherInstructorId)).thenReturn(false);
+
+        assertThrows(LessonService.LessonOwnershipException.class, () ->
+                lessonService.getLessonsByCourseForManagement(courseId, otherInstructorId, "INSTRUCTOR")
+        );
+    }
+
+    @Test
+    void getLessonById_UnpublishedRequiresOwnerOrAdmin() {
+        testLesson.setIsPublished(false);
+        when(lessonRepository.findById(lessonId)).thenReturn(Optional.of(testLesson));
+
+        LessonResponse response = lessonService.getLessonById(lessonId, instructorId, "INSTRUCTOR");
+
+        assertEquals(lessonId, response.id());
     }
 }

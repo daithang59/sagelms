@@ -19,6 +19,8 @@ import java.util.UUID;
 public class LessonController {
 
     private final LessonService lessonService;
+    private static final String USER_ID_HEADER = "X-User-Id";
+    private static final String ROLES_HEADER = "X-User-Roles";
 
     public LessonController(LessonService lessonService) {
         this.lessonService = lessonService;
@@ -29,21 +31,30 @@ public class LessonController {
      */
     @GetMapping("/courses/{courseId}/lessons")
     public ResponseEntity<List<LessonResponse>> getLessonsByCourse(
-            @PathVariable UUID courseId,
-            @RequestParam(value = "published", defaultValue = "false") boolean publishedOnly
+            @PathVariable UUID courseId
     ) {
-        if (publishedOnly) {
-            return ResponseEntity.ok(lessonService.getPublishedLessonsByCourse(courseId));
-        }
         return ResponseEntity.ok(lessonService.getLessonsByCourse(courseId));
+    }
+
+    @GetMapping("/courses/{courseId}/lessons/manage")
+    public ResponseEntity<List<LessonResponse>> getLessonsByCourseForManagement(
+            @PathVariable UUID courseId,
+            @RequestHeader(USER_ID_HEADER) UUID userId,
+            @RequestHeader(ROLES_HEADER) String roles
+    ) {
+        return ResponseEntity.ok(lessonService.getLessonsByCourseForManagement(courseId, userId, roles));
     }
 
     /**
      * GET /api/v1/lessons/{id} - Get lesson by ID
      */
     @GetMapping("/lessons/{id}")
-    public ResponseEntity<LessonResponse> getLessonById(@PathVariable UUID id) {
-        return ResponseEntity.ok(lessonService.getLessonById(id));
+    public ResponseEntity<LessonResponse> getLessonById(
+            @PathVariable UUID id,
+            @RequestHeader(value = USER_ID_HEADER, required = false) UUID userId,
+            @RequestHeader(value = ROLES_HEADER, required = false) String roles
+    ) {
+        return ResponseEntity.ok(lessonService.getLessonById(id, userId, roles));
     }
 
     /**
@@ -54,9 +65,10 @@ public class LessonController {
     public ResponseEntity<LessonResponse> createLesson(
             @PathVariable UUID courseId,
             @Valid @RequestBody LessonRequest request,
-            @RequestHeader("X-User-Id") UUID userId
+            @RequestHeader(USER_ID_HEADER) UUID userId,
+            @RequestHeader(ROLES_HEADER) String roles
     ) {
-        LessonResponse created = lessonService.createLesson(courseId, request, userId);
+        LessonResponse created = lessonService.createLesson(courseId, request, userId, roles);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
@@ -68,9 +80,10 @@ public class LessonController {
     public ResponseEntity<LessonResponse> updateLesson(
             @PathVariable UUID id,
             @Valid @RequestBody LessonRequest request,
-            @RequestHeader("X-User-Id") UUID userId
+            @RequestHeader(USER_ID_HEADER) UUID userId,
+            @RequestHeader(ROLES_HEADER) String roles
     ) {
-        return ResponseEntity.ok(lessonService.updateLesson(id, request, userId));
+        return ResponseEntity.ok(lessonService.updateLesson(id, request, userId, roles));
     }
 
     /**
@@ -80,9 +93,10 @@ public class LessonController {
     @DeleteMapping("/lessons/{id}")
     public ResponseEntity<Void> deleteLesson(
             @PathVariable UUID id,
-            @RequestHeader("X-User-Id") UUID userId
+            @RequestHeader(USER_ID_HEADER) UUID userId,
+            @RequestHeader(ROLES_HEADER) String roles
     ) {
-        lessonService.deleteLesson(id, userId);
+        lessonService.deleteLesson(id, userId, roles);
         return ResponseEntity.noContent().build();
     }
 
@@ -94,9 +108,10 @@ public class LessonController {
     public ResponseEntity<Void> reorderLessons(
             @PathVariable UUID courseId,
             @RequestBody List<UUID> lessonIds,
-            @RequestHeader("X-User-Id") UUID userId
+            @RequestHeader(USER_ID_HEADER) UUID userId,
+            @RequestHeader(ROLES_HEADER) String roles
     ) {
-        lessonService.reorderLessons(courseId, lessonIds, userId);
+        lessonService.reorderLessons(courseId, lessonIds, userId, roles);
         return ResponseEntity.ok().build();
     }
 
@@ -108,8 +123,9 @@ public class LessonController {
     public ResponseEntity<LessonResponse> togglePublish(
             @PathVariable UUID id,
             @RequestParam boolean publish,
-            @RequestHeader("X-User-Id") UUID userId
+            @RequestHeader(USER_ID_HEADER) UUID userId,
+            @RequestHeader(ROLES_HEADER) String roles
     ) {
-        return ResponseEntity.ok(lessonService.publishLesson(id, publish, userId));
+        return ResponseEntity.ok(lessonService.publishLesson(id, publish, userId, roles));
     }
 }

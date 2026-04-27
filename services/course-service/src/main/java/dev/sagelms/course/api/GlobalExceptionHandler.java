@@ -2,6 +2,7 @@ package dev.sagelms.course.api;
 
 import dev.sagelms.course.service.CourseService.CourseNotFoundException;
 import dev.sagelms.course.service.CourseService.CourseOwnershipException;
+import dev.sagelms.course.service.CourseService.CourseForbiddenException;
 import dev.sagelms.course.service.EnrollmentService.AlreadyEnrolledException;
 import dev.sagelms.course.service.EnrollmentService.EnrollmentNotFoundException;
 import org.springframework.http.HttpStatus;
@@ -35,6 +36,17 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(CourseOwnershipException.class)
     public ResponseEntity<ErrorResponse> handleCourseOwnership(CourseOwnershipException ex) {
+        ErrorResponse error = new ErrorResponse(
+                HttpStatus.FORBIDDEN.value(),
+                "FORBIDDEN",
+                ex.getMessage(),
+                Instant.now()
+        );
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error);
+    }
+
+    @ExceptionHandler({CourseForbiddenException.class, dev.sagelms.course.service.EnrollmentService.CourseForbiddenException.class})
+    public ResponseEntity<ErrorResponse> handleForbidden(RuntimeException ex) {
         ErrorResponse error = new ErrorResponse(
                 HttpStatus.FORBIDDEN.value(),
                 "FORBIDDEN",

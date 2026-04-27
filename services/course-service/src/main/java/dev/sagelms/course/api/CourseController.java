@@ -19,6 +19,8 @@ import java.util.UUID;
 public class CourseController {
 
     private final CourseService courseService;
+    private static final String USER_ID_HEADER = "X-User-Id";
+    private static final String ROLES_HEADER = "X-User-Roles";
 
     public CourseController(CourseService courseService) {
         this.courseService = courseService;
@@ -79,9 +81,10 @@ public class CourseController {
     @PostMapping
     public ResponseEntity<CourseResponse> createCourse(
             @Valid @RequestBody CourseRequest request,
-            @RequestHeader("X-User-Id") UUID userId
+            @RequestHeader(USER_ID_HEADER) UUID userId,
+            @RequestHeader(ROLES_HEADER) String roles
     ) {
-        CourseResponse created = courseService.createCourse(request, userId);
+        CourseResponse created = courseService.createCourse(request, userId, roles);
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
@@ -92,9 +95,10 @@ public class CourseController {
     public ResponseEntity<CourseResponse> updateCourse(
             @PathVariable UUID id,
             @Valid @RequestBody CourseRequest request,
-            @RequestHeader("X-User-Id") UUID userId
+            @RequestHeader(USER_ID_HEADER) UUID userId,
+            @RequestHeader(ROLES_HEADER) String roles
     ) {
-        return ResponseEntity.ok(courseService.updateCourse(id, request, userId));
+        return ResponseEntity.ok(courseService.updateCourse(id, request, userId, roles));
     }
 
     /**
@@ -103,9 +107,10 @@ public class CourseController {
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteCourse(
             @PathVariable UUID id,
-            @RequestHeader("X-User-Id") UUID userId
+            @RequestHeader(USER_ID_HEADER) UUID userId,
+            @RequestHeader(ROLES_HEADER) String roles
     ) {
-        courseService.deleteCourse(id, userId);
+        courseService.deleteCourse(id, userId, roles);
         return ResponseEntity.noContent().build();
     }
 

@@ -26,3 +26,7 @@ management:
     web:
       exposure:
         include: health,info
+
+app:
+  course-service:
+    url: http://${COURSE_SERVICE_HOST:localhost}:${COURSE_SERVICE_PORT:8082}

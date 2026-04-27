@@ -74,7 +74,7 @@ class CourseServiceTest {
         });
 
         // Act
-        CourseResponse response = courseService.createCourse(request, instructorId);
+        CourseResponse response = courseService.createCourse(request, instructorId, "INSTRUCTOR");
 
         // Assert
         assertNotNull(response);
@@ -103,7 +103,7 @@ class CourseServiceTest {
         });
 
         // Act
-        CourseResponse response = courseService.createCourse(request, instructorId);
+        CourseResponse response = courseService.createCourse(request, instructorId, "INSTRUCTOR");
 
         // Assert
         assertEquals(CourseStatus.DRAFT, response.status());
@@ -127,7 +127,7 @@ class CourseServiceTest {
         when(courseRepository.countEnrollments(courseId)).thenReturn(5L);
 
         // Act
-        CourseResponse response = courseService.updateCourse(courseId, request, instructorId);
+        CourseResponse response = courseService.updateCourse(courseId, request, instructorId, "INSTRUCTOR");
 
         // Assert
         assertNotNull(response);
@@ -150,7 +150,7 @@ class CourseServiceTest {
 
         // Act & Assert
         assertThrows(CourseService.CourseOwnershipException.class, () ->
-            courseService.updateCourse(courseId, request, otherInstructorId)
+            courseService.updateCourse(courseId, request, otherInstructorId, "INSTRUCTOR")
         );
     }
 
@@ -170,7 +170,7 @@ class CourseServiceTest {
 
         // Act & Assert
         assertThrows(CourseService.CourseNotFoundException.class, () ->
-            courseService.updateCourse(notFoundId, request, instructorId)
+            courseService.updateCourse(notFoundId, request, instructorId, "INSTRUCTOR")
         );
     }
 
@@ -183,7 +183,7 @@ class CourseServiceTest {
         doNothing().when(courseRepository).delete(testCourse);
 
         // Act
-        courseService.deleteCourse(courseId, instructorId);
+        courseService.deleteCourse(courseId, instructorId, "INSTRUCTOR");
 
         // Assert
         verify(courseRepository, times(1)).delete(testCourse);
@@ -197,7 +197,7 @@ class CourseServiceTest {
 
         // Act & Assert
         assertThrows(CourseService.CourseOwnershipException.class, () ->
-            courseService.deleteCourse(courseId, otherInstructorId)
+            courseService.deleteCourse(courseId, otherInstructorId, "INSTRUCTOR")
         );
     }
 
@@ -288,9 +288,7 @@ class CourseServiceTest {
     }
 
     @Test
-    void createCourse_NullInstructorId_HandlesGracefully() {
-        // Arrange - instructorId can be null in some cases
-        UUID nullInstructorId = null;
+    void createCourse_StudentRole_ThrowsException() {
         CourseRequest request = new CourseRequest(
                 "Title",
                 "Description",
@@ -299,14 +297,26 @@ class CourseServiceTest {
                 "Category"
         );
 
-        when(courseRepository.save(any(Course.class))).thenAnswer(invocation -> {
-            Course saved = invocation.getArgument(0);
-            saved.setId(courseId);
-            return saved;
-        });
+        assertThrows(CourseService.CourseForbiddenException.class, () ->
+                courseService.createCourse(request, instructorId, "STUDENT")
+        );
+    }
 
-        // Act & Assert - should not throw
-        CourseResponse response = courseService.createCourse(request, nullInstructorId);
-        assertNotNull(response);
+    @Test
+    void updateCourse_AdminCanUpdateNonOwnedCourse() {
+        CourseRequest request = new CourseRequest(
+                "Updated Title",
+                "Updated Description",
+                null,
+                CourseStatus.PUBLISHED,
+                "Updated Category"
+        );
+        UUID adminId = UUID.randomUUID();
+
+        when(courseRepository.findById(courseId)).thenReturn(Optional.of(testCourse));
+        when(courseRepository.save(any(Course.class))).thenReturn(testCourse);
+        when(courseRepository.countEnrollments(courseId)).thenReturn(0L);
+
+        assertDoesNotThrow(() -> courseService.updateCourse(courseId, request, adminId, "ADMIN"));
     }
 }
