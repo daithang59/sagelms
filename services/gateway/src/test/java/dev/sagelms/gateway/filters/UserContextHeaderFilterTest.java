@@ -16,12 +16,13 @@ class UserContextHeaderFilterTest {
 
     @Test
     void stripsSpoofedUserHeadersBeforeForwarding() {
-        UserContextHeaderFilter filter = new UserContextHeaderFilter();
+        UserContextHeaderFilter filter = new UserContextHeaderFilter("test-gateway-secret");
         MockServerHttpRequest request = MockServerHttpRequest.get("/api/v1/courses")
                 .header("X-User-Id", "spoofed")
                 .header("X-User-Email", "spoofed@example.com")
                 .header("X-User-Roles", "ADMIN")
                 .header("X-From-Gateway", "false")
+                .header("X-Gateway-Secret", "spoofed")
                 .build();
         MockServerWebExchange exchange = MockServerWebExchange.from(request);
         AtomicReference<ServerWebExchange> forwarded = new AtomicReference<>();
@@ -37,5 +38,6 @@ class UserContextHeaderFilterTest {
         assertFalse(headers.containsKey("X-User-Email"));
         assertFalse(headers.containsKey("X-User-Roles"));
         assertEquals("true", headers.getFirst("X-From-Gateway"));
+        assertEquals("test-gateway-secret", headers.getFirst("X-Gateway-Secret"));
     }
 }

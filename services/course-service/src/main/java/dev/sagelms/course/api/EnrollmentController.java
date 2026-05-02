@@ -50,11 +50,30 @@ public class EnrollmentController {
         return ResponseEntity.noContent().build();
     }
 
+    @PostMapping("/{courseId}/unenroll")
+    public ResponseEntity<Void> unenrollAlias(
+            @PathVariable UUID courseId,
+            @RequestHeader(USER_ID_HEADER) UUID userId,
+            @RequestHeader(ROLES_HEADER) String roles
+    ) {
+        enrollmentService.unenrollStudent(courseId, userId, roles);
+        return ResponseEntity.noContent().build();
+    }
+
     /**
      * GET /api/v1/courses/{courseId}/enrollments - Get enrollments for a course (instructor only)
      */
     @GetMapping("/{courseId}/enrollments")
     public ResponseEntity<List<EnrollmentResponse>> getCourseEnrollments(
+            @PathVariable UUID courseId,
+            @RequestHeader(USER_ID_HEADER) UUID userId,
+            @RequestHeader(ROLES_HEADER) String roles
+    ) {
+        return ResponseEntity.ok(enrollmentService.getEnrollmentsByCourse(courseId, userId, roles));
+    }
+
+    @GetMapping("/{courseId}/students")
+    public ResponseEntity<List<EnrollmentResponse>> getCourseStudentsAlias(
             @PathVariable UUID courseId,
             @RequestHeader(USER_ID_HEADER) UUID userId,
             @RequestHeader(ROLES_HEADER) String roles

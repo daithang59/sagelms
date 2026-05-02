@@ -61,6 +61,7 @@ services:
       - "8080:8080"
     environment:
       JWT_SECRET: ${JWT_SECRET:-sagelms-dev-jwt-secret-min-32-chars!}
+      GATEWAY_SHARED_SECRET: ${GATEWAY_SHARED_SECRET:-sagelms-dev-gateway-secret}
       AUTH_SERVICE_HOST: auth-service
       AUTH_SERVICE_PORT: 8081
       COURSE_SERVICE_HOST: course-service
@@ -85,6 +86,7 @@ services:
       - "8081"
     environment:
       JWT_SECRET: ${JWT_SECRET:-sagelms-dev-jwt-secret-min-32-chars!}
+      GATEWAY_SHARED_SECRET: ${GATEWAY_SHARED_SECRET:-sagelms-dev-gateway-secret}
       DB_HOST: postgres
       DB_PORT: 5432
       DB_NAME: ${POSTGRES_DB:-sagelms}
@@ -103,6 +105,8 @@ services:
     expose:
       - "8082"
     environment:
+      GATEWAY_SHARED_SECRET: ${GATEWAY_SHARED_SECRET:-sagelms-dev-gateway-secret}
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-sagelms-dev-internal-secret}
       DB_HOST: postgres
       DB_PORT: 5432
       DB_NAME: ${POSTGRES_DB:-sagelms}
@@ -121,6 +125,8 @@ services:
     expose:
       - "8083"
     environment:
+      GATEWAY_SHARED_SECRET: ${GATEWAY_SHARED_SECRET:-sagelms-dev-gateway-secret}
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-sagelms-dev-internal-secret}
       DB_HOST: postgres
       DB_PORT: 5432
       DB_NAME: ${POSTGRES_DB:-sagelms}

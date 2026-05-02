@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.Ordered;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -23,6 +24,12 @@ import reactor.core.publisher.Mono;
 @Component
 public class UserContextHeaderFilter implements GlobalFilter, Ordered {
 
+    private final String gatewaySecret;
+
+    public UserContextHeaderFilter(@Value("${app.gateway.secret:dev-gateway-secret-change-me}") String gatewaySecret) {
+        this.gatewaySecret = gatewaySecret;
+    }
+
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         ServerHttpRequest sanitizedRequest = exchange.getRequest().mutate()
@@ -31,8 +38,10 @@ public class UserContextHeaderFilter implements GlobalFilter, Ordered {
                 headers.remove("X-User-Email");
                 headers.remove("X-User-Roles");
                 headers.remove("X-From-Gateway");
+                headers.remove("X-Gateway-Secret");
             })
             .header("X-From-Gateway", "true")
+            .header("X-Gateway-Secret", gatewaySecret)
             .build();
         ServerWebExchange sanitizedExchange = exchange.mutate().request(sanitizedRequest).build();
 
