@@ -12,6 +12,7 @@ import RegisterPage from '@/pages/auth/RegisterPage';
 // App pages
 import AiTutorPage from '@/pages/ai-tutor/AiTutorPage';
 import QuizzesPage from '@/pages/assessment/QuizzesPage';
+import InstructorApplicationsPage from '@/pages/admin/InstructorApplicationsPage';
 import CoursesPage from '@/pages/courses/CoursesPage';
 import CourseDetailPage from '@/pages/courses/CourseDetailPage';
 import LessonDetailPage from '@/pages/courses/LessonDetailPage';
@@ -43,6 +44,14 @@ function App() {
           <Route path="/courses/:courseId/lessons/:id" element={<LessonDetailPage />} />
           <Route path="/quizzes" element={<QuizzesPage />} />
           <Route path="/ai-tutor" element={<AiTutorPage />} />
+          <Route
+            path="/admin/instructors"
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN']}>
+                <InstructorApplicationsPage />
+              </ProtectedRoute>
+            }
+          />
         </Route>
 
         {/* Redirect root to dashboard */}

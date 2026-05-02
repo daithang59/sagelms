@@ -20,7 +20,7 @@ const navigation = [
     roles: ['ADMIN', 'INSTRUCTOR', 'STUDENT'],
   },
   {
-    name: 'Khoá học',
+    name: 'Khóa học',
     path: '/courses',
     icon: BookOpen,
     roles: ['ADMIN', 'INSTRUCTOR', 'STUDENT'],
@@ -38,8 +38,8 @@ const navigation = [
     roles: ['ADMIN', 'INSTRUCTOR', 'STUDENT'],
   },
   {
-    name: 'Quản lý Users',
-    path: '/admin/users',
+    name: 'Duyệt giáo viên',
+    path: '/admin/instructors',
     icon: Users,
     roles: ['ADMIN'],
   },
@@ -71,7 +71,6 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
         ${isCollapsed ? 'w-20' : 'w-64'}
       `}
     >
-      {/* Logo */}
       <div className="h-20 flex items-center gap-3 px-4 border-b border-slate-100">
         <div className="w-10 h-10 rounded-xl bg-gradient-brand flex items-center justify-center shadow-lg shadow-violet-500/20">
           <GraduationCap className="w-6 h-6 text-white" />
@@ -86,7 +85,6 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
         )}
       </div>
 
-      {/* Navigation */}
       <nav className="flex-1 py-6 px-3 space-y-1.5 overflow-y-auto">
         {filteredNav.map((item) => (
           <NavLink
@@ -115,9 +113,7 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
         ))}
       </nav>
 
-      {/* Footer - Fixed alignment */}
       <div className="border-t border-slate-100 p-3 space-y-1">
-        {/* Toggle Button */}
         <button
           onClick={onToggle}
           className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-all duration-200 ${
@@ -134,7 +130,6 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
           )}
         </button>
 
-        {/* Logout Button - Softened red */}
         <button
           onClick={handleLogout}
           className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-rose-600 hover:bg-rose-50 hover:text-rose-700 transition-all duration-200 ${
