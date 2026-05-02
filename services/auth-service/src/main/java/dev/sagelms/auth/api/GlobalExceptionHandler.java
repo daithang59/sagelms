@@ -26,6 +26,20 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse(request.getRequestURI(), "AUTH_INVALID_CREDENTIALS", ex.getMessage()));
     }
 
+    @ExceptionHandler(AuthService.InstructorPendingApprovalException.class)
+    public ResponseEntity<ErrorResponse> handleInstructorPending(
+            AuthService.InstructorPendingApprovalException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(new ErrorResponse(request.getRequestURI(), "INSTRUCTOR_PENDING_APPROVAL", ex.getMessage()));
+    }
+
+    @ExceptionHandler(AuthService.InstructorRejectedException.class)
+    public ResponseEntity<ErrorResponse> handleInstructorRejected(
+            AuthService.InstructorRejectedException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(new ErrorResponse(request.getRequestURI(), "INSTRUCTOR_REJECTED", ex.getMessage()));
+    }
+
     @ExceptionHandler(AuthService.InvalidRefreshTokenException.class)
     public ResponseEntity<ErrorResponse> handleInvalidRefreshToken(
             AuthService.InvalidRefreshTokenException ex, HttpServletRequest request) {
@@ -56,5 +70,12 @@ public class GlobalExceptionHandler {
                 .orElse("Validation failed.");
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(new ErrorResponse(request.getRequestURI(), "VALIDATION_ERROR", message));
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ErrorResponse> handleIllegalArgument(
+            IllegalArgumentException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(new ErrorResponse(request.getRequestURI(), "BAD_REQUEST", ex.getMessage()));
     }
 }

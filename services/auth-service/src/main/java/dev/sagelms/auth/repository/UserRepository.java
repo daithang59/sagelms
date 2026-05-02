@@ -1,6 +1,7 @@
 package dev.sagelms.auth.repository;
 
 import dev.sagelms.auth.entity.User;
+import dev.sagelms.auth.entity.InstructorApprovalStatus;
 import dev.sagelms.auth.entity.UserRole;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -29,6 +30,11 @@ public interface UserRepository extends JpaRepository<User, UUID> {
             Pageable pageable);
 
     Page<User> findByRole(UserRole role, Pageable pageable);
+
+    Page<User> findByRoleAndInstructorApprovalStatus(
+            UserRole role,
+            InstructorApprovalStatus instructorApprovalStatus,
+            Pageable pageable);
 
     @Query("""
         SELECT u FROM User u

@@ -2,12 +2,14 @@ package dev.sagelms.auth.api;
 
 import dev.sagelms.auth.dto.UpdateUserRequest;
 import dev.sagelms.auth.dto.UserProfileResponse;
+import dev.sagelms.auth.entity.InstructorApprovalStatus;
 import dev.sagelms.auth.entity.UserRole;
 import dev.sagelms.auth.service.AuthService;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -48,6 +50,44 @@ public class UserController {
         return ResponseEntity.ok(body);
     }
 
+    @GetMapping("/instructor-applications")
+    public ResponseEntity<Map<String, Object>> listInstructorApplications(
+            @RequestHeader(value = ROLES_HEADER, required = false) String roles,
+            @RequestParam(defaultValue = "PENDING") InstructorApprovalStatus status,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        requireAdmin(roles);
+
+        Page<UserProfileResponse> result = authService.listInstructorApplications(status, page, size);
+
+        Map<String, Object> meta = new LinkedHashMap<>();
+        meta.put("page", result.getNumber() + 1);
+        meta.put("size", result.getSize());
+        meta.put("totalElements", result.getTotalElements());
+        meta.put("totalPages", result.getTotalPages());
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("data", result.getContent());
+        body.put("meta", meta);
+        return ResponseEntity.ok(body);
+    }
+
+    @PostMapping("/{userId}/approve-instructor")
+    public ResponseEntity<UserProfileResponse> approveInstructor(
+            @RequestHeader(value = ROLES_HEADER, required = false) String roles,
+            @PathVariable UUID userId) {
+        requireAdmin(roles);
+        return ResponseEntity.ok(authService.approveInstructor(userId));
+    }
+
+    @PostMapping("/{userId}/reject-instructor")
+    public ResponseEntity<UserProfileResponse> rejectInstructor(
+            @RequestHeader(value = ROLES_HEADER, required = false) String roles,
+            @PathVariable UUID userId) {
+        requireAdmin(roles);
+        return ResponseEntity.ok(authService.rejectInstructor(userId));
+    }
+
     @GetMapping("/{userId}")
     public ResponseEntity<UserProfileResponse> getUserById(
             @RequestHeader(value = ROLES_HEADER, required = false) String roles,
@@ -75,7 +115,9 @@ public class UserController {
     }
 
     private void requireAdmin(String roles) {
-        if (roles == null || !roles.contains("ADMIN")) {
+        if (roles == null || Arrays.stream(roles.split(","))
+                .map(String::trim)
+                .noneMatch("ADMIN"::equals)) {
             throw new ForbiddenException();
         }
     }
