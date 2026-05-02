@@ -58,6 +58,7 @@ class LessonServiceTest {
         testLesson.setIsPublished(true);
 
         lenient().when(courseOwnershipClient.isCourseOwner(courseId, instructorId)).thenReturn(true);
+        lenient().when(courseOwnershipClient.canAccessCourseContent(courseId, instructorId, "INSTRUCTOR")).thenReturn(true);
     }
 
     // ============== CREATE TESTS ==============
@@ -412,5 +413,39 @@ class LessonServiceTest {
         LessonResponse response = lessonService.getLessonById(lessonId, instructorId, "INSTRUCTOR");
 
         assertEquals(lessonId, response.id());
+    }
+
+    @Test
+    void getLessonById_PublishedRequiresCourseContentAccess() {
+        UUID studentId = UUID.randomUUID();
+        when(lessonRepository.findById(lessonId)).thenReturn(Optional.of(testLesson));
+        when(courseOwnershipClient.canAccessCourseContent(courseId, studentId, "STUDENT")).thenReturn(false);
+
+        assertThrows(LessonService.LessonOwnershipException.class, () ->
+                lessonService.getLessonById(lessonId, studentId, "STUDENT")
+        );
+    }
+
+    @Test
+    void getLessonTextContent_PublishedAllowsEnrolledStudent() {
+        UUID studentId = UUID.randomUUID();
+        testLesson.setType(ContentType.TEXT);
+        testLesson.setTextContent("Lesson body");
+        when(lessonRepository.findById(lessonId)).thenReturn(Optional.of(testLesson));
+        when(courseOwnershipClient.canAccessCourseContent(courseId, studentId, "STUDENT")).thenReturn(true);
+
+        var response = lessonService.getLessonTextContent(lessonId, studentId, "STUDENT");
+
+        assertEquals("Lesson body", response.textContent());
+    }
+
+    @Test
+    void getLessonsByCourse_WithUserRequiresCourseContentAccess() {
+        UUID studentId = UUID.randomUUID();
+        when(courseOwnershipClient.canAccessCourseContent(courseId, studentId, "STUDENT")).thenReturn(false);
+
+        assertThrows(LessonService.LessonOwnershipException.class, () ->
+                lessonService.getLessonsByCourse(courseId, studentId, "STUDENT")
+        );
     }
 }

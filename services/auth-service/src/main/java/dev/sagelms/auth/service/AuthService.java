@@ -3,6 +3,7 @@ package dev.sagelms.auth.service;
 import dev.sagelms.auth.dto.*;
 import dev.sagelms.auth.entity.RefreshToken;
 import dev.sagelms.auth.entity.User;
+import dev.sagelms.auth.entity.InstructorApprovalStatus;
 import dev.sagelms.auth.entity.UserRole;
 import dev.sagelms.auth.repository.RefreshTokenRepository;
 import dev.sagelms.auth.repository.UserRepository;
@@ -49,9 +50,38 @@ public class AuthService {
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setFullName(request.fullName());
         user.setRole(UserRole.STUDENT);
+        user.setInstructorApprovalStatus(InstructorApprovalStatus.APPROVED);
+        user.setIsActive(true);
         user = userRepository.save(user);
 
         return buildAuthResponse(user);
+    }
+
+    @Transactional
+    public InstructorApplicationResponse applyInstructor(InstructorApplicationRequest request) {
+        if (userRepository.existsByEmail(request.email())) {
+            throw new EmailAlreadyExistsException(request.email());
+        }
+
+        User user = new User();
+        user.setEmail(request.email());
+        user.setPasswordHash(passwordEncoder.encode(request.password()));
+        user.setFullName(request.fullName());
+        user.setRole(UserRole.INSTRUCTOR);
+        user.setIsActive(false);
+        user.setInstructorApprovalStatus(InstructorApprovalStatus.PENDING);
+        user.setInstructorHeadline(request.headline());
+        user.setInstructorBio(request.bio());
+        user.setInstructorExpertise(request.expertise());
+        user.setInstructorWebsite(request.website());
+        user.setInstructorYearsExperience(request.yearsExperience());
+        user.setInstructorApplicationNote(request.applicationNote());
+        user = userRepository.save(user);
+
+        return new InstructorApplicationResponse(
+                user.getId(),
+                user.getInstructorApprovalStatus().name(),
+                "Instructor application submitted for admin review.");
     }
 
     @Transactional
@@ -59,11 +89,19 @@ public class AuthService {
         User user = userRepository.findByEmail(request.email())
                 .orElseThrow(() -> new InvalidCredentialsException());
 
-        if (!Boolean.TRUE.equals(user.getIsActive())) {
+        if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             throw new InvalidCredentialsException();
         }
 
-        if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+        if (!Boolean.TRUE.equals(user.getIsActive())) {
+            if (user.getRole() == UserRole.INSTRUCTOR
+                    && user.getInstructorApprovalStatus() == InstructorApprovalStatus.PENDING) {
+                throw new InstructorPendingApprovalException();
+            }
+            if (user.getRole() == UserRole.INSTRUCTOR
+                    && user.getInstructorApprovalStatus() == InstructorApprovalStatus.REJECTED) {
+                throw new InstructorRejectedException();
+            }
             throw new InvalidCredentialsException();
         }
 
@@ -86,11 +124,18 @@ public class AuthService {
             throw new InvalidRefreshTokenException();
         }
 
+        User user = stored.getUser();
+        if (!canIssueToken(user)) {
+            stored.setRevoked(true);
+            refreshTokenRepository.save(stored);
+            refreshTokenRepository.revokeAllByUserId(user.getId());
+            throw new InvalidRefreshTokenException();
+        }
+
         // Revoke the old token (rotation)
         stored.setRevoked(true);
         refreshTokenRepository.save(stored);
 
-        User user = stored.getUser();
         return buildAuthResponse(user);
     }
 
@@ -125,6 +170,19 @@ public class AuthService {
         return users.map(UserProfileResponse::from);
     }
 
+    @Transactional(readOnly = true)
+    public Page<UserProfileResponse> listInstructorApplications(
+            InstructorApprovalStatus status, int page, int size) {
+        PageRequest pageable = PageRequest.of(
+                Math.max(0, page - 1),
+                Math.min(size, 100),
+                Sort.by(Sort.Direction.DESC, "createdAt"));
+        return userRepository.findByRoleAndInstructorApprovalStatus(
+                UserRole.INSTRUCTOR,
+                status != null ? status : InstructorApprovalStatus.PENDING,
+                pageable).map(UserProfileResponse::from);
+    }
+
     @Transactional
     public UserProfileResponse updateUser(UUID userId, UpdateUserRequest request) {
         User user = userRepository.findById(userId)
@@ -137,6 +195,33 @@ public class AuthService {
         }
         user = userRepository.save(user);
         return UserProfileResponse.from(user);
+    }
+
+    @Transactional
+    public UserProfileResponse approveInstructor(UUID userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException(userId));
+        if (user.getRole() != UserRole.INSTRUCTOR) {
+            throw new IllegalArgumentException("User is not an instructor.");
+        }
+        user.setInstructorApprovalStatus(InstructorApprovalStatus.APPROVED);
+        user.setIsActive(true);
+        user.setInstructorReviewedAt(Instant.now());
+        return UserProfileResponse.from(userRepository.save(user));
+    }
+
+    @Transactional
+    public UserProfileResponse rejectInstructor(UUID userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException(userId));
+        if (user.getRole() != UserRole.INSTRUCTOR) {
+            throw new IllegalArgumentException("User is not an instructor.");
+        }
+        user.setInstructorApprovalStatus(InstructorApprovalStatus.REJECTED);
+        user.setIsActive(false);
+        user.setInstructorReviewedAt(Instant.now());
+        refreshTokenRepository.revokeAllByUserId(userId);
+        return UserProfileResponse.from(userRepository.save(user));
     }
 
     @Transactional
@@ -168,6 +253,14 @@ public class AuthService {
                 UserProfileResponse.from(user));
     }
 
+    private boolean canIssueToken(User user) {
+        if (!Boolean.TRUE.equals(user.getIsActive())) {
+            return false;
+        }
+        return user.getRole() != UserRole.INSTRUCTOR
+                || user.getInstructorApprovalStatus() == InstructorApprovalStatus.APPROVED;
+    }
+
     private static String sha256(String input) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
@@ -195,6 +288,18 @@ public class AuthService {
     public static class InvalidRefreshTokenException extends RuntimeException {
         public InvalidRefreshTokenException() {
             super("Refresh token is invalid or expired.");
+        }
+    }
+
+    public static class InstructorPendingApprovalException extends RuntimeException {
+        public InstructorPendingApprovalException() {
+            super("Instructor account is pending admin approval.");
+        }
+    }
+
+    public static class InstructorRejectedException extends RuntimeException {
+        public InstructorRejectedException() {
+            super("Instructor application was rejected.");
         }
     }
 

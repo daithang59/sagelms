@@ -2,6 +2,7 @@ package dev.sagelms.content.service;
 
 import dev.sagelms.content.dto.LessonRequest;
 import dev.sagelms.content.dto.LessonResponse;
+import dev.sagelms.content.dto.LessonTextContentResponse;
 import dev.sagelms.content.entity.ContentType;
 import dev.sagelms.content.entity.Lesson;
 import dev.sagelms.content.repository.LessonRepository;
@@ -134,8 +135,26 @@ public class LessonService {
                 .orElseThrow(() -> new LessonNotFoundException("Lesson not found: " + lessonId));
         if (!Boolean.TRUE.equals(lesson.getIsPublished())) {
             requireCourseManager(lesson.getCourseId(), userId, roles);
+        } else {
+            requireCourseContentAccess(lesson.getCourseId(), userId, roles);
         }
         return LessonResponse.fromEntity(lesson);
+    }
+
+    @Transactional(readOnly = true)
+    public LessonTextContentResponse getLessonTextContent(UUID lessonId, UUID userId, String roles) {
+        Lesson lesson = lessonRepository.findById(lessonId)
+                .orElseThrow(() -> new LessonNotFoundException("Lesson not found: " + lessonId));
+        if (!Boolean.TRUE.equals(lesson.getIsPublished())) {
+            requireCourseManager(lesson.getCourseId(), userId, roles);
+        } else {
+            requireCourseContentAccess(lesson.getCourseId(), userId, roles);
+        }
+        return new LessonTextContentResponse(
+                lesson.getId(),
+                lesson.getCourseId(),
+                lesson.getTitle(),
+                lesson.getTextContent());
     }
 
     /**
@@ -143,6 +162,12 @@ public class LessonService {
      */
     @Transactional(readOnly = true)
     public List<LessonResponse> getLessonsByCourse(UUID courseId) {
+        return getPublishedLessonsByCourse(courseId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<LessonResponse> getLessonsByCourse(UUID courseId, UUID userId, String roles) {
+        requireCourseContentAccess(courseId, userId, roles);
         return getPublishedLessonsByCourse(courseId);
     }
 
@@ -256,6 +281,12 @@ public class LessonService {
         }
         if (userId == null || !courseOwnershipClient.isCourseOwner(courseId, userId)) {
             throw new LessonOwnershipException("You do not own this course");
+        }
+    }
+
+    private void requireCourseContentAccess(UUID courseId, UUID userId, String roles) {
+        if (!courseOwnershipClient.canAccessCourseContent(courseId, userId, roles)) {
+            throw new LessonOwnershipException("You are not enrolled in this course");
         }
     }
 

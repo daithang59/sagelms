@@ -246,6 +246,42 @@ class CourseServiceTest {
         assertEquals(3, responses.get(0).enrollmentCount());
     }
 
+    @Test
+    void getCoursesByInstructor_StudentRoleThrowsException() {
+        assertThrows(CourseService.CourseForbiddenException.class, () ->
+                courseService.getCoursesByInstructor(instructorId, "STUDENT")
+        );
+    }
+
+    @Test
+    void getCoursesByCategoryForViewer_StudentOnlySeesPublishedCourses() {
+        testCourse.setStatus(CourseStatus.PUBLISHED);
+        when(courseRepository.findByStatusAndCategoryIgnoreCase(CourseStatus.PUBLISHED, "Programming"))
+                .thenReturn(List.of(testCourse));
+        when(enrollmentRepository.countEnrollmentsByCourseIdsMap(anyList()))
+                .thenReturn(Map.of(courseId, 1L));
+
+        List<CourseResponse> responses = courseService.getCoursesByCategoryForViewer("Programming", "STUDENT");
+
+        assertEquals(1, responses.size());
+        verify(courseRepository, never()).findByCategory("Programming");
+    }
+
+    @Test
+    void canAccessCourseContent_StudentRequiresPublishedAndActiveEnrollment() {
+        testCourse.setStatus(CourseStatus.PUBLISHED);
+        UUID studentId = UUID.randomUUID();
+        when(courseRepository.findById(courseId)).thenReturn(Optional.of(testCourse));
+        when(enrollmentRepository.existsByStudentIdAndCourseIdAndStatus(
+                eq(studentId), eq(courseId), eq(dev.sagelms.course.entity.EnrollmentStatus.ACTIVE)))
+                .thenReturn(true);
+
+        CourseService.CourseAccessResult result =
+                courseService.canAccessCourseContent(courseId, studentId, "STUDENT");
+
+        assertTrue(result.accessible());
+    }
+
     // ============== PAGINATION TESTS ==============
 
     @Test

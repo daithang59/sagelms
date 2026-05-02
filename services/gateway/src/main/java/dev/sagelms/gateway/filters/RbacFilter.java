@@ -51,6 +51,10 @@ public class RbacFilter implements GlobalFilter, Ordered {
             return ADMIN;
         }
 
+        if (path.equals("/api/v1/courses/my-courses")) {
+            return INSTRUCTOR_OR_ADMIN;
+        }
+
         if (path.matches("^/api/v1/courses/[^/]+/enroll$")) {
             if (method == HttpMethod.POST || method == HttpMethod.DELETE) {
                 return STUDENT;

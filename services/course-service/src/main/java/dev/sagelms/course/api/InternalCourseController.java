@@ -28,5 +28,15 @@ public class InternalCourseController {
         return ResponseEntity.ok(new OwnershipResponse(courseService.isCourseOwner(courseId, userId)));
     }
 
+    @GetMapping("/{courseId}/content-access")
+    public ResponseEntity<ContentAccessResponse> checkContentAccess(
+            @PathVariable UUID courseId,
+            @RequestParam UUID userId,
+            @RequestParam(required = false) String roles) {
+        return ResponseEntity.ok(new ContentAccessResponse(
+                courseService.canAccessCourseContent(courseId, userId, roles).accessible()));
+    }
+
     public record OwnershipResponse(boolean owner) {}
+    public record ContentAccessResponse(boolean accessible) {}
 }

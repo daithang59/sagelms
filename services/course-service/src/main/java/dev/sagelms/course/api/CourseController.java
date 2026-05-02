@@ -34,17 +34,21 @@ public class CourseController {
             @PageableDefault(size = 20) Pageable pageable,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String category,
-            @RequestParam(required = false) String search
+            @RequestParam(required = false) String search,
+            @RequestHeader(value = USER_ID_HEADER, required = false) UUID userId,
+            @RequestHeader(value = ROLES_HEADER, required = false) String roles
     ) {
-        // Priority: search > status+category > all
+        // Priority: search > status > category > role-aware default
         if (search != null && !search.isBlank()) {
-            return ResponseEntity.ok(courseService.searchCourses(search, pageable));
+            return ResponseEntity.ok(courseService.searchCoursesForViewer(search, roles, pageable));
         }
         if (status != null && !status.isBlank()) {
-            return ResponseEntity.ok(courseService.getCoursesByStatus(status, pageable));
+            return ResponseEntity.ok(courseService.getCoursesByStatusForViewer(status, roles, pageable));
         }
-        // category filter is handled by /courses/category/{category} endpoint separately
-        return ResponseEntity.ok(courseService.getAllCourses(pageable));
+        if (category != null && !category.isBlank()) {
+            return ResponseEntity.ok(courseService.getCoursesByCategory(category, roles, pageable));
+        }
+        return ResponseEntity.ok(courseService.getCoursesForViewer(roles, pageable));
     }
 
     /**
@@ -62,17 +66,22 @@ public class CourseController {
      */
     @GetMapping("/my-courses")
     public ResponseEntity<List<CourseResponse>> getMyCourses(
-            @RequestHeader("X-User-Id") UUID userId
+            @RequestHeader(USER_ID_HEADER) UUID userId,
+            @RequestHeader(ROLES_HEADER) String roles
     ) {
-        return ResponseEntity.ok(courseService.getCoursesByInstructor(userId));
+        return ResponseEntity.ok(courseService.getCoursesByInstructor(userId, roles));
     }
 
     /**
      * GET /api/v1/courses/{id} - Get course by ID
      */
     @GetMapping("/{id}")
-    public ResponseEntity<CourseResponse> getCourseById(@PathVariable UUID id) {
-        return ResponseEntity.ok(courseService.getCourseById(id));
+    public ResponseEntity<CourseResponse> getCourseById(
+            @PathVariable UUID id,
+            @RequestHeader(value = USER_ID_HEADER, required = false) UUID userId,
+            @RequestHeader(value = ROLES_HEADER, required = false) String roles
+    ) {
+        return ResponseEntity.ok(courseService.getCourseById(id, userId, roles));
     }
 
     /**
@@ -118,7 +127,9 @@ public class CourseController {
      * GET /api/v1/courses/category/{category} - Get courses by category
      */
     @GetMapping("/category/{category}")
-    public ResponseEntity<List<CourseResponse>> getCoursesByCategory(@PathVariable String category) {
-        return ResponseEntity.ok(courseService.getCoursesByCategory(category));
+    public ResponseEntity<List<CourseResponse>> getCoursesByCategory(
+            @PathVariable String category,
+            @RequestHeader(value = ROLES_HEADER, required = false) String roles) {
+        return ResponseEntity.ok(courseService.getCoursesByCategoryForViewer(category, roles));
     }
 }

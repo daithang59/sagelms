@@ -2,6 +2,7 @@ package dev.sagelms.content.api;
 
 import dev.sagelms.content.dto.LessonRequest;
 import dev.sagelms.content.dto.LessonResponse;
+import dev.sagelms.content.dto.LessonTextContentResponse;
 import dev.sagelms.content.service.LessonService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -31,9 +32,11 @@ public class LessonController {
      */
     @GetMapping("/courses/{courseId}/lessons")
     public ResponseEntity<List<LessonResponse>> getLessonsByCourse(
-            @PathVariable UUID courseId
+            @PathVariable UUID courseId,
+            @RequestHeader(value = USER_ID_HEADER, required = false) UUID userId,
+            @RequestHeader(value = ROLES_HEADER, required = false) String roles
     ) {
-        return ResponseEntity.ok(lessonService.getLessonsByCourse(courseId));
+        return ResponseEntity.ok(lessonService.getLessonsByCourse(courseId, userId, roles));
     }
 
     @GetMapping("/courses/{courseId}/lessons/manage")
@@ -55,6 +58,15 @@ public class LessonController {
             @RequestHeader(value = ROLES_HEADER, required = false) String roles
     ) {
         return ResponseEntity.ok(lessonService.getLessonById(id, userId, roles));
+    }
+
+    @GetMapping("/lessons/{id}/content")
+    public ResponseEntity<LessonTextContentResponse> getLessonTextContent(
+            @PathVariable UUID id,
+            @RequestHeader(value = USER_ID_HEADER, required = false) UUID userId,
+            @RequestHeader(value = ROLES_HEADER, required = false) String roles
+    ) {
+        return ResponseEntity.ok(lessonService.getLessonTextContent(id, userId, roles));
     }
 
     /**
