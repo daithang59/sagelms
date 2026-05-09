@@ -1,47 +1,95 @@
-import Badge from '@/components/ui/Badge';
+import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { Bell, ChevronDown, User, Settings, LogOut } from 'lucide-react';
 
 export default function Header() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const roleBadgeVariant = {
-    ADMIN: 'error' as const,
-    INSTRUCTOR: 'info' as const,
-    STUDENT: 'success' as const,
+  const roleLabel = {
+    ADMIN: 'Quản trị viên',
+    INSTRUCTOR: 'Giảng viên',
+    STUDENT: 'Học viên',
+  };
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleLogout = () => {
+    logout();
+    setIsDropdownOpen(false);
   };
 
   return (
-    <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6">
-      {/* Left — Page title placeholder */}
-      <div>
-        <h2 className="text-lg font-semibold text-gray-800">SageLMS</h2>
+    <header className="fixed top-0 right-0 left-0 h-20 bg-white/80 backdrop-blur-lg border-b border-surface-200 flex items-center justify-between px-8 z-50">
+      {/* Left - Page title placeholder */}
+      <div className="flex items-center gap-2">
+        <h2 className="text-lg font-semibold text-surface-800">SageLMS</h2>
       </div>
 
-      {/* Right — User info */}
+      {/* Right - User info */}
       <div className="flex items-center gap-4">
-        {/* Notifications placeholder */}
-        <button className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
-          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-          </svg>
+        {/* Notifications */}
+        <button className="relative p-3 rounded-xl text-surface-400 hover:text-surface-600 hover:bg-surface-50 transition-colors">
+          <Bell className="w-5 h-5" />
+          <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full"></span>
         </button>
 
-        {/* User info */}
+        {/* User dropdown */}
         {user && (
-          <div className="flex items-center gap-3">
-            <Badge variant={roleBadgeVariant[user.role]}>
-              {user.role}
-            </Badge>
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center">
-                <span className="text-sm font-medium text-primary-700">
+          <div className="relative" ref={dropdownRef}>
+            <button
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-surface-50 transition-colors"
+            >
+              <div className="w-10 h-10 rounded-xl bg-gradient-brand flex items-center justify-center shadow-md">
+                <span className="text-sm font-bold text-white">
                   {user.fullName?.charAt(0)?.toUpperCase() || 'U'}
                 </span>
               </div>
-              <span className="text-sm font-medium text-gray-700 hidden sm:block">
-                {user.fullName}
-              </span>
-            </div>
+              <div className="hidden sm:block text-left">
+                <p className="text-sm font-medium text-surface-800">{user.fullName}</p>
+                <p className="text-xs text-surface-500">{roleLabel[user.role] || user.role}</p>
+              </div>
+              <ChevronDown className={`w-4 h-4 text-surface-400 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {/* Dropdown menu */}
+            {isDropdownOpen && (
+              <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-surface-100 py-2 z-[100] animate-in">
+                <div className="px-4 py-3 border-b border-surface-100">
+                  <p className="text-sm font-medium text-surface-800">{user.fullName}</p>
+                  <p className="text-xs text-surface-500">{user.email}</p>
+                </div>
+                <div className="py-1">
+                  <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-surface-600 hover:bg-surface-50 transition-colors">
+                    <User className="w-4 h-4" />
+                    Hồ sơ cá nhân
+                  </button>
+                  <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-surface-600 hover:bg-surface-50 transition-colors">
+                    <Settings className="w-4 h-4" />
+                    Cài đặt
+                  </button>
+                </div>
+                <div className="border-t border-surface-100 py-1">
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Đăng xuất
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -18,7 +18,7 @@ types/
 | `UserRole` | Union type: `'ADMIN' \| 'INSTRUCTOR' \| 'STUDENT'` |
 | `User` | Thông tin user: `id`, `email`, `fullName`, `role`, `createdAt` |
 | `LoginRequest` | Body gửi lên API login: `email`, `password` |
-| `RegisterRequest` | Body gửi lên API register: `email`, `password`, `fullName`, `role` |
+| `RegisterRequest` | Body gửi lên API register: `email`, `password`, `fullName` |
 | `AuthResponse` | Response từ API: `accessToken`, `refreshToken`, `user` |
 
 ## Quy ước thêm types mới

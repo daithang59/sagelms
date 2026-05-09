@@ -7,19 +7,19 @@ export default function DashboardLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-surface-50">
       <Sidebar
         isCollapsed={sidebarCollapsed}
         onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
       />
 
       <div
-        className={`transition-all duration-300 ${
-          sidebarCollapsed ? 'ml-16' : 'ml-64'
+        className={`transition-all duration-300 pt-20 min-h-screen ${
+          sidebarCollapsed ? 'ml-20' : 'ml-64'
         }`}
       >
         <Header />
-        <main className="p-6">
+        <main className="p-8 relative z-10">
           <Outlet />
         </main>
       </div>

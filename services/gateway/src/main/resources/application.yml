@@ -13,66 +13,80 @@ spring:
 
   cloud:
     gateway:
-      default-filters:
-        - AddRequestHeader=X-From-Gateway, true
-      globalcors:
-        corsConfigurations:
-          '[/**]':
-            allowedOrigins: "http://localhost:5173"
-            allowedMethods: "*"
-            allowedHeaders: "*"
-            allowCredentials: true
       routes:
         # --- Auth Service (PUBLIC) ---
         - id: auth-service
           uri: http://${AUTH_SERVICE_HOST:localhost}:${AUTH_SERVICE_PORT:8081}
           predicates:
             - Path=/api/v1/auth/**
+          filters:
+            - StripPrefix=0
 
         # --- User Management (via Auth Service) ---
         - id: user-management
           uri: http://${AUTH_SERVICE_HOST:localhost}:${AUTH_SERVICE_PORT:8081}
           predicates:
             - Path=/api/v1/users/**
+          filters:
+            - StripPrefix=0
 
-        # --- Course Service ---
-        - id: course-service
-          uri: http://${COURSE_SERVICE_HOST:localhost}:${COURSE_SERVICE_PORT:8082}
+        # --- Course Lessons (Content Service) - MUST come BEFORE course-service ---
+        - id: course-lessons
+          uri: http://${CONTENT_SERVICE_HOST:localhost}:${CONTENT_SERVICE_PORT:8083}
           predicates:
-            - Path=/api/v1/courses/**
+            - Path=/api/v1/courses/{courseId}/lessons,/api/v1/courses/{courseId}/lessons/**
+          filters:
+            - StripPrefix=0
 
         # --- Content Service ---
         - id: content-service
           uri: http://${CONTENT_SERVICE_HOST:localhost}:${CONTENT_SERVICE_PORT:8083}
           predicates:
-            - Path=/api/v1/content/**
+            - Path=/api/v1/content/**,/api/v1/lessons/**
+          filters:
+            - StripPrefix=0
 
-        # --- Progress Service ---
-        - id: progress-service
-          uri: http://${PROGRESS_SERVICE_HOST:localhost}:${PROGRESS_SERVICE_PORT:8084}
+        # --- Course Service (less specific, comes after) ---
+        # Note: gateway validates JWT for auth, course-service trusts gateway headers.
+        # This is secure because only frontend can reach gateway (not publicly exposed).
+        - id: course-service
+          uri: http://${COURSE_SERVICE_HOST:localhost}:${COURSE_SERVICE_PORT:8082}
           predicates:
-            - Path=/api/v1/progress/**
+            - Path=/api/v1/courses/**,/api/v1/enrollments/**
+          filters:
+            - StripPrefix=0
+            - RemoveRequestHeader=X-Forwarded-Authorization
+
+        # --- Progress Service (comment out nếu service chưa chạy — tránh network error khi demo) ---
+        # - id: progress-service
+        #   uri: http://${PROGRESS_SERVICE_HOST:localhost}:${PROGRESS_SERVICE_PORT:8084}
+        #   predicates:
+        #     - Path=/api/v1/progress/**
 
         # --- Assessment Service ---
-        - id: assessment-service
-          uri: http://${ASSESSMENT_SERVICE_HOST:localhost}:${ASSESSMENT_SERVICE_PORT:8085}
-          predicates:
-            - Path=/api/v1/assessments/**
+        # - id: assessment-service
+        #   uri: http://${ASSESSMENT_SERVICE_HOST:localhost}:${ASSESSMENT_SERVICE_PORT:8085}
+        #   predicates:
+        #     - Path=/api/v1/assessments/**
 
         # --- AI Tutor Service ---
-        - id: ai-tutor-service
-          uri: http://${AI_TUTOR_SERVICE_HOST:localhost}:${AI_TUTOR_SERVICE_PORT:8086}
-          predicates:
-            - Path=/api/v1/ai/**
+        # - id: ai-tutor-service
+        #   uri: http://${AI_TUTOR_SERVICE_HOST:localhost}:${AI_TUTOR_SERVICE_PORT:8086}
+        #   predicates:
+        #     - Path=/api/v1/ai/**
 
         # --- Worker (Job API) ---
-        - id: worker-service
-          uri: http://${WORKER_SERVICE_HOST:localhost}:${WORKER_SERVICE_PORT:8087}
-          predicates:
-            - Path=/api/v1/jobs/**
+        # - id: worker-service
+        #   uri: http://${WORKER_SERVICE_HOST:localhost}:${WORKER_SERVICE_PORT:8087}
+        #   predicates:
+        #     - Path=/api/v1/jobs/**
 
 management:
   endpoints:
     web:
       exposure:
         include: health,info
+
+app:
+  gateway:
+    secret: ${GATEWAY_SHARED_SECRET:dev-gateway-secret-change-me}
