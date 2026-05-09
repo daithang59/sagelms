@@ -2,9 +2,10 @@ package dev.sagelms.auth.service;
 
 import dev.sagelms.auth.entity.User;
 import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
 
 import javax.crypto.SecretKey;
-import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Date;
 import java.util.List;
@@ -23,13 +24,7 @@ public class JwtService {
             @Value("${app.jwt.secret}") String jwtSecret,
             @Value("${app.jwt.access-token-expiry-ms}") long accessTokenExpiryMs,
             @Value("${app.jwt.refresh-token-expiry-ms}") long refreshTokenExpiryMs) {
-        byte[] keyBytes = jwtSecret.getBytes();
-        if (keyBytes.length < 32) {
-            byte[] padded = new byte[32];
-            System.arraycopy(keyBytes, 0, padded, 0, keyBytes.length);
-            keyBytes = padded;
-        }
-        this.secretKey = new SecretKeySpec(keyBytes, "HmacSHA256");
+        this.secretKey = Keys.hmacShaKeyFor(jwtSecret.getBytes(java.nio.charset.StandardCharsets.UTF_8));
         this.accessTokenExpiryMs = accessTokenExpiryMs;
         this.refreshTokenExpiryMs = refreshTokenExpiryMs;
     }
@@ -43,7 +38,7 @@ public class JwtService {
                 .issuer("sagelms-auth")
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plusMillis(accessTokenExpiryMs)))
-                .signWith(secretKey)
+                .signWith(secretKey, io.jsonwebtoken.SignatureAlgorithm.HS256)
                 .compact();
     }
 

@@ -1,5 +1,12 @@
 import api from '@/lib/api';
-import type { AuthResponse, LoginRequest, RegisterRequest, User } from '@/types/auth';
+import type {
+  AuthResponse,
+  InstructorApplicationRequest,
+  InstructorApplicationResponse,
+  LoginRequest,
+  RegisterRequest,
+  User,
+} from '@/types/auth';
 import type { ReactNode } from 'react';
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 
@@ -10,6 +17,7 @@ interface AuthContextType {
   isLoading: boolean;
   login: (data: LoginRequest) => Promise<void>;
   register: (data: RegisterRequest) => Promise<void>;
+  applyInstructor: (data: InstructorApplicationRequest) => Promise<InstructorApplicationResponse>;
   logout: () => void;
 }
 
@@ -49,6 +57,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(res.user);
   }, []);
 
+  const applyInstructor = useCallback(async (data: InstructorApplicationRequest) => {
+    return api.post<InstructorApplicationResponse>('/auth/register/instructor', data);
+  }, []);
+
   const logout = useCallback(() => {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
@@ -65,9 +77,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isLoading,
       login,
       register,
+      applyInstructor,
       logout,
     }),
-    [user, token, isLoading, login, register, logout],
+    [user, token, isLoading, login, register, applyInstructor, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

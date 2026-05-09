@@ -23,6 +23,13 @@ public class AuthController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
+    @PostMapping("/register/instructor")
+    public ResponseEntity<InstructorApplicationResponse> applyInstructor(
+            @Valid @RequestBody InstructorApplicationRequest request) {
+        InstructorApplicationResponse response = authService.applyInstructor(request);
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
+    }
+
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
         AuthResponse response = authService.login(request);

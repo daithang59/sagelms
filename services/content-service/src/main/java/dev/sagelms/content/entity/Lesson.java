@@ -33,6 +33,9 @@ public class Lesson extends BaseEntity {
     @Column(name = "is_published")
     private Boolean isPublished = false;
 
+    @Column(name = "instructor_id", nullable = false)
+    private UUID instructorId;  // Track who created this lesson
+
     // ── Getters & Setters ──
 
     public UUID getCourseId() { return courseId; }
@@ -58,4 +61,7 @@ public class Lesson extends BaseEntity {
 
     public Boolean getIsPublished() { return isPublished; }
     public void setIsPublished(Boolean isPublished) { this.isPublished = isPublished; }
+
+    public UUID getInstructorId() { return instructorId; }
+    public void setInstructorId(UUID instructorId) { this.instructorId = instructorId; }
 }

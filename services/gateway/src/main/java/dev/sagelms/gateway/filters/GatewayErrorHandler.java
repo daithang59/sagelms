@@ -2,11 +2,15 @@ package dev.sagelms.gateway.filters;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.web.reactive.error.ErrorWebExceptionHandler;
 import org.springframework.core.annotation.Order;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.oauth2.jwt.JwtException;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.server.ServerWebExchange;
@@ -24,6 +28,7 @@ import java.util.Map;
 @Order(-2)
 public class GatewayErrorHandler implements ErrorWebExceptionHandler {
 
+    private static final Logger log = LoggerFactory.getLogger(GatewayErrorHandler.class);
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
@@ -32,6 +37,14 @@ public class GatewayErrorHandler implements ErrorWebExceptionHandler {
 
         if (ex instanceof ResponseStatusException rse) {
             status = HttpStatus.valueOf(rse.getStatusCode().value());
+        } else if (ex instanceof JwtException || ex instanceof AuthenticationException) {
+            status = HttpStatus.UNAUTHORIZED;
+        }
+
+        if (status.is5xxServerError()) {
+            log.error("Gateway error on {}: {}", exchange.getRequest().getURI().getPath(), ex.getMessage(), ex);
+        } else {
+            log.warn("Gateway rejected request on {}: {}", exchange.getRequest().getURI().getPath(), ex.getMessage());
         }
 
         // Don't override if already committed

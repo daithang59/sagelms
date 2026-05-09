@@ -14,9 +14,9 @@ public class Enrollment {
     @Column(name = "id", updatable = false, nullable = false)
     private UUID id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "course_id", nullable = false)
-    private Course course;
+    // Soft reference - KHÔNG dùng @ManyToOne để tránh cross-schema FK
+    @Column(name = "course_id", nullable = false)
+    private UUID courseId;  // soft ref → course.courses
 
     @Column(name = "student_id", nullable = false)
     private UUID studentId;  // soft ref → auth.users
@@ -28,13 +28,20 @@ public class Enrollment {
     @Column(name = "status", length = 20)
     private EnrollmentStatus status = EnrollmentStatus.ACTIVE;
 
+    @PrePersist
+    protected void onCreate() {
+        if (enrolledAt == null) {
+            enrolledAt = Instant.now();
+        }
+    }
+
     // ── Getters & Setters ──
 
     public UUID getId() { return id; }
     public void setId(UUID id) { this.id = id; }
 
-    public Course getCourse() { return course; }
-    public void setCourse(Course course) { this.course = course; }
+    public UUID getCourseId() { return courseId; }
+    public void setCourseId(UUID courseId) { this.courseId = courseId; }
 
     public UUID getStudentId() { return studentId; }
     public void setStudentId(UUID studentId) { this.studentId = studentId; }
