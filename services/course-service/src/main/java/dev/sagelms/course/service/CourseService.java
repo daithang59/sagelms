@@ -25,10 +25,15 @@ public class CourseService {
 
     private final CourseRepository courseRepository;
     private final EnrollmentRepository enrollmentRepository;
+    private final AuthUserClient authUserClient;
 
-    public CourseService(CourseRepository courseRepository, EnrollmentRepository enrollmentRepository) {
+    public CourseService(
+            CourseRepository courseRepository,
+            EnrollmentRepository enrollmentRepository,
+            AuthUserClient authUserClient) {
         this.courseRepository = courseRepository;
         this.enrollmentRepository = enrollmentRepository;
+        this.authUserClient = authUserClient;
     }
 
     /**
@@ -47,7 +52,7 @@ public class CourseService {
         course.setInstructorId(instructorId);
 
         Course saved = courseRepository.save(course);
-        return CourseResponse.fromEntity(saved, 0);
+        return enrichCourseResponse(saved, 0);
     }
 
     /**
@@ -69,7 +74,7 @@ public class CourseService {
 
         Course updated = courseRepository.save(course);
         long enrollmentCount = courseRepository.countEnrollments(courseId);
-        return CourseResponse.fromEntity(updated, enrollmentCount);
+        return enrichCourseResponse(updated, enrollmentCount);
     }
 
     /**
@@ -102,7 +107,7 @@ public class CourseService {
                 .orElseThrow(() -> new CourseNotFoundException("Course not found: " + courseId));
 
         long enrollmentCount = courseRepository.countEnrollments(courseId);
-        return CourseResponse.fromEntity(course, enrollmentCount);
+        return enrichCourseResponse(course, enrollmentCount);
     }
 
     /**
@@ -117,15 +122,19 @@ public class CourseService {
         // Bulk fetch enrollment counts (1 query instead of N)
         Map<UUID, Long> enrollmentCounts = enrollmentRepository.countEnrollmentsByCourseIdsMap(courseIds);
 
-        return courses.map(course ->
-            CourseResponse.fromEntity(course, enrollmentCounts.getOrDefault(course.getId(), 0L))
-        );
+        return mapCoursesWithInstructors(courses, enrollmentCounts);
     }
 
     @Transactional(readOnly = true)
-    public Page<CourseResponse> getCoursesForViewer(String roles, Pageable pageable) {
-        if (RoleUtils.isAdmin(roles) || RoleUtils.isInstructorOrAdmin(roles)) {
+    public Page<CourseResponse> getCoursesForViewer(UUID userId, String roles, Pageable pageable) {
+        if (RoleUtils.isAdmin(roles)) {
             return getAllCourses(pageable);
+        }
+        if (RoleUtils.hasRole(roles, "INSTRUCTOR")) {
+            if (userId == null) {
+                throw new CourseForbiddenException("Instructor identity required.");
+            }
+            return getCoursesByInstructor(userId, pageable);
         }
         return getPublishedCourses(pageable);
     }
@@ -135,16 +144,16 @@ public class CourseService {
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new CourseNotFoundException("Course not found: " + courseId));
 
-        boolean canView = course.getStatus() == CourseStatus.PUBLISHED
-                || RoleUtils.isAdmin(roles)
-                || (RoleUtils.isInstructorOrAdmin(roles) && userId != null && course.getInstructorId().equals(userId));
+        boolean canView = RoleUtils.isAdmin(roles)
+                || (RoleUtils.hasRole(roles, "INSTRUCTOR") && userId != null && course.getInstructorId().equals(userId))
+                || (!RoleUtils.hasRole(roles, "INSTRUCTOR") && course.getStatus() == CourseStatus.PUBLISHED);
 
         if (!canView) {
             throw new CourseForbiddenException("Course is not published.");
         }
 
         long enrollmentCount = courseRepository.countEnrollments(courseId);
-        return CourseResponse.fromEntity(course, enrollmentCount);
+        return enrichCourseResponse(course, enrollmentCount);
     }
 
     /**
@@ -157,9 +166,7 @@ public class CourseService {
 
         Map<UUID, Long> enrollmentCounts = enrollmentRepository.countEnrollmentsByCourseIdsMap(courseIds);
 
-        return courses.map(course ->
-            CourseResponse.fromEntity(course, enrollmentCounts.getOrDefault(course.getId(), 0L))
-        );
+        return mapCoursesWithInstructors(courses, enrollmentCounts);
     }
 
     /**
@@ -172,16 +179,14 @@ public class CourseService {
             Page<Course> courses = courseRepository.findByStatus(courseStatus, pageable);
             List<UUID> courseIds = courses.getContent().stream().map(Course::getId).toList();
             Map<UUID, Long> enrollmentCounts = enrollmentRepository.countEnrollmentsByCourseIdsMap(courseIds);
-            return courses.map(course ->
-                CourseResponse.fromEntity(course, enrollmentCounts.getOrDefault(course.getId(), 0L))
-            );
+            return mapCoursesWithInstructors(courses, enrollmentCounts);
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("Invalid status: " + status + ". Must be DRAFT, PUBLISHED, or ARCHIVED");
         }
     }
 
     @Transactional(readOnly = true)
-    public Page<CourseResponse> getCoursesByStatusForViewer(String status, String roles, Pageable pageable) {
+    public Page<CourseResponse> getCoursesByStatusForViewer(String status, UUID userId, String roles, Pageable pageable) {
         CourseStatus courseStatus;
         try {
             courseStatus = CourseStatus.valueOf(status.toUpperCase());
@@ -189,7 +194,18 @@ public class CourseService {
             throw new IllegalArgumentException("Invalid status: " + status + ". Must be DRAFT, PUBLISHED, or ARCHIVED");
         }
 
-        if (!RoleUtils.isInstructorOrAdmin(roles) && courseStatus != CourseStatus.PUBLISHED) {
+        if (RoleUtils.isAdmin(roles)) {
+            return getCoursesByStatus(status, pageable);
+        }
+
+        if (RoleUtils.hasRole(roles, "INSTRUCTOR")) {
+            if (userId == null) {
+                throw new CourseForbiddenException("Instructor identity required.");
+            }
+            return getCoursesByInstructorAndStatus(userId, courseStatus, pageable);
+        }
+
+        if (courseStatus != CourseStatus.PUBLISHED) {
             throw new CourseForbiddenException("Instructor or admin role required for non-published courses.");
         }
 
@@ -206,9 +222,25 @@ public class CourseService {
 
         Map<UUID, Long> enrollmentCounts = enrollmentRepository.countEnrollmentsByCourseIdsMap(courseIds);
 
-        return courses.stream()
-                .map(course -> CourseResponse.fromEntity(course, enrollmentCounts.getOrDefault(course.getId(), 0L)))
-                .toList();
+        return mapCoursesWithInstructors(courses, enrollmentCounts);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<CourseResponse> getCoursesByInstructor(UUID instructorId, Pageable pageable) {
+        Page<Course> courses = courseRepository.findByInstructorId(instructorId, pageable);
+        List<UUID> courseIds = courses.getContent().stream().map(Course::getId).toList();
+        Map<UUID, Long> enrollmentCounts = enrollmentRepository.countEnrollmentsByCourseIdsMap(courseIds);
+
+        return mapCoursesWithInstructors(courses, enrollmentCounts);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<CourseResponse> getCoursesByInstructorAndStatus(UUID instructorId, CourseStatus status, Pageable pageable) {
+        Page<Course> courses = courseRepository.findByInstructorIdAndStatus(instructorId, status, pageable);
+        List<UUID> courseIds = courses.getContent().stream().map(Course::getId).toList();
+        Map<UUID, Long> enrollmentCounts = enrollmentRepository.countEnrollmentsByCourseIdsMap(courseIds);
+
+        return mapCoursesWithInstructors(courses, enrollmentCounts);
     }
 
     @Transactional(readOnly = true)
@@ -229,41 +261,49 @@ public class CourseService {
 
         Map<UUID, Long> enrollmentCounts = enrollmentRepository.countEnrollmentsByCourseIdsMap(courseIds);
 
-        return courses.map(course ->
-            CourseResponse.fromEntity(course, enrollmentCounts.getOrDefault(course.getId(), 0L))
-        );
+        return mapCoursesWithInstructors(courses, enrollmentCounts);
     }
 
     @Transactional(readOnly = true)
-    public Page<CourseResponse> searchCoursesForViewer(String search, String roles, Pageable pageable) {
-        if (RoleUtils.isAdmin(roles) || RoleUtils.isInstructorOrAdmin(roles)) {
+    public Page<CourseResponse> searchCoursesForViewer(String search, UUID userId, String roles, Pageable pageable) {
+        if (RoleUtils.isAdmin(roles)) {
             return searchCourses(search, pageable);
+        }
+        if (RoleUtils.hasRole(roles, "INSTRUCTOR")) {
+            if (userId == null) {
+                throw new CourseForbiddenException("Instructor identity required.");
+            }
+            Page<Course> courses = courseRepository.searchByInstructorAndTitle(userId, search, pageable);
+            List<UUID> courseIds = courses.getContent().stream().map(Course::getId).toList();
+            Map<UUID, Long> enrollmentCounts = enrollmentRepository.countEnrollmentsByCourseIdsMap(courseIds);
+            return mapCoursesWithInstructors(courses, enrollmentCounts);
         }
 
         Page<Course> courses = courseRepository.searchPublishedByTitle(search, pageable);
         List<UUID> courseIds = courses.getContent().stream().map(Course::getId).toList();
         Map<UUID, Long> enrollmentCounts = enrollmentRepository.countEnrollmentsByCourseIdsMap(courseIds);
 
-        return courses.map(course ->
-                CourseResponse.fromEntity(course, enrollmentCounts.getOrDefault(course.getId(), 0L))
-        );
+        return mapCoursesWithInstructors(courses, enrollmentCounts);
     }
 
     @Transactional(readOnly = true)
-    public Page<CourseResponse> getCoursesByCategory(String category, String roles, Pageable pageable) {
-        CourseStatus status = (RoleUtils.isAdmin(roles) || RoleUtils.isInstructorOrAdmin(roles))
-                ? null
-                : CourseStatus.PUBLISHED;
-        Page<Course> courses = status == null
-                ? courseRepository.findByCategory(category, pageable)
-                : courseRepository.findByStatusAndCategoryIgnoreCase(status, category, pageable);
+    public Page<CourseResponse> getCoursesByCategory(String category, UUID userId, String roles, Pageable pageable) {
+        Page<Course> courses;
+        if (RoleUtils.isAdmin(roles)) {
+            courses = courseRepository.findByCategory(category, pageable);
+        } else if (RoleUtils.hasRole(roles, "INSTRUCTOR")) {
+            if (userId == null) {
+                throw new CourseForbiddenException("Instructor identity required.");
+            }
+            courses = courseRepository.findByInstructorIdAndCategory(userId, category, pageable);
+        } else {
+            courses = courseRepository.findByStatusAndCategoryIgnoreCase(CourseStatus.PUBLISHED, category, pageable);
+        }
         List<UUID> courseIds = courses.getContent().stream().map(Course::getId).toList();
 
         Map<UUID, Long> enrollmentCounts = enrollmentRepository.countEnrollmentsByCourseIdsMap(courseIds);
 
-        return courses.map(course ->
-                CourseResponse.fromEntity(course, enrollmentCounts.getOrDefault(course.getId(), 0L))
-        );
+        return mapCoursesWithInstructors(courses, enrollmentCounts);
     }
 
     /**
@@ -276,23 +316,27 @@ public class CourseService {
 
         Map<UUID, Long> enrollmentCounts = enrollmentRepository.countEnrollmentsByCourseIdsMap(courseIds);
 
-        return courses.stream()
-                .map(course -> CourseResponse.fromEntity(course, enrollmentCounts.getOrDefault(course.getId(), 0L)))
-                .toList();
+        return mapCoursesWithInstructors(courses, enrollmentCounts);
     }
 
     @Transactional(readOnly = true)
-    public List<CourseResponse> getCoursesByCategoryForViewer(String category, String roles) {
-        List<Course> courses = RoleUtils.isInstructorOrAdmin(roles)
-                ? courseRepository.findByCategory(category)
-                : courseRepository.findByStatusAndCategoryIgnoreCase(CourseStatus.PUBLISHED, category);
+    public List<CourseResponse> getCoursesByCategoryForViewer(String category, UUID userId, String roles) {
+        List<Course> courses;
+        if (RoleUtils.isAdmin(roles)) {
+            courses = courseRepository.findByCategory(category);
+        } else if (RoleUtils.hasRole(roles, "INSTRUCTOR")) {
+            if (userId == null) {
+                throw new CourseForbiddenException("Instructor identity required.");
+            }
+            courses = courseRepository.findByInstructorIdAndCategory(userId, category);
+        } else {
+            courses = courseRepository.findByStatusAndCategoryIgnoreCase(CourseStatus.PUBLISHED, category);
+        }
         List<UUID> courseIds = courses.stream().map(Course::getId).toList();
 
         Map<UUID, Long> enrollmentCounts = enrollmentRepository.countEnrollmentsByCourseIdsMap(courseIds);
 
-        return courses.stream()
-                .map(course -> CourseResponse.fromEntity(course, enrollmentCounts.getOrDefault(course.getId(), 0L)))
-                .toList();
+        return mapCoursesWithInstructors(courses, enrollmentCounts);
     }
 
     @Transactional(readOnly = true)
@@ -306,6 +350,53 @@ public class CourseService {
         boolean enrolled = userId != null && enrollmentRepository.existsByStudentIdAndCourseIdAndStatus(
                 userId, courseId, dev.sagelms.course.entity.EnrollmentStatus.ACTIVE);
         return new CourseAccessResult(course.getStatus() == CourseStatus.PUBLISHED && enrolled);
+    }
+
+    private CourseResponse enrichCourseResponse(Course course, long enrollmentCount) {
+        Map<UUID, AuthUserClient.UserSummary> instructors = authUserClient.getUsersByIds(List.of(course.getInstructorId()));
+        AuthUserClient.UserSummary instructor = instructors != null ? instructors.get(course.getInstructorId()) : null;
+        return buildCourseResponse(course, enrollmentCount, instructor);
+    }
+
+    private Page<CourseResponse> mapCoursesWithInstructors(Page<Course> courses, Map<UUID, Long> enrollmentCounts) {
+        Map<UUID, AuthUserClient.UserSummary> instructorsById = getInstructorsById(courses.getContent());
+        return courses.map(course -> buildCourseResponse(
+                course,
+                enrollmentCounts.getOrDefault(course.getId(), 0L),
+                instructorsById.get(course.getInstructorId())));
+    }
+
+    private List<CourseResponse> mapCoursesWithInstructors(List<Course> courses, Map<UUID, Long> enrollmentCounts) {
+        Map<UUID, AuthUserClient.UserSummary> instructorsById = getInstructorsById(courses);
+        return courses.stream()
+                .map(course -> buildCourseResponse(
+                        course,
+                        enrollmentCounts.getOrDefault(course.getId(), 0L),
+                        instructorsById.get(course.getInstructorId())))
+                .toList();
+    }
+
+    private Map<UUID, AuthUserClient.UserSummary> getInstructorsById(List<Course> courses) {
+        Map<UUID, AuthUserClient.UserSummary> instructorsById = authUserClient.getUsersByIds(
+                courses.stream().map(Course::getInstructorId).distinct().toList());
+        return instructorsById != null ? instructorsById : Map.of();
+    }
+
+    private CourseResponse buildCourseResponse(
+            Course course,
+            long enrollmentCount,
+            AuthUserClient.UserSummary instructor) {
+        return CourseResponse.fromEntity(
+                course,
+                enrollmentCount,
+                instructor != null ? instructor.email() : null,
+                instructor != null ? instructor.fullName() : null,
+                instructor != null ? instructor.avatarUrl() : null,
+                instructor != null ? instructor.instructorHeadline() : null,
+                instructor != null ? instructor.instructorBio() : null,
+                instructor != null ? instructor.instructorExpertise() : null,
+                instructor != null ? instructor.instructorWebsite() : null,
+                instructor != null ? instructor.instructorYearsExperience() : null);
     }
 
     public record CourseAccessResult(boolean accessible) {}

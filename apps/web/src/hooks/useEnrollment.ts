@@ -65,6 +65,21 @@ export function useEnrollment() {
     }
   }, []);
 
+  const getCourseStudents = useCallback(async (courseId: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const enrollments = await api.get<Enrollment[]>(`/courses/${courseId}/students`);
+      return enrollments;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to fetch course students';
+      setError(message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const completeCourse = useCallback(async (courseId: string) => {
     setLoading(true);
     setError(null);
@@ -87,6 +102,7 @@ export function useEnrollment() {
     unenroll,
     checkEnrollment,
     getMyEnrollments,
+    getCourseStudents,
     completeCourse,
   };
 }

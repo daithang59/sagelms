@@ -17,10 +17,112 @@ import {
   Trash2,
   Eye,
   GraduationCap,
+  Mail,
+  UserRound,
+  ExternalLink,
+  Award,
+  X,
 } from 'lucide-react';
-import type { Course } from '@/types/course';
+import type { Course, Enrollment } from '@/types/course';
 import LessonForm from './LessonForm';
 import CourseForm from './CourseForm';
+
+function getEnrollmentStatusLabel(status: string) {
+  const labels: Record<string, string> = {
+    ACTIVE: 'Đang học',
+    COMPLETED: 'Hoàn thành',
+    DROPPED: 'Đã hủy',
+  };
+  return labels[status] || status;
+}
+
+function getEnrollmentStatusVariant(status: string): 'success' | 'warning' | 'error' | 'neutral' {
+  const variants: Record<string, 'success' | 'warning' | 'error' | 'neutral'> = {
+    ACTIVE: 'success',
+    COMPLETED: 'neutral',
+    DROPPED: 'warning',
+  };
+  return variants[status] || 'neutral';
+}
+
+function InstructorProfileModal({
+  course,
+  onClose,
+}: {
+  course: Course | null;
+  onClose: () => void;
+}) {
+  if (!course) return null;
+
+  const instructorName = course.instructorFullName || 'Giảng viên';
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl">
+        <div className="flex items-start justify-between border-b border-slate-100 p-6">
+          <div className="flex items-center gap-4">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-violet-100 text-lg font-bold text-violet-700">
+              {instructorName.charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-slate-800">{instructorName}</h2>
+              <p className="mt-1 text-sm text-slate-500">
+                {course.instructorHeadline || 'Giảng viên SageLMS'}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="space-y-5 p-6">
+          <div className="flex flex-wrap gap-3 text-sm text-slate-600">
+            {course.instructorEmail && (
+              <span className="inline-flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2">
+                <Mail className="h-4 w-4" />
+                {course.instructorEmail}
+              </span>
+            )}
+            {course.instructorYearsExperience !== null && (
+              <span className="inline-flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2">
+                <Award className="h-4 w-4" />
+                {course.instructorYearsExperience} năm kinh nghiệm
+              </span>
+            )}
+          </div>
+
+          {course.instructorBio && (
+            <p className="leading-relaxed text-slate-600">{course.instructorBio}</p>
+          )}
+
+          {course.instructorExpertise && (
+            <div>
+              <p className="text-sm font-semibold text-slate-700">Chuyên môn</p>
+              <p className="mt-1 text-sm text-slate-600">{course.instructorExpertise}</p>
+            </div>
+          )}
+
+          {course.instructorWebsite && (
+            <a
+              href={course.instructorWebsite}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 text-sm font-medium text-violet-600 hover:text-violet-700"
+            >
+              Xem website giảng viên
+              <ExternalLink className="h-4 w-4" />
+            </a>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function CourseDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -28,7 +130,7 @@ export default function CourseDetailPage() {
   const { user } = useAuth();
   const { fetchCourse, loading: courseLoading, error: courseError } = useCourses();
   const { lessons, loading: lessonsLoading, fetchLessonsByCourse, fetchLessonsForManagement, deleteLesson, publishLesson } = useLessons();
-  const { enroll, unenroll, checkEnrollment } = useEnrollment();
+  const { enroll, unenroll, checkEnrollment, getCourseStudents } = useEnrollment();
   const { showToast } = useToast();
 
   const [course, setCourse] = useState<Course | null>(null);
@@ -36,10 +138,14 @@ export default function CourseDetailPage() {
   const [showLessonForm, setShowLessonForm] = useState(false);
   const [editingLesson, setEditingLesson] = useState(null);
   const [showCourseForm, setShowCourseForm] = useState(false);
+  const [courseStudents, setCourseStudents] = useState<Enrollment[]>([]);
+  const [studentsLoading, setStudentsLoading] = useState(false);
+  const [showInstructorProfile, setShowInstructorProfile] = useState(false);
 
   const canCreateCourse = user?.role === 'INSTRUCTOR' || user?.role === 'ADMIN';
   const isOwner = canCreateCourse && course?.instructorId === user?.id;
   const isAdmin = user?.role === 'ADMIN';
+  const canManageCourse = isOwner || isAdmin;
   const canEnroll = user?.role === 'STUDENT' && !isOwner && !isAdmin;
 
   useEffect(() => {
@@ -52,10 +158,34 @@ export default function CourseDetailPage() {
 
   useEffect(() => {
     if (id && course) {
-      const loadLessons = isOwner || isAdmin ? fetchLessonsForManagement : fetchLessonsByCourse;
+      const loadLessons = canManageCourse ? fetchLessonsForManagement : fetchLessonsByCourse;
       loadLessons(id);
     }
-  }, [id, course, isOwner, isAdmin, fetchLessonsByCourse, fetchLessonsForManagement]);
+  }, [id, course, canManageCourse, fetchLessonsByCourse, fetchLessonsForManagement]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void Promise.resolve().then(async () => {
+      if (!id || !canManageCourse) {
+        if (!cancelled) setCourseStudents([]);
+        return;
+      }
+
+      if (!cancelled) setStudentsLoading(true);
+      try {
+        const students = await getCourseStudents(id);
+        if (!cancelled) setCourseStudents(students);
+      } catch (err) {
+        console.error('Failed to load course students:', err);
+        if (!cancelled) setCourseStudents([]);
+      } finally {
+        if (!cancelled) setStudentsLoading(false);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [id, canManageCourse, getCourseStudents]);
 
   useEffect(() => {
     // Only check enrollment for students
@@ -199,9 +329,17 @@ export default function CourseDetailPage() {
                 </span>
               )}
             </div>
-            <h1 className="text-3xl font-bold text-white">{course.title}</h1>
+              <h1 className="text-3xl font-bold text-white">{course.title}</h1>
+              <button
+                type="button"
+                onClick={() => setShowInstructorProfile(true)}
+                className="mt-3 inline-flex max-w-full items-center gap-2 rounded-lg bg-white/15 px-3 py-2 text-sm font-medium text-white backdrop-blur-md transition-colors hover:bg-white/25"
+              >
+                <UserRound className="h-4 w-4 shrink-0" />
+                <span className="truncate">{course.instructorFullName || 'Xem giảng viên'}</span>
+              </button>
+            </div>
           </div>
-        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -215,6 +353,62 @@ export default function CourseDetailPage() {
             </CardBody>
           </Card>
 
+          {canManageCourse && (
+            <Card>
+              <CardBody className="p-0">
+                <div className="border-b border-slate-100 p-6">
+                  <h2 className="text-lg font-bold text-slate-800">Học viên trong khóa học</h2>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Danh sách học viên đã từng đăng ký khóa học này.
+                  </p>
+                </div>
+
+                {studentsLoading ? (
+                  <div className="space-y-3 p-6">
+                    {[1, 2, 3].map((item) => (
+                      <div key={item} className="h-14 animate-pulse rounded-xl bg-slate-100" />
+                    ))}
+                  </div>
+                ) : courseStudents.length > 0 ? (
+                  <div className="divide-y divide-slate-100">
+                    {courseStudents.map((enrollment) => (
+                      <div key={enrollment.id} className="flex items-center gap-4 p-4">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-sm font-bold text-violet-700">
+                          {(enrollment.studentFullName || enrollment.studentEmail || enrollment.studentId)
+                            .charAt(0)
+                            .toUpperCase()}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="truncate font-medium text-slate-800">
+                              {enrollment.studentFullName || 'Chưa có tên'}
+                            </p>
+                            <Badge variant={getEnrollmentStatusVariant(enrollment.status)}>
+                              {getEnrollmentStatusLabel(enrollment.status)}
+                            </Badge>
+                          </div>
+                          <div className="mt-1 flex flex-wrap items-center gap-3 text-sm text-slate-500">
+                            {enrollment.studentEmail && (
+                              <span className="inline-flex items-center gap-1">
+                                <Mail className="h-3.5 w-3.5" />
+                                {enrollment.studentEmail}
+                              </span>
+                            )}
+                            <span>Đăng ký: {new Date(enrollment.enrolledAt).toLocaleDateString('vi-VN')}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-8 text-center text-sm text-slate-500">
+                    Chưa có học viên nào đăng ký khóa học này.
+                  </div>
+                )}
+              </CardBody>
+            </Card>
+          )}
+
           {/* Lessons */}
           <Card>
             <CardBody className="p-0">
@@ -225,7 +419,7 @@ export default function CourseDetailPage() {
                     ({lessons.length} bài học)
                   </span>
                 </h2>
-                {isOwner && (
+                {canManageCourse && (
                   <Button
                     size="sm"
                     onClick={() => setShowLessonForm(!showLessonForm)}
@@ -270,7 +464,7 @@ export default function CourseDetailPage() {
                       ) : (
                         <Badge variant="warning">Bản nháp</Badge>
                       )}
-                      {isOwner && (
+                      {canManageCourse && (
                         <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
                           <button
                             onClick={async (e) => {
@@ -357,7 +551,7 @@ export default function CourseDetailPage() {
                     </Button>
                   </div>
                 )
-              ) : isOwner ? (
+              ) : canManageCourse ? (
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 text-violet-600">
                     <BookOpen className="w-5 h-5" />
@@ -390,7 +584,7 @@ export default function CourseDetailPage() {
             setEditingLesson(null);
           }}
           courseId={id}
-          onSuccess={() => (isOwner || isAdmin ? fetchLessonsForManagement(id) : fetchLessonsByCourse(id))}
+          onSuccess={() => (canManageCourse ? fetchLessonsForManagement(id) : fetchLessonsByCourse(id))}
           editLesson={editingLesson}
         />
       )}
@@ -410,6 +604,11 @@ export default function CourseDetailPage() {
           }}
         />
       )}
+
+      <InstructorProfileModal
+        course={showInstructorProfile ? course : null}
+        onClose={() => setShowInstructorProfile(false)}
+      />
     </div>
   );
 }

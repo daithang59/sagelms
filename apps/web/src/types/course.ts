@@ -6,6 +6,14 @@ export interface Course {
   description: string;
   thumbnailUrl: string | null;
   instructorId: string;
+  instructorEmail: string | null;
+  instructorFullName: string | null;
+  instructorAvatarUrl: string | null;
+  instructorHeadline: string | null;
+  instructorBio: string | null;
+  instructorExpertise: string | null;
+  instructorWebsite: string | null;
+  instructorYearsExperience: number | null;
   status: CourseStatus;
   category: string | null;
   enrollmentCount: number;
@@ -37,7 +45,11 @@ export type EnrollmentStatus = 'ACTIVE' | 'COMPLETED' | 'DROPPED';
 export interface Enrollment {
   id: string;
   studentId: string;
+  studentEmail: string | null;
+  studentFullName: string | null;
+  studentAvatarUrl: string | null;
   courseId: string;
+  courseTitle: string | null;
   enrolledAt: string;
   completedAt: string | null;
   status: EnrollmentStatus;

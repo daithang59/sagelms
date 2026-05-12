@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"node D:/Project/Sagelms/sagelms/tmp-parse-login.js\",\"description\":\"Parse login API response\"}",
+  "error": "Exit code 1\nnode:fs:440\r\n    return binding.readFileUtf8(path, stringToFlags(options.flag));\r\n                   ^\r\n\r\nError: ENOENT: no such file or directory, open 'D:\\tmp\\login-response.json'\r\n    at Object.readFileSync (node:fs:440:20)\r\n    at Object.<anonymous> (D:\\Project\\Sagelms\\sagelms\\tmp-parse-login.js:2:16)\r\n    at Module._compile (node:internal/modules/cjs/loader:1761:14)\r\n    at Object..js (node:internal/modules/cjs/loader:1893:10)\r\n    at Module.load (node:internal/modules/cjs/loade...",
+  "timestamp": "2026-04-12T16:38:16.487Z",
+  "retry_count": 3
+}

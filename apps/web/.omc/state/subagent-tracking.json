@@ -1,0 +1,76 @@
+{
+  "agents": [
+    {
+      "agent_id": "a9356a3969c472ea8",
+      "agent_type": "worker-3",
+      "started_at": "2026-04-12T07:34:33.466Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-04-12T07:34:58.447Z",
+      "duration_ms": 24981
+    },
+    {
+      "agent_id": "a677568ecd9bc5cb7",
+      "agent_type": "worker-1",
+      "started_at": "2026-04-12T07:35:48.181Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-04-12T07:37:32.353Z",
+      "duration_ms": 104172
+    },
+    {
+      "agent_id": "aa76fcbb7ff88d6ab",
+      "agent_type": "qa-tester-1",
+      "started_at": "2026-04-12T11:32:35.698Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-04-12T12:06:03.810Z",
+      "duration_ms": 2008112
+    },
+    {
+      "agent_id": "a18969dc4f37f1048",
+      "agent_type": "qa-tester-1",
+      "started_at": "2026-04-12T12:06:04.132Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-04-12T12:06:20.448Z",
+      "duration_ms": 16316
+    },
+    {
+      "agent_id": "adc6f78cd0f02af57",
+      "agent_type": "qa-tester-1",
+      "started_at": "2026-04-12T12:06:20.811Z",
+      "parent_mode": "none",
+      "status": "running"
+    },
+    {
+      "agent_id": "a2f5e060d01ad30c3",
+      "agent_type": "qa-tester-1",
+      "started_at": "2026-04-12T16:28:12.638Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-04-12T16:29:33.807Z",
+      "duration_ms": 81169
+    },
+    {
+      "agent_id": "a2d4608ff78777cd7",
+      "agent_type": "qa-tester-1",
+      "started_at": "2026-04-12T16:29:34.211Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-04-12T16:49:31.564Z",
+      "duration_ms": 1197353
+    },
+    {
+      "agent_id": "a6197a0ae024bc7c1",
+      "agent_type": "qa-tester-1",
+      "started_at": "2026-04-12T16:49:31.874Z",
+      "parent_mode": "none",
+      "status": "running"
+    }
+  ],
+  "total_spawned": 8,
+  "total_completed": 6,
+  "total_failed": 0,
+  "last_updated": "2026-04-12T16:54:18.483Z"
+}

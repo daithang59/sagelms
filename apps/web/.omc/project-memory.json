@@ -1,0 +1,251 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1775991430815,
+  "projectRoot": "D:\\Project\\Sagelms\\sagelms\\apps\\web",
+  "techStack": {
+    "languages": [
+      {
+        "name": "JavaScript/TypeScript",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "package.json"
+        ]
+      },
+      {
+        "name": "TypeScript",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "tsconfig.json"
+        ]
+      }
+    ],
+    "frameworks": [
+      {
+        "name": "react",
+        "version": "18.3.1",
+        "category": "frontend"
+      },
+      {
+        "name": "react-dom",
+        "version": "18.3.1",
+        "category": "frontend"
+      },
+      {
+        "name": "@playwright/test",
+        "version": "1.59.1",
+        "category": "testing"
+      },
+      {
+        "name": "vite",
+        "version": "7.3.1",
+        "category": "build"
+      },
+      {
+        "name": "vitest",
+        "version": "4.0.18",
+        "category": "testing"
+      }
+    ],
+    "packageManager": "npm",
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": "npm run build",
+    "testCommand": "npm test",
+    "lintCommand": "npm run lint",
+    "devCommand": "npm run dev",
+    "scripts": {
+      "dev": "vite",
+      "build": "tsc -b && vite build",
+      "preview": "vite preview",
+      "test": "vitest",
+      "lint": "eslint .",
+      "typecheck": "tsc -b"
+    }
+  },
+  "conventions": {
+    "namingStyle": null,
+    "importStyle": null,
+    "testPattern": null,
+    "fileOrganization": "type-based"
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": [
+      "src"
+    ],
+    "gitBranches": {
+      "defaultBranch": "main",
+      "branchingStrategy": null
+    }
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "dist": {
+      "path": "dist",
+      "purpose": "Distribution/build output",
+      "fileCount": 1,
+      "lastAccessed": 1775991430723,
+      "keyFiles": [
+        "index.html"
+      ]
+    },
+    "src": {
+      "path": "src",
+      "purpose": "Source code",
+      "fileCount": 5,
+      "lastAccessed": 1775991430725,
+      "keyFiles": [
+        "App.tsx",
+        "index.css",
+        "main.tsx",
+        "README.md",
+        "vite-env.d.ts"
+      ]
+    },
+    "dist\\assets": {
+      "path": "dist\\assets",
+      "purpose": "Static assets",
+      "fileCount": 2,
+      "lastAccessed": 1775991430748,
+      "keyFiles": [
+        "index-CE1F5kR9.js",
+        "index-CH6bN046.css"
+      ]
+    },
+    "src\\components": {
+      "path": "src\\components",
+      "purpose": "UI components",
+      "fileCount": 3,
+      "lastAccessed": 1775991430749,
+      "keyFiles": [
+        "ProtectedRoute.tsx",
+        "README.md",
+        "Toast.tsx"
+      ]
+    },
+    "src\\lib": {
+      "path": "src\\lib",
+      "purpose": "Library code",
+      "fileCount": 3,
+      "lastAccessed": 1775991430749,
+      "keyFiles": [
+        "api.ts",
+        "axios.ts",
+        "README.md"
+      ]
+    },
+    "src\\pages": {
+      "path": "src\\pages",
+      "purpose": "Page components",
+      "fileCount": 2,
+      "lastAccessed": 1775991430749,
+      "keyFiles": [
+        "NotFoundPage.tsx",
+        "README.md"
+      ]
+    }
+  },
+  "hotPaths": [
+    {
+      "path": "src\\pages\\courses\\CourseDetailPage.tsx",
+      "accessCount": 15,
+      "lastAccessed": 1776012318416,
+      "type": "file"
+    },
+    {
+      "path": "src\\lib\\axios.ts",
+      "accessCount": 8,
+      "lastAccessed": 1776001749242,
+      "type": "file"
+    },
+    {
+      "path": "src\\pages\\courses\\LessonDetailPage.tsx",
+      "accessCount": 7,
+      "lastAccessed": 1776001872591,
+      "type": "file"
+    },
+    {
+      "path": "src\\App.tsx",
+      "accessCount": 6,
+      "lastAccessed": 1776001020673,
+      "type": "file"
+    },
+    {
+      "path": "qa_b1_full.cjs",
+      "accessCount": 3,
+      "lastAccessed": 1775995451109,
+      "type": "file"
+    },
+    {
+      "path": "qa_b1_test.cjs",
+      "accessCount": 2,
+      "lastAccessed": 1775995434801,
+      "type": "file"
+    },
+    {
+      "path": "src\\pages\\courses\\CoursesPage.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1775995970685,
+      "type": "file"
+    },
+    {
+      "path": "src\\contexts\\AuthContext.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1775995980168,
+      "type": "file"
+    },
+    {
+      "path": "src\\hooks\\useLessons.ts",
+      "accessCount": 2,
+      "lastAccessed": 1776001484238,
+      "type": "file"
+    },
+    {
+      "path": "src\\pages\\auth\\LoginPage.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1775993979434,
+      "type": "file"
+    },
+    {
+      "path": "src\\components\\ProtectedRoute.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1775994243810,
+      "type": "file"
+    },
+    {
+      "path": "qa_b1_final.cjs",
+      "accessCount": 1,
+      "lastAccessed": 1775994917243,
+      "type": "file"
+    },
+    {
+      "path": "src",
+      "accessCount": 1,
+      "lastAccessed": 1775995970792,
+      "type": "directory"
+    },
+    {
+      "path": "src\\hooks\\useCourses.ts",
+      "accessCount": 1,
+      "lastAccessed": 1775996079029,
+      "type": "file"
+    },
+    {
+      "path": "src\\types\\lesson.ts",
+      "accessCount": 1,
+      "lastAccessed": 1776000816362,
+      "type": "file"
+    },
+    {
+      "path": "b1-verify.js",
+      "accessCount": 1,
+      "lastAccessed": 1776011603721,
+      "type": "file"
+    }
+  ],
+  "userDirectives": []
+}

@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker compose:*)",
+      "Bash(node:*)",
+      "Bash(curl -s -o /dev/null -w \"gateway courses: %{http_code}\\\\n\" http://localhost:8080/api/v1/courses)",
+      "Bash(curl -s -o /dev/null -w \"direct course-svc: %{http_code}\\\\n\" http://localhost:8082/api/v1/courses)",
+      "Bash(curl -s -o /dev/null -w \"auth me: %{http_code}\\\\n\" http://localhost:8080/api/v1/auth/me)",
+      "Bash(docker build:*)"
+    ]
+  }
+}

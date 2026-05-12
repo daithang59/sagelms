@@ -16,9 +16,30 @@ import {
   Layers,
   Edit,
   Trash2,
+  UserRound,
+  Mail,
+  ExternalLink,
+  Award,
+  X,
 } from 'lucide-react';
 import type { Course } from '@/types/course';
 import CourseForm from './CourseForm';
+
+const categoryOptions = [
+  'Programming',
+  'Web Development',
+  'Database',
+  'Data Science',
+  'AI',
+  'Mobile Development',
+  'DevOps',
+  'Cybersecurity',
+  'Design',
+  'Education',
+  'Product',
+  'Business',
+  'Marketing',
+];
 
 // ============================================================================
 // Premium Course Card Component
@@ -34,6 +55,86 @@ interface CourseCardProps {
   currentUserRole?: string;
   onEdit: (course: Course) => void;
   onDelete: (courseId: string, instructorId: string) => void;
+  onInstructorClick: (course: Course) => void;
+}
+
+function InstructorProfileModal({
+  course,
+  onClose,
+}: {
+  course: Course | null;
+  onClose: () => void;
+}) {
+  if (!course) return null;
+
+  const instructorName = course.instructorFullName || 'Giảng viên';
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl">
+        <div className="flex items-start justify-between border-b border-slate-100 p-6">
+          <div className="flex items-center gap-4">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-violet-100 text-lg font-bold text-violet-700">
+              {instructorName.charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-slate-800">{instructorName}</h2>
+              <p className="mt-1 text-sm text-slate-500">
+                {course.instructorHeadline || 'Giảng viên SageLMS'}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="space-y-5 p-6">
+          <div className="flex flex-wrap gap-3 text-sm text-slate-600">
+            {course.instructorEmail && (
+              <span className="inline-flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2">
+                <Mail className="h-4 w-4" />
+                {course.instructorEmail}
+              </span>
+            )}
+            {course.instructorYearsExperience !== null && (
+              <span className="inline-flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2">
+                <Award className="h-4 w-4" />
+                {course.instructorYearsExperience} năm kinh nghiệm
+              </span>
+            )}
+          </div>
+
+          {course.instructorBio && (
+            <p className="leading-relaxed text-slate-600">{course.instructorBio}</p>
+          )}
+
+          {course.instructorExpertise && (
+            <div>
+              <p className="text-sm font-semibold text-slate-700">Chuyên môn</p>
+              <p className="mt-1 text-sm text-slate-600">{course.instructorExpertise}</p>
+            </div>
+          )}
+
+          {course.instructorWebsite && (
+            <a
+              href={course.instructorWebsite}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 text-sm font-medium text-violet-600 hover:text-violet-700"
+            >
+              Xem website giảng viên
+              <ExternalLink className="h-4 w-4" />
+            </a>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function CourseCard({
@@ -47,6 +148,7 @@ function CourseCard({
   currentUserRole,
   onEdit,
   onDelete,
+  onInstructorClick,
 }: CourseCardProps) {
   const isOwner = canCreateCourse && course.instructorId === currentUserId;
   const navigate = useNavigate();
@@ -101,7 +203,7 @@ function CourseCard({
         )}
 
         {/* Owner Actions */}
-        {isOwner && (
+        {(isOwner || currentUserRole === 'ADMIN') && (
           <div className="absolute top-3 left-3 z-20 flex gap-2">
             <button
               onClick={(e) => {
@@ -136,6 +238,15 @@ function CourseCard({
         <p className="text-slate-500 text-sm line-clamp-2 min-h-[2.5rem]">
           {course.description}
         </p>
+
+        <button
+          type="button"
+          onClick={() => onInstructorClick(course)}
+          className="inline-flex max-w-full items-center gap-2 text-sm font-medium text-violet-600 hover:text-violet-700"
+        >
+          <UserRound className="h-4 w-4 shrink-0" />
+          <span className="truncate">{course.instructorFullName || 'Xem giảng viên'}</span>
+        </button>
 
         {/* Meta Info */}
         <div className="flex items-center justify-between pt-2 border-t border-slate-100">
@@ -214,9 +325,11 @@ export default function CoursesPage() {
   const { user } = useAuth();
   const { showToast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('');
   const [enrolledCourses, setEnrolledCourses] = useState<Set<string>>(new Set());
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
+  const [selectedInstructorCourse, setSelectedInstructorCourse] = useState<Course | null>(null);
   const hasFetched = useRef(false);
 
   const canCreateCourse = user?.role === 'INSTRUCTOR' || user?.role === 'ADMIN';
@@ -253,7 +366,12 @@ export default function CoursesPage() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    fetchCourses({ search: searchQuery });
+    fetchCourses({ search: searchQuery, category: selectedCategory });
+  };
+
+  const handleCategoryChange = (category: string) => {
+    setSelectedCategory(category);
+    fetchCourses({ search: searchQuery, category });
   };
 
   const handleEnroll = async (courseId: string) => {
@@ -290,7 +408,7 @@ export default function CoursesPage() {
   };
 
   const handleDelete = async (courseId: string, courseInstructorId: string) => {
-    if (user?.id !== courseInstructorId) {
+    if (user?.role !== 'ADMIN' && user?.id !== courseInstructorId) {
       showToast('Bạn không có quyền xóa khoá học này!', 'warning');
       return;
     }
@@ -377,6 +495,33 @@ export default function CoursesPage() {
               <span className="hidden sm:inline">Tìm kiếm</span>
             </Button>
           </form>
+          <div className="mt-2 flex gap-2 overflow-x-auto px-1 pb-1">
+            <button
+              type="button"
+              onClick={() => handleCategoryChange('')}
+              className={`shrink-0 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                selectedCategory === ''
+                  ? 'bg-violet-600 text-white'
+                  : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              Tất cả lĩnh vực
+            </button>
+            {categoryOptions.map((category) => (
+              <button
+                key={category}
+                type="button"
+                onClick={() => handleCategoryChange(category)}
+                className={`shrink-0 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                  selectedCategory === category
+                    ? 'bg-violet-600 text-white'
+                    : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                {category}
+              </button>
+            ))}
+          </div>
         </CardBody>
       </Card>
 
@@ -422,6 +567,7 @@ export default function CoursesPage() {
               currentUserRole={user?.role}
               onEdit={handleEdit}
               onDelete={() => handleDelete(course.id, course.instructorId)}
+              onInstructorClick={setSelectedInstructorCourse}
             />
           ))}
         </div>
@@ -473,6 +619,11 @@ export default function CoursesPage() {
           category: editingCourse.category || '',
           status: editingCourse.status
         } : null}
+      />
+
+      <InstructorProfileModal
+        course={selectedInstructorCourse}
+        onClose={() => setSelectedInstructorCourse(null)}
       />
     </div>
   );
