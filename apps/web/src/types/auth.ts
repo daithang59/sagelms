@@ -6,6 +6,7 @@ export interface User {
   email: string;
   fullName: string;
   role: UserRole;
+  avatarUrl?: string | null;
   isActive?: boolean;
   instructorApprovalStatus?: InstructorApprovalStatus;
   instructorHeadline?: string | null;
@@ -15,6 +16,7 @@ export interface User {
   instructorYearsExperience?: number | null;
   instructorApplicationNote?: string | null;
   instructorReviewedAt?: string | null;
+  lastLoginAt?: string | null;
   createdAt: string;
 }
 
@@ -67,6 +69,49 @@ export interface UpdateUserRequest {
   instructorWebsite?: string;
   instructorYearsExperience?: number;
   instructorApplicationNote?: string;
+}
+
+export interface SelfProfileUpdateRequest {
+  email?: string;
+  fullName?: string;
+  avatarUrl?: string;
+  instructorHeadline?: string;
+  instructorBio?: string;
+  instructorExpertise?: string;
+  instructorWebsite?: string;
+  instructorYearsExperience?: number;
+}
+
+export type NotificationType =
+  | 'ENROLLMENT_REQUESTED'
+  | 'ENROLLMENT_APPROVED'
+  | 'ENROLLMENT_REJECTED'
+  | 'COURSE_ENROLLED'
+  | 'SYSTEM';
+
+export interface AppNotification {
+  id: string;
+  type: NotificationType;
+  title: string;
+  message?: string | null;
+  targetUrl?: string | null;
+  read: boolean;
+  readAt?: string | null;
+  createdAt: string;
+}
+
+export interface NotificationPreference {
+  inAppEnabled: boolean;
+  emailEnabled: boolean;
+  enrollmentRequests: boolean;
+  enrollmentResults: boolean;
+  courseUpdates: boolean;
+}
+
+export type NotificationPreferenceRequest = Partial<NotificationPreference>;
+
+export interface UnreadCountResponse {
+  unreadCount: number;
 }
 
 export interface AuthResponse {

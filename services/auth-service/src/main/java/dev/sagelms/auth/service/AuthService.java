@@ -260,6 +260,46 @@ public class AuthService {
     }
 
     @Transactional
+    public UserProfileResponse updateSelfProfile(UUID userId, SelfProfileUpdateRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException(userId));
+
+        if (request.email() != null && !request.email().isBlank()
+                && !request.email().equalsIgnoreCase(user.getEmail())) {
+            String email = request.email().trim().toLowerCase();
+            if (userRepository.existsByEmailAndIdNot(email, userId)) {
+                throw new EmailAlreadyExistsException(email);
+            }
+            user.setEmail(email);
+        }
+        if (request.fullName() != null && !request.fullName().isBlank()) {
+            user.setFullName(request.fullName().trim());
+        }
+        if (request.avatarUrl() != null) {
+            user.setAvatarUrl(blankToNull(request.avatarUrl()));
+        }
+        if (user.getRole() == UserRole.INSTRUCTOR) {
+            if (request.instructorHeadline() != null) {
+                user.setInstructorHeadline(blankToNull(request.instructorHeadline()));
+            }
+            if (request.instructorBio() != null) {
+                user.setInstructorBio(blankToNull(request.instructorBio()));
+            }
+            if (request.instructorExpertise() != null) {
+                user.setInstructorExpertise(blankToNull(request.instructorExpertise()));
+            }
+            if (request.instructorWebsite() != null) {
+                user.setInstructorWebsite(blankToNull(request.instructorWebsite()));
+            }
+            if (request.instructorYearsExperience() != null) {
+                user.setInstructorYearsExperience(Math.max(0, request.instructorYearsExperience()));
+            }
+        }
+
+        return UserProfileResponse.from(userRepository.save(user));
+    }
+
+    @Transactional
     public UserProfileResponse approveInstructor(UUID userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));

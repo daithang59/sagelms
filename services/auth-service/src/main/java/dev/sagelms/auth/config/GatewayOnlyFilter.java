@@ -39,7 +39,10 @@ public class GatewayOnlyFilter extends OncePerRequestFilter {
             return;
         }
 
-        if (path.startsWith("/api/v1/users") && !gatewaySecret.equals(request.getHeader(GATEWAY_SECRET_HEADER))) {
+        if ((path.startsWith("/api/v1/users")
+                || path.equals("/api/v1/auth/me")
+                || path.startsWith("/api/v1/notifications"))
+                && !gatewaySecret.equals(request.getHeader(GATEWAY_SECRET_HEADER))) {
             response.sendError(HttpServletResponse.SC_FORBIDDEN, "Requests to user APIs must pass through gateway.");
             return;
         }

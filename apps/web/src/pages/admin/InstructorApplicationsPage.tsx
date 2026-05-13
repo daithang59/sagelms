@@ -4,6 +4,7 @@ import api from '@/lib/api';
 import type { InstructorApprovalStatus, User, UserListResponse } from '@/types/auth';
 import { CheckCircle2, Clock3, ExternalLink, RefreshCw, SearchX, X, XCircle } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 
 const statuses: InstructorApprovalStatus[] = ['PENDING', 'APPROVED', 'REJECTED'];
 
@@ -139,7 +140,7 @@ export default function InstructorApplicationsPage() {
       {loading ? (
         <div className="grid gap-4">
           {[1, 2, 3].map((item) => (
-            <div key={item} className="h-44 animate-pulse rounded-2xl bg-white ring-1 ring-slate-200" />
+            <div key={item} className="h-44 skeleton rounded-2xl ring-1 ring-slate-200" />
           ))}
         </div>
       ) : applications.length === 0 ? (
@@ -165,12 +166,16 @@ export default function InstructorApplicationsPage() {
         </div>
       )}
 
-      <RejectInstructorModal
-        user={rejectingUser}
-        isSaving={actionUserId === rejectingUser?.id}
-        onClose={() => setRejectingUser(null)}
-        onSubmit={handleReject}
-      />
+      <AnimatePresence>
+        {rejectingUser && (
+          <RejectInstructorModal
+            user={rejectingUser}
+            isSaving={actionUserId === rejectingUser.id}
+            onClose={() => setRejectingUser(null)}
+            onSubmit={handleReject}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -283,8 +288,22 @@ function RejectInstructorModal({
   const trimmedReason = reason.trim();
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 10 }}
+        transition={{ duration: 0.2, ease: "easeOut" }}
+        className="relative w-full max-w-lg rounded-2xl bg-white shadow-xl"
+      >
         <div className="flex items-center justify-between border-b border-slate-100 p-5">
           <div>
             <h2 className="text-lg font-bold text-slate-900">Từ chối hồ sơ giáo viên</h2>
@@ -293,7 +312,7 @@ function RejectInstructorModal({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+            className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
             aria-label="Đóng"
           >
             <X className="h-5 w-5" />
@@ -338,7 +357,7 @@ function RejectInstructorModal({
             </Button>
           </div>
         </form>
-      </div>
+      </motion.div>
     </div>
   );
 }

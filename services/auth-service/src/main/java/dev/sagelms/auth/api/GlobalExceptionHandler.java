@@ -2,6 +2,7 @@ package dev.sagelms.auth.api;
 
 import dev.sagelms.auth.dto.ErrorResponse;
 import dev.sagelms.auth.service.AuthService;
+import dev.sagelms.auth.service.NotificationService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -52,6 +53,13 @@ public class GlobalExceptionHandler {
             AuthService.UserNotFoundException ex, HttpServletRequest request) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(new ErrorResponse(request.getRequestURI(), "USER_NOT_FOUND", ex.getMessage()));
+    }
+
+    @ExceptionHandler(NotificationService.NotificationNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleNotificationNotFound(
+            NotificationService.NotificationNotFoundException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(new ErrorResponse(request.getRequestURI(), "NOTIFICATION_NOT_FOUND", ex.getMessage()));
     }
 
     @ExceptionHandler(UserController.ForbiddenException.class)

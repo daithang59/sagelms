@@ -5,6 +5,7 @@ import type {
   InstructorApplicationResponse,
   LoginRequest,
   RegisterRequest,
+  SelfProfileUpdateRequest,
   User,
 } from '@/types/auth';
 import type { ReactNode } from 'react';
@@ -18,6 +19,8 @@ interface AuthContextType {
   login: (data: LoginRequest) => Promise<void>;
   register: (data: RegisterRequest) => Promise<void>;
   applyInstructor: (data: InstructorApplicationRequest) => Promise<InstructorApplicationResponse>;
+  refreshUser: () => Promise<User>;
+  updateProfile: (data: SelfProfileUpdateRequest) => Promise<User>;
   logout: () => void;
 }
 
@@ -61,6 +64,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return api.post<InstructorApplicationResponse>('/auth/register/instructor', data);
   }, []);
 
+  const storeUser = useCallback((nextUser: User) => {
+    localStorage.setItem('user', JSON.stringify(nextUser));
+    setUser(nextUser);
+  }, []);
+
+  const refreshUser = useCallback(async () => {
+    const nextUser = await api.get<User>('/auth/me');
+    storeUser(nextUser);
+    return nextUser;
+  }, [storeUser]);
+
+  const updateProfile = useCallback(async (data: SelfProfileUpdateRequest) => {
+    const nextUser = await api.put<User>('/auth/me', data);
+    storeUser(nextUser);
+    return nextUser;
+  }, [storeUser]);
+
   const logout = useCallback(() => {
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
@@ -78,9 +98,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       register,
       applyInstructor,
+      refreshUser,
+      updateProfile,
       logout,
     }),
-    [user, token, isLoading, login, register, applyInstructor, logout],
+    [user, token, isLoading, login, register, applyInstructor, refreshUser, updateProfile, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

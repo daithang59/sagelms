@@ -19,6 +19,7 @@ import {
   Unlock,
   X,
 } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
 
 const pageSize = 20;
 
@@ -265,8 +266,12 @@ export default function AdminUsersPage() {
                     </td>
                   </tr>
                 ) : (
-                  users.map((item) => (
-                    <tr key={item.id} className="align-top">
+                  users.map((item, index) => (
+                    <tr 
+                      key={item.id} 
+                      className="align-top opacity-0 animate-fade-up"
+                      style={{ animationDelay: `${Math.min(index * 40, 400)}ms` }}
+                    >
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3">
                           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-100 font-bold text-violet-700">
@@ -340,15 +345,19 @@ export default function AdminUsersPage() {
         </CardBody>
       </Card>
 
-      <UserProfileModal user={viewingUser} onClose={() => setViewingUser(null)} />
-      <EditUserModal
-        user={editingUser}
-        onClose={() => setEditingUser(null)}
-        onSaved={async () => {
-          setEditingUser(null);
-          await loadUsers();
-        }}
-      />
+      <AnimatePresence>
+        {viewingUser && <UserProfileModal user={viewingUser} onClose={() => setViewingUser(null)} />}
+        {editingUser && (
+          <EditUserModal
+            user={editingUser}
+            onClose={() => setEditingUser(null)}
+            onSaved={async () => {
+              setEditingUser(null);
+              await loadUsers();
+            }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -673,21 +682,35 @@ function Info({ label, value }: { label: string; value: string }) {
 
 function ModalShell({ title, children, onClose }: { title: string; children: ReactNode; onClose: () => void }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 10 }}
+        transition={{ duration: 0.2, ease: "easeOut" }}
+        className="relative max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white shadow-xl"
+      >
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-100 bg-white p-5">
           <h2 className="text-lg font-bold text-slate-900">{title}</h2>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+            className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
             aria-label="Đóng"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
         <div className="p-5">{children}</div>
-      </div>
+      </motion.div>
     </div>
   );
 }

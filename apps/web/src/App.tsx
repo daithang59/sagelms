@@ -19,6 +19,8 @@ import CourseDetailPage from '@/pages/courses/CourseDetailPage';
 import LessonDetailPage from '@/pages/courses/LessonDetailPage';
 import DashboardPage from '@/pages/dashboard/DashboardPage';
 import NotFoundPage from '@/pages/NotFoundPage';
+import ProfilePage from '@/pages/profile/ProfilePage';
+import SettingsPage from '@/pages/settings/SettingsPage';
 
 function App() {
   return (
@@ -43,6 +45,8 @@ function App() {
           <Route path="/courses" element={<CoursesPage />} />
           <Route path="/courses/:id" element={<CourseDetailPage />} />
           <Route path="/courses/:courseId/lessons/:id" element={<LessonDetailPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/settings" element={<SettingsPage />} />
           <Route path="/quizzes" element={<QuizzesPage />} />
           <Route path="/ai-tutor" element={<AiTutorPage />} />
           <Route

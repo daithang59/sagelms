@@ -7,6 +7,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.UUID;
+
 @RestController
 @RequestMapping("/api/v1/auth")
 public class AuthController {
@@ -40,5 +42,17 @@ public class AuthController {
     public ResponseEntity<AuthResponse> refresh(@Valid @RequestBody RefreshTokenRequest request) {
         AuthResponse response = authService.refresh(request);
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<UserProfileResponse> getMe(@RequestHeader("X-User-Id") UUID userId) {
+        return ResponseEntity.ok(authService.getUserById(userId));
+    }
+
+    @PutMapping("/me")
+    public ResponseEntity<UserProfileResponse> updateMe(
+            @RequestHeader("X-User-Id") UUID userId,
+            @RequestBody SelfProfileUpdateRequest request) {
+        return ResponseEntity.ok(authService.updateSelfProfile(userId, request));
     }
 }
