@@ -59,6 +59,27 @@ public class AuthUserClient {
         }
     }
 
+    public void createNotification(UUID userId, String type, String title, String message, String targetUrl) {
+        if (userId == null || title == null || title.isBlank()) {
+            return;
+        }
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.set("X-Internal-Secret", internalSecret);
+            HttpEntity<NotificationPayload> entity = new HttpEntity<>(
+                    new NotificationPayload(userId, type, title, message, targetUrl),
+                    headers);
+            restTemplate.exchange(
+                    authServiceUrl + "/internal/notifications",
+                    HttpMethod.POST,
+                    entity,
+                    Void.class);
+        } catch (RestClientException ignored) {
+            // Notifications should not block core enrollment flows.
+        }
+    }
+
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record UserSummary(
             UUID id,
@@ -71,4 +92,11 @@ public class AuthUserClient {
             String instructorExpertise,
             String instructorWebsite,
             Integer instructorYearsExperience) {}
+
+    public record NotificationPayload(
+            UUID userId,
+            String type,
+            String title,
+            String message,
+            String targetUrl) {}
 }

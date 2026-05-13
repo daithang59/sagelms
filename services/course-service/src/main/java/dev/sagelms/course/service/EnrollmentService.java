@@ -64,6 +64,7 @@ public class EnrollmentService {
                 enrollment.setStatus(targetStatus);
                 clearReview(enrollment);
                 Enrollment saved = enrollmentRepository.save(enrollment);
+                notifyEnrollmentCreated(course, studentId, targetStatus);
                 return EnrollmentResponse.fromEntity(saved, course.getTitle(), null);
             }
             throw new AlreadyEnrolledException("Student already has an enrollment for this course");
@@ -77,6 +78,7 @@ public class EnrollmentService {
         clearReview(enrollment);
 
         Enrollment saved = enrollmentRepository.save(enrollment);
+        notifyEnrollmentCreated(course, studentId, targetStatus);
         return EnrollmentResponse.fromEntity(saved, course.getTitle(), null);
     }
 
@@ -116,6 +118,12 @@ public class EnrollmentService {
         enrollment.setStatus(EnrollmentStatus.ACTIVE);
         setReview(enrollment, actorUserId, null);
         Enrollment saved = enrollmentRepository.save(enrollment);
+        authUserClient.createNotification(
+                participantId,
+                "ENROLLMENT_APPROVED",
+                "Yêu cầu học đã được duyệt",
+                "Bạn đã được duyệt vào khóa học " + course.getTitle() + ".",
+                "/courses/" + courseId);
         return EnrollmentResponse.fromEntity(saved, course.getTitle(), null);
     }
 
@@ -134,6 +142,13 @@ public class EnrollmentService {
         enrollment.setStatus(EnrollmentStatus.REJECTED);
         setReview(enrollment, actorUserId, reason);
         Enrollment saved = enrollmentRepository.save(enrollment);
+        authUserClient.createNotification(
+                participantId,
+                "ENROLLMENT_REJECTED",
+                "Yêu cầu học bị từ chối",
+                "Yêu cầu học khóa " + course.getTitle() + " bị từ chối"
+                        + (reason != null && !reason.isBlank() ? ": " + reason.trim() : "."),
+                "/courses/" + courseId);
         return EnrollmentResponse.fromEntity(saved, course.getTitle(), null);
     }
 
@@ -272,6 +287,26 @@ public class EnrollmentService {
             return null;
         }
         return value.trim();
+    }
+
+    private void notifyEnrollmentCreated(Course course, UUID learnerId, EnrollmentStatus status) {
+        if (status == EnrollmentStatus.PENDING) {
+            authUserClient.createNotification(
+                    course.getInstructorId(),
+                    "ENROLLMENT_REQUESTED",
+                    "Có yêu cầu ghi danh mới",
+                    "Một người học muốn ghi danh vào khóa " + course.getTitle() + ".",
+                    "/courses/" + course.getId());
+            return;
+        }
+        if (status == EnrollmentStatus.ACTIVE) {
+            authUserClient.createNotification(
+                    learnerId,
+                    "COURSE_ENROLLED",
+                    "Ghi danh khóa học thành công",
+                    "Bạn đã ghi danh vào khóa " + course.getTitle() + ".",
+                    "/courses/" + course.getId());
+        }
     }
 
     private List<EnrollmentResponse> buildCourseEnrollmentResponses(Course course, List<Enrollment> enrollments) {

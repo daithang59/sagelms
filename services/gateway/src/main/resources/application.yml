@@ -30,6 +30,14 @@ spring:
           filters:
             - StripPrefix=0
 
+        # --- Notifications (via Auth Service) ---
+        - id: notifications
+          uri: http://${AUTH_SERVICE_HOST:localhost}:${AUTH_SERVICE_PORT:8081}
+          predicates:
+            - Path=/api/v1/notifications/**
+          filters:
+            - StripPrefix=0
+
         # --- Course Lessons (Content Service) - MUST come BEFORE course-service ---
         - id: course-lessons
           uri: http://${CONTENT_SERVICE_HOST:localhost}:${CONTENT_SERVICE_PORT:8083}
