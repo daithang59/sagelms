@@ -10,6 +10,7 @@ import {
   GraduationCap,
   Loader2,
   ShieldCheck,
+  Sparkles,
   TrendingUp,
   UserCog,
   Users,
@@ -213,11 +214,12 @@ function CourseRow({ course, showInstructor = false }: { course: Course; showIns
   );
 }
 
-function EnrollmentRow({ enrollment }: { enrollment: Enrollment }) {
+function EnrollmentRow({ enrollment, index = 0 }: { enrollment: Enrollment; index?: number }) {
   return (
     <Link
       to={`/courses/${enrollment.courseId}`}
-      className="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-4 transition-colors last:border-b-0 hover:bg-slate-50"
+      className="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-4 opacity-0 transition-colors last:border-b-0 hover:bg-slate-50 animate-fade-up"
+      style={{ animationDelay: `${Math.min(index * 40, 400)}ms` }}
     >
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
@@ -398,7 +400,7 @@ function InstructorDashboard({ data }: { data: InstructorDashboardData }) {
           to="/courses"
         />
         {activeEnrollments.length > 0 ? (
-          activeEnrollments.slice(0, 5).map((enrollment) => <EnrollmentRow key={enrollment.id} enrollment={enrollment} />)
+          activeEnrollments.slice(0, 5).map((enrollment, index) => <EnrollmentRow key={enrollment.id} enrollment={enrollment} index={index} />)
         ) : (
           <EmptyState icon={GraduationCap} title="Chưa đăng ký học khóa nào" description="Mở tab Khám phá khóa học để học thêm từ giảng viên khác." />
         )}
@@ -436,7 +438,7 @@ function StudentDashboard({ data }: { data: StudentDashboardData }) {
             to="/courses"
           />
           {activeEnrollments.length > 0 ? (
-            activeEnrollments.slice(0, 5).map((enrollment) => <EnrollmentRow key={enrollment.id} enrollment={enrollment} />)
+            activeEnrollments.slice(0, 5).map((enrollment, index) => <EnrollmentRow key={enrollment.id} enrollment={enrollment} index={index} />)
           ) : (
             <EmptyState icon={GraduationCap} title="Chưa có khóa đang học" description="Đăng ký một khóa học để bắt đầu theo dõi tiến độ." />
           )}
@@ -557,12 +559,24 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6 animate-in">
-      <div className="rounded-2xl border border-white/60 bg-white/80 backdrop-blur-md px-6 py-5 shadow-soft ring-1 ring-slate-100/50">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <p className="text-sm font-semibold text-violet-700">{roleLabel(user?.role)}</p>
-            <h1 className="mt-1 text-2xl font-bold text-slate-950">Xin chào, {user?.fullName || 'bạn'}!</h1>
-            <p className="mt-2 max-w-2xl text-sm text-slate-500">
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-violet-600 via-indigo-600 to-sky-500 p-8 text-white shadow-xl shadow-indigo-500/20">
+        {/* Abstract background shapes */}
+        <div className="absolute -right-20 -top-20 h-72 w-72 animate-blob rounded-full bg-white/20 blur-3xl mix-blend-overlay" />
+        <div className="absolute -bottom-32 -left-10 h-72 w-72 animate-blob rounded-full bg-cyan-400/30 blur-3xl mix-blend-overlay" style={{ animationDelay: '2s' }} />
+        <div className="absolute left-1/3 top-10 h-48 w-48 animate-blob rounded-full bg-fuchsia-400/30 blur-3xl mix-blend-overlay" style={{ animationDelay: '4s' }} />
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iMiIvPjwvZz48L2c+PC9zdmc+')] opacity-30" />
+
+        <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="max-w-3xl rounded-3xl bg-white/10 p-6 backdrop-blur-md ring-1 ring-white/20 shadow-2xl sm:p-8">
+            <div className="mb-4 flex items-center gap-2 animate-float" style={{ animationDelay: '0ms' }}>
+              <span className="inline-flex items-center justify-center rounded-lg bg-white/20 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-white backdrop-blur-md ring-1 ring-white/30 shadow-sm">
+                {roleLabel(user?.role)}
+              </span>
+            </div>
+            <h1 className="flex items-center gap-3 text-3xl font-extrabold text-white sm:text-4xl animate-float" style={{ animationDelay: '200ms' }}>
+              Xin chào, {user?.fullName || 'bạn'}! <Sparkles className="h-8 w-8 text-yellow-300 drop-shadow-md" />
+            </h1>
+            <p className="mt-3 text-base text-indigo-50 sm:text-lg animate-float" style={{ animationDelay: '400ms' }}>
               {user?.role === 'ADMIN' && 'Theo dõi người dùng, hồ sơ giảng viên và chất lượng nội dung trong hệ thống.'}
               {user?.role === 'INSTRUCTOR' && 'Quản lý khóa học của bạn, theo dõi học viên và hoàn thiện nội dung giảng dạy.'}
               {user?.role === 'STUDENT' && 'Tiếp tục các khóa đang học và tìm thêm nội dung phù hợp với bạn.'}
@@ -570,10 +584,11 @@ export default function DashboardPage() {
           </div>
           <Link
             to="/courses"
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-violet-700"
+            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-6 py-4 text-sm font-bold text-indigo-600 shadow-xl shadow-black/10 transition-all hover:-translate-y-1 hover:bg-slate-50 hover:shadow-2xl active:translate-y-0 animate-float"
+            style={{ animationDelay: '600ms' }}
           >
             Mở khóa học
-            <ArrowRight className="h-4 w-4" />
+            <ArrowRight className="h-5 w-5" />
           </Link>
         </div>
       </div>

@@ -23,6 +23,6 @@ export function PageLoading() {
 /** Skeleton rectangle for content placeholder */
 export function Skeleton({ className = 'h-4 w-full' }: { className?: string }) {
   return (
-    <div className={`animate-pulse rounded-md bg-gray-200 ${className}`} />
+    <div className={`skeleton rounded-md ${className}`} />
   );
 }

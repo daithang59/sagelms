@@ -77,6 +77,45 @@
   .nav-item-active {
     @apply bg-brand-50 text-brand-700 font-medium shadow-sm;
   }
+
+  .skeleton {
+    @apply bg-slate-200/60 bg-gradient-to-r from-transparent via-white/50 to-transparent;
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite linear;
+  }
+
+  .pressable {
+    @apply transition-transform duration-150 ease-out active:scale-[0.98];
+    transform-origin: center;
+  }
+
+  .interactive-surface {
+    @apply transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0 active:scale-[0.99];
+  }
+
+  .surface-enter {
+    animation: surface-enter 260ms ease-out both;
+  }
+
+  .stagger-enter {
+    opacity: 0;
+    animation: surface-enter 320ms ease-out forwards;
+    animation-delay: var(--stagger-delay, 0ms);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, ::before, ::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+    .skeleton {
+      @apply bg-slate-200/60;
+      animation: none !important;
+      background-image: none !important;
+    }
+  }
 }
 
 @layer utilities {
@@ -92,6 +131,17 @@
     from {
       opacity: 0;
       transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes surface-enter {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
     }
     to {
       opacity: 1;
