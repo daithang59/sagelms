@@ -6,6 +6,7 @@ import {
   ClipboardList,
   Bot,
   Users,
+  UserCog,
   ChevronLeft,
   ChevronRight,
   LogOut,
@@ -38,6 +39,12 @@ const navigation = [
     roles: ['ADMIN', 'INSTRUCTOR', 'STUDENT'],
   },
   {
+    name: 'Quản lý user',
+    path: '/admin/users',
+    icon: UserCog,
+    roles: ['ADMIN'],
+  },
+  {
     name: 'Duyệt giáo viên',
     path: '/admin/instructors',
     icon: Users,
@@ -66,8 +73,8 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
   return (
     <aside
       className={`
-        fixed left-0 top-0 z-40 h-screen bg-white border-r border-slate-200
-        transition-all duration-300 flex flex-col shadow-xl
+        fixed left-0 top-0 z-40 h-screen bg-white/70 backdrop-blur-2xl border-r border-white/50
+        transition-all duration-300 flex flex-col shadow-[4px_0_24px_rgba(0,0,0,0.02)] ring-1 ring-slate-100/50
         ${isCollapsed ? 'w-20' : 'w-64'}
       `}
     >

@@ -54,6 +54,21 @@ export interface UserListResponse {
   };
 }
 
+export interface UpdateUserRequest {
+  email?: string;
+  fullName?: string;
+  role?: UserRole;
+  isActive?: boolean;
+  avatarUrl?: string;
+  instructorApprovalStatus?: InstructorApprovalStatus;
+  instructorHeadline?: string;
+  instructorBio?: string;
+  instructorExpertise?: string;
+  instructorWebsite?: string;
+  instructorYearsExperience?: number;
+  instructorApplicationNote?: string;
+}
+
 export interface AuthResponse {
   accessToken: string;
   refreshToken: string;

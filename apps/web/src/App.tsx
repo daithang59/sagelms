@@ -13,6 +13,7 @@ import RegisterPage from '@/pages/auth/RegisterPage';
 import AiTutorPage from '@/pages/ai-tutor/AiTutorPage';
 import QuizzesPage from '@/pages/assessment/QuizzesPage';
 import InstructorApplicationsPage from '@/pages/admin/InstructorApplicationsPage';
+import AdminUsersPage from '@/pages/admin/AdminUsersPage';
 import CoursesPage from '@/pages/courses/CoursesPage';
 import CourseDetailPage from '@/pages/courses/CourseDetailPage';
 import LessonDetailPage from '@/pages/courses/LessonDetailPage';
@@ -44,6 +45,14 @@ function App() {
           <Route path="/courses/:courseId/lessons/:id" element={<LessonDetailPage />} />
           <Route path="/quizzes" element={<QuizzesPage />} />
           <Route path="/ai-tutor" element={<AiTutorPage />} />
+          <Route
+            path="/admin/users"
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN']}>
+                <AdminUsersPage />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/admin/instructors"
             element={
