@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import type { Course, Enrollment, EnrollmentStatus } from '@/types/course';
 import CourseForm from './CourseForm';
+import { AnimatePresence, motion } from 'framer-motion';
 
 type CourseScope = 'teaching' | 'explore';
 type StudentCourseTab = 'explore' | 'enrolled';
@@ -72,8 +73,22 @@ function InstructorProfileModal({
   const instructorName = course.instructorFullName || 'Giảng viên';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <motion.div
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+        onClick={onClose}
+      />
+      <motion.div
+        className="relative w-full max-w-lg rounded-2xl bg-white shadow-xl"
+        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 10 }}
+        transition={{ duration: 0.2, ease: 'easeOut' }}
+      >
         <div className="flex items-start justify-between border-b border-slate-100 p-6">
           <div className="flex items-center gap-4">
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-violet-100 text-lg font-bold text-violet-700">
@@ -134,7 +149,7 @@ function InstructorProfileModal({
             </a>
           )}
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }
@@ -169,7 +184,7 @@ function CourseCard({
   const gradientIndex = course.title.charCodeAt(0) % gradients.length;
 
   return (
-    <div className="group relative bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 border border-slate-100 overflow-hidden">
+    <div className="interactive-surface group relative bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 border border-slate-100 overflow-hidden">
       {/* Cover Area - Fixed height with consistent gradient */}
       <div className={`relative h-40 bg-gradient-to-br ${gradients[gradientIndex]} flex items-center justify-center overflow-hidden`}>
         {/* Decorative pattern */}
@@ -222,7 +237,7 @@ function CourseCard({
                 e.stopPropagation();
                 onEdit(course);
               }}
-              className="p-2 rounded-lg bg-white/20 backdrop-blur-md hover:bg-white/30 transition-colors"
+              className="pressable p-2 rounded-lg bg-white/20 backdrop-blur-md hover:bg-white/30 transition-colors"
             >
               <Edit className="w-4 h-4 text-white" />
             </button>
@@ -231,7 +246,7 @@ function CourseCard({
                 e.stopPropagation();
                 onDelete(course.id, course.instructorId);
               }}
-              className="p-2 rounded-lg bg-white/20 backdrop-blur-md hover:bg-red-500/80 transition-colors"
+              className="pressable p-2 rounded-lg bg-white/20 backdrop-blur-md hover:bg-red-500/80 transition-colors"
             >
               <Trash2 className="w-4 h-4 text-white" />
             </button>
@@ -254,7 +269,7 @@ function CourseCard({
         <button
           type="button"
           onClick={() => onInstructorClick(course)}
-          className="inline-flex max-w-full items-center gap-2 text-sm font-medium text-violet-600 hover:text-violet-700"
+          className="pressable inline-flex max-w-full items-center gap-2 text-sm font-medium text-violet-600 hover:text-violet-700"
         >
           <UserRound className="h-4 w-4 shrink-0" />
           <span className="truncate">{course.instructorFullName || 'Xem giảng viên'}</span>
@@ -366,7 +381,7 @@ function EnrolledCourseCard({
   const isPending = enrollment.status === 'PENDING';
 
   return (
-    <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition hover:shadow-lg">
+    <div className="interactive-surface rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition hover:shadow-lg">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-50 text-violet-600">
@@ -420,8 +435,22 @@ function ConfirmUnenrollModal({
   onConfirm: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-2xl bg-white shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <motion.div
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+        onClick={onCancel}
+      />
+      <motion.div
+        className="relative w-full max-w-md rounded-2xl bg-white shadow-xl"
+        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 10 }}
+        transition={{ duration: 0.2, ease: 'easeOut' }}
+      >
         <div className="border-b border-slate-100 p-5">
           <h2 className="text-lg font-bold text-slate-900">Hủy đăng ký khóa học?</h2>
           <p className="mt-2 text-sm leading-relaxed text-slate-500">
@@ -436,7 +465,7 @@ function ConfirmUnenrollModal({
             Hủy đăng ký
           </Button>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }
@@ -794,7 +823,7 @@ export default function CoursesPage() {
           {[1, 2, 3, 4, 5, 6].map((i) => (
             <div
               key={i}
-              className="bg-white rounded-2xl border border-slate-100 overflow-hidden animate-pulse"
+              className="skeleton rounded-2xl overflow-hidden"
             >
               <div className="h-40 bg-slate-200" />
               <div className="p-5 space-y-4">
@@ -838,12 +867,17 @@ export default function CoursesPage() {
 
       {isStudentEnrolledTab && !myEnrollmentsLoading && filteredEnrollments.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-          {filteredEnrollments.map((enrollment) => (
-            <EnrolledCourseCard
+          {filteredEnrollments.map((enrollment, index) => (
+            <div
               key={enrollment.id}
-              enrollment={enrollment}
-              onUnenroll={() => requestUnenroll(enrollment.courseId, enrollment.courseTitle || `Khóa học ${enrollment.courseId.slice(0, 8)}`)}
-            />
+              className="opacity-0 animate-fade-up"
+              style={{ animationDelay: `${Math.min(index * 40, 400)}ms` }}
+            >
+              <EnrolledCourseCard
+                enrollment={enrollment}
+                onUnenroll={() => requestUnenroll(enrollment.courseId, enrollment.courseTitle || `Khóa học ${enrollment.courseId.slice(0, 8)}`)}
+              />
+            </div>
           ))}
         </div>
       )}
@@ -916,20 +950,26 @@ export default function CoursesPage() {
           } : null}
       />
 
-      <InstructorProfileModal
-        course={selectedInstructorCourse}
-        onClose={() => setSelectedInstructorCourse(null)}
-      />
+      <AnimatePresence>
+        {selectedInstructorCourse && (
+          <InstructorProfileModal
+            course={selectedInstructorCourse}
+            onClose={() => setSelectedInstructorCourse(null)}
+          />
+        )}
+      </AnimatePresence>
 
-      {confirmUnenroll && (
-        <ConfirmUnenrollModal
-          courseTitle={confirmUnenroll.title}
-          onCancel={() => setConfirmUnenroll(null)}
-          onConfirm={() => {
-            void handleUnenroll(confirmUnenroll.courseId);
-          }}
-        />
-      )}
+      <AnimatePresence>
+        {confirmUnenroll && (
+          <ConfirmUnenrollModal
+            courseTitle={confirmUnenroll.title}
+            onCancel={() => setConfirmUnenroll(null)}
+            onConfirm={() => {
+              void handleUnenroll(confirmUnenroll.courseId);
+            }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

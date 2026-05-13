@@ -267,7 +267,7 @@ export default function LessonDetailPage() {
               {lessonsLoading ? (
                 <div className="space-y-3 p-4">
                   {[1, 2, 3, 4].map((item) => (
-                    <div key={item} className="h-16 animate-pulse rounded-xl bg-slate-100" />
+                    <div key={item} className="h-16 skeleton rounded-xl" />
                   ))}
                 </div>
               ) : courseLessons.length > 0 ? (

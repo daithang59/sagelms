@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useState, type CSSProperties, type FormEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardBody, Button, Badge } from '@/components/ui';
 import { useCourses, useLessons, useEnrollment } from '@/hooks';
@@ -28,6 +28,7 @@ import {
 import type { Course, Enrollment, EnrollmentStatus } from '@/types/course';
 import LessonForm from './LessonForm';
 import CourseForm from './CourseForm';
+import { AnimatePresence, motion } from 'framer-motion';
 
 function getEnrollmentStatusLabel(status: string) {
   if (status === 'PENDING') return 'Chờ duyệt';
@@ -81,7 +82,7 @@ function ParticipantRow({
   const canDrop = enrollment.status !== 'DROPPED';
 
   return (
-    <div className="flex items-start gap-3 p-4">
+    <div className="stagger-enter flex items-start gap-3 p-4 transition-colors hover:bg-slate-50">
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-sm font-bold text-violet-700">
         {displayName.charAt(0).toUpperCase()}
       </div>
@@ -115,7 +116,7 @@ function ParticipantRow({
           <button
             type="button"
             onClick={onApprove}
-            className="rounded-lg p-2 text-emerald-600 transition hover:bg-emerald-50"
+            className="pressable rounded-lg p-2 text-emerald-600 transition hover:bg-emerald-50"
             title="Duyệt yêu cầu"
             aria-label="Duyệt yêu cầu"
           >
@@ -124,7 +125,7 @@ function ParticipantRow({
           <button
             type="button"
             onClick={onReject}
-            className="rounded-lg p-2 text-amber-600 transition hover:bg-amber-50"
+            className="pressable rounded-lg p-2 text-amber-600 transition hover:bg-amber-50"
             title="Từ chối yêu cầu"
             aria-label="Từ chối yêu cầu"
           >
@@ -136,7 +137,7 @@ function ParticipantRow({
         type="button"
         onClick={onDrop}
         disabled={!canDrop}
-        className="rounded-lg p-2 text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40"
+        className="pressable rounded-lg p-2 text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100"
         title="Đưa ra khỏi khóa học"
         aria-label="Đưa ra khỏi khóa học"
       >
@@ -175,8 +176,22 @@ function DropParticipantModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <motion.div
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+        onClick={onClose}
+      />
+      <motion.div
+        className="relative w-full max-w-lg rounded-2xl bg-white shadow-xl"
+        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 10 }}
+        transition={{ duration: 0.2, ease: 'easeOut' }}
+      >
         <div className="flex items-start justify-between border-b border-slate-100 p-5">
           <div>
             <h2 className="text-lg font-bold text-slate-900">Đưa người tham gia ra khỏi khóa</h2>
@@ -218,7 +233,7 @@ function DropParticipantModal({
             </Button>
           </div>
         </form>
-      </div>
+      </motion.div>
     </div>
   );
 }
@@ -235,8 +250,22 @@ function ConfirmUnenrollModal({
   onConfirm: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-2xl bg-white shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <motion.div
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+        onClick={onCancel}
+      />
+      <motion.div
+        className="relative w-full max-w-md rounded-2xl bg-white shadow-xl"
+        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 10 }}
+        transition={{ duration: 0.2, ease: 'easeOut' }}
+      >
         <div className="border-b border-slate-100 p-5">
           <h2 className="text-lg font-bold text-slate-900">{label}?</h2>
           <p className="mt-2 text-sm leading-relaxed text-slate-500">
@@ -251,7 +280,7 @@ function ConfirmUnenrollModal({
             {label}
           </Button>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }
@@ -268,8 +297,22 @@ function InstructorProfileModal({
   const instructorName = course.instructorFullName || 'Giảng viên';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <motion.div
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+        onClick={onClose}
+      />
+      <motion.div
+        className="relative w-full max-w-lg rounded-2xl bg-white shadow-xl"
+        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 10 }}
+        transition={{ duration: 0.2, ease: 'easeOut' }}
+      >
         <div className="flex items-start justify-between border-b border-slate-100 p-6">
           <div className="flex items-center gap-4">
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-violet-100 text-lg font-bold text-violet-700">
@@ -330,7 +373,7 @@ function InstructorProfileModal({
             </a>
           )}
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }
@@ -611,7 +654,7 @@ export default function CourseDetailPage() {
               <button
                 type="button"
                 onClick={() => setShowInstructorProfile(true)}
-                className="mt-3 inline-flex max-w-full items-center gap-2 rounded-lg bg-white/15 px-3 py-2 text-sm font-medium text-white backdrop-blur-md transition-colors hover:bg-white/25"
+                className="pressable mt-3 inline-flex max-w-full items-center gap-2 rounded-lg bg-white/15 px-3 py-2 text-sm font-medium text-white backdrop-blur-md transition-colors hover:bg-white/25"
               >
                 <UserRound className="h-4 w-4 shrink-0" />
                 <span className="truncate">{course.instructorFullName || 'Xem giảng viên'}</span>
@@ -655,16 +698,17 @@ export default function CourseDetailPage() {
               {lessonsLoading ? (
                 <div className="p-6 space-y-4">
                   {[1, 2, 3].map((i) => (
-                    <div key={i} className="h-16 bg-slate-100 rounded-xl animate-pulse" />
+                    <div key={i} className="h-16 skeleton rounded-xl" />
                   ))}
                 </div>
               ) : lessons.length > 0 ? (
                 <div className="max-h-[560px] divide-y divide-slate-100 overflow-y-auto">
-                  {lessons.map((lesson) => (
+                  {lessons.map((lesson, index) => (
                     <button
                       key={lesson.id}
                       onClick={() => handleLessonClick(lesson.id)}
-                      className="w-full p-4 flex items-center gap-4 hover:bg-slate-50 transition-colors text-left"
+                      className="stagger-enter pressable w-full p-4 flex items-center gap-4 hover:bg-slate-50 transition-colors text-left"
+                      style={{ '--stagger-delay': `${Math.min(index * 40, 400)}ms` } as CSSProperties}
                     >
                       <div className="w-10 h-10 rounded-xl bg-violet-100 text-violet-600 flex items-center justify-center">
                         {getLessonIcon(lesson.type)}
@@ -702,7 +746,7 @@ export default function CourseDetailPage() {
                                 showToast(message, 'error');
                               }
                             }}
-                            className="p-2 rounded-lg hover:bg-slate-100 text-slate-500"
+                            className="pressable p-2 rounded-lg hover:bg-slate-100 text-slate-500"
                           >
                             <Eye className="w-4 h-4" />
                           </button>
@@ -719,7 +763,7 @@ export default function CourseDetailPage() {
                                 }
                               }
                             }}
-                            className="p-2 rounded-lg hover:bg-red-50 text-red-500"
+                            className="pressable p-2 rounded-lg hover:bg-red-50 text-red-500"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -823,19 +867,23 @@ export default function CourseDetailPage() {
                 {studentsLoading ? (
                   <div className="space-y-3 p-5">
                     {[1, 2, 3].map((item) => (
-                      <div key={item} className="h-16 animate-pulse rounded-xl bg-slate-100" />
+                      <div key={item} className="h-16 skeleton rounded-xl" />
                     ))}
                   </div>
                 ) : courseStudents.length > 0 ? (
                   <div className="max-h-[420px] divide-y divide-slate-100 overflow-y-auto">
-                    {courseStudents.map((enrollment) => (
-                      <ParticipantRow
+                    {courseStudents.map((enrollment, index) => (
+                      <div
                         key={enrollment.id}
-                        enrollment={enrollment}
-                        onDrop={() => setDroppingEnrollment(enrollment)}
-                        onApprove={() => handleApproveParticipant(enrollment)}
-                        onReject={() => handleRejectParticipant(enrollment)}
-                      />
+                        style={{ '--stagger-delay': `${Math.min(index * 40, 400)}ms` } as CSSProperties}
+                      >
+                        <ParticipantRow
+                          enrollment={enrollment}
+                          onDrop={() => setDroppingEnrollment(enrollment)}
+                          onApprove={() => handleApproveParticipant(enrollment)}
+                          onReject={() => handleRejectParticipant(enrollment)}
+                        />
+                      </div>
                     ))}
                   </div>
                 ) : (
@@ -880,27 +928,37 @@ export default function CourseDetailPage() {
         />
       )}
 
-      <InstructorProfileModal
-        course={showInstructorProfile ? course : null}
-        onClose={() => setShowInstructorProfile(false)}
-      />
+      <AnimatePresence>
+        {showInstructorProfile && course && (
+          <InstructorProfileModal
+            course={course}
+            onClose={() => setShowInstructorProfile(false)}
+          />
+        )}
+      </AnimatePresence>
 
-      <DropParticipantModal
-        enrollment={droppingEnrollment}
-        onClose={() => setDroppingEnrollment(null)}
-        onSubmit={handleDropParticipant}
-      />
+      <AnimatePresence>
+        {droppingEnrollment && (
+          <DropParticipantModal
+            enrollment={droppingEnrollment}
+            onClose={() => setDroppingEnrollment(null)}
+            onSubmit={handleDropParticipant}
+          />
+        )}
+      </AnimatePresence>
 
-      {showUnenrollConfirm && course && (
-        <ConfirmUnenrollModal
-          courseTitle={course.title}
-          label={isPendingApproval ? 'Hủy yêu cầu' : 'Hủy đăng ký'}
-          onCancel={() => setShowUnenrollConfirm(false)}
-          onConfirm={() => {
-            void handleUnenroll();
-          }}
-        />
-      )}
+      <AnimatePresence>
+        {showUnenrollConfirm && course && (
+          <ConfirmUnenrollModal
+            courseTitle={course.title}
+            label={isPendingApproval ? 'Hủy yêu cầu' : 'Hủy đăng ký'}
+            onCancel={() => setShowUnenrollConfirm(false)}
+            onConfirm={() => {
+              void handleUnenroll();
+            }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
