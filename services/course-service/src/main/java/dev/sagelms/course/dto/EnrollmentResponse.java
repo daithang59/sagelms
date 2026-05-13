@@ -15,6 +15,8 @@ public record EnrollmentResponse(
         String courseTitle,
         UUID studentId,
         String studentEmail,
+        String studentFullName,
+        String studentAvatarUrl,
         Instant enrolledAt,
         EnrollmentStatus status
 ) {
@@ -28,6 +30,8 @@ public record EnrollmentResponse(
                 null, // courseTitle - can be loaded separately if needed
                 enrollment.getStudentId(),
                 null, // studentEmail - can be loaded separately if needed
+                null, // studentFullName - can be loaded separately if needed
+                null, // studentAvatarUrl - can be loaded separately if needed
                 enrollment.getEnrolledAt(),
                 enrollment.getStatus()
         );
@@ -37,12 +41,26 @@ public record EnrollmentResponse(
      * Convert entity with additional data
      */
     public static EnrollmentResponse fromEntity(Enrollment enrollment, String courseTitle, String studentEmail) {
+        return fromEntity(enrollment, courseTitle, studentEmail, null, null);
+    }
+
+    /**
+     * Convert entity with additional student profile data
+     */
+    public static EnrollmentResponse fromEntity(
+            Enrollment enrollment,
+            String courseTitle,
+            String studentEmail,
+            String studentFullName,
+            String studentAvatarUrl) {
         return new EnrollmentResponse(
                 enrollment.getId(),
                 enrollment.getCourseId(),
                 courseTitle,
                 enrollment.getStudentId(),
                 studentEmail,
+                studentFullName,
+                studentAvatarUrl,
                 enrollment.getEnrolledAt(),
                 enrollment.getStatus()
         );

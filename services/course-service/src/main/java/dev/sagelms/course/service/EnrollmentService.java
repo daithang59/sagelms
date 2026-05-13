@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -22,10 +23,15 @@ public class EnrollmentService {
 
     private final EnrollmentRepository enrollmentRepository;
     private final CourseRepository courseRepository;
+    private final AuthUserClient authUserClient;
 
-    public EnrollmentService(EnrollmentRepository enrollmentRepository, CourseRepository courseRepository) {
+    public EnrollmentService(
+            EnrollmentRepository enrollmentRepository,
+            CourseRepository courseRepository,
+            AuthUserClient authUserClient) {
         this.enrollmentRepository = enrollmentRepository;
         this.courseRepository = courseRepository;
+        this.authUserClient = authUserClient;
     }
 
     /**
@@ -100,7 +106,7 @@ public class EnrollmentService {
         if (!RoleUtils.isAdmin(roles) && !course.getInstructorId().equals(userId)) {
             throw new CourseForbiddenException("Course owner or admin role required.");
         }
-        return getEnrollmentsByCourse(courseId);
+        return buildCourseEnrollmentResponses(course, enrollmentRepository.findByCourseId(courseId));
     }
 
     /**
@@ -154,6 +160,24 @@ public class EnrollmentService {
         if (!RoleUtils.isStudent(roles)) {
             throw new CourseForbiddenException("Student role required.");
         }
+    }
+
+    private List<EnrollmentResponse> buildCourseEnrollmentResponses(Course course, List<Enrollment> enrollments) {
+        Map<UUID, AuthUserClient.UserSummary> fetchedUsersById = authUserClient.getUsersByIds(
+                enrollments.stream().map(Enrollment::getStudentId).toList());
+        Map<UUID, AuthUserClient.UserSummary> usersById = fetchedUsersById != null ? fetchedUsersById : Map.of();
+
+        return enrollments.stream()
+                .map(enrollment -> {
+                    AuthUserClient.UserSummary student = usersById.get(enrollment.getStudentId());
+                    return EnrollmentResponse.fromEntity(
+                            enrollment,
+                            course.getTitle(),
+                            student != null ? student.email() : null,
+                            student != null ? student.fullName() : null,
+                            student != null ? student.avatarUrl() : null);
+                })
+                .toList();
     }
 
     // ============== Exception Classes ==============

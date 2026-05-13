@@ -33,6 +33,9 @@ class EnrollmentServiceTest {
     @Mock
     private CourseRepository courseRepository;
 
+    @Mock
+    private AuthUserClient authUserClient;
+
     @InjectMocks
     private EnrollmentService enrollmentService;
 

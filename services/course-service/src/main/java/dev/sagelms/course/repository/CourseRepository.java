@@ -18,6 +18,8 @@ public interface CourseRepository extends JpaRepository<Course, UUID> {
     // Find courses by instructor
     List<Course> findByInstructorId(UUID instructorId);
 
+    Page<Course> findByInstructorId(UUID instructorId, Pageable pageable);
+
     // Find courses by status
     List<Course> findByStatus(CourseStatus status);
 
@@ -27,9 +29,14 @@ public interface CourseRepository extends JpaRepository<Course, UUID> {
     // Find courses by instructor and status
     List<Course> findByInstructorIdAndStatus(UUID instructorId, CourseStatus status);
 
+    Page<Course> findByInstructorIdAndStatus(UUID instructorId, CourseStatus status, Pageable pageable);
+
     // Search courses by title (case insensitive)
     @Query("SELECT c FROM Course c WHERE LOWER(c.title) LIKE LOWER(CONCAT('%', :search, '%'))")
     Page<Course> searchByTitle(@Param("search") String search, Pageable pageable);
+
+    @Query("SELECT c FROM Course c WHERE c.instructorId = :instructorId AND LOWER(c.title) LIKE LOWER(CONCAT('%', :search, '%'))")
+    Page<Course> searchByInstructorAndTitle(@Param("instructorId") UUID instructorId, @Param("search") String search, Pageable pageable);
 
     @Query("SELECT c FROM Course c WHERE c.status = 'PUBLISHED' AND LOWER(c.title) LIKE LOWER(CONCAT('%', :search, '%'))")
     Page<Course> searchPublishedByTitle(@Param("search") String search, Pageable pageable);
@@ -40,6 +47,8 @@ public interface CourseRepository extends JpaRepository<Course, UUID> {
 
     Page<Course> findByCategory(String category, Pageable pageable);
 
+    Page<Course> findByInstructorIdAndCategory(UUID instructorId, String category, Pageable pageable);
+
     Page<Course> findByStatusAndCategory(CourseStatus status, String category, Pageable pageable);
 
     Page<Course> findByStatusAndCategoryIgnoreCase(CourseStatus status, String category, Pageable pageable);
@@ -48,6 +57,8 @@ public interface CourseRepository extends JpaRepository<Course, UUID> {
 
     // Find by category
     List<Course> findByCategory(String category);
+
+    List<Course> findByInstructorIdAndCategory(UUID instructorId, String category);
 
     // Count enrollments for a course (using soft reference)
     @Query("SELECT COUNT(e) FROM Enrollment e WHERE e.courseId = :courseId")
