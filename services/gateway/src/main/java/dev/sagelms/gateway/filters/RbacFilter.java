@@ -23,6 +23,7 @@ public class RbacFilter implements GlobalFilter, Ordered {
     private static final List<String> ADMIN = List.of("ADMIN");
     private static final List<String> INSTRUCTOR_OR_ADMIN = List.of("INSTRUCTOR", "ADMIN");
     private static final List<String> STUDENT = List.of("STUDENT");
+    private static final List<String> LEARNER = List.of("STUDENT", "INSTRUCTOR");
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
@@ -57,12 +58,12 @@ public class RbacFilter implements GlobalFilter, Ordered {
 
         if (path.matches("^/api/v1/courses/[^/]+/enroll$")) {
             if (method == HttpMethod.POST || method == HttpMethod.DELETE) {
-                return STUDENT;
+                return LEARNER;
             }
         }
 
         if (path.matches("^/api/v1/courses/[^/]+/complete$") && method == HttpMethod.POST) {
-            return STUDENT;
+            return LEARNER;
         }
 
         if (isCourseMutation(method, path) || isLessonMutation(method, path)) {
