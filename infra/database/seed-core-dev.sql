@@ -2,6 +2,7 @@
 --
 -- Scope:
 --   - auth-service    -> auth.users
+--                    -> auth.notifications, auth.notification_preferences
 --   - course-service  -> course.courses, course.enrollments
 --   - content-service -> content.lessons
 --
@@ -75,6 +76,44 @@ CREATE INDEX IF NOT EXISTS idx_courses_enrollment_policy
 
 CREATE INDEX IF NOT EXISTS idx_enrollments_course_status
     ON course.enrollments (course_id, status);
+
+CREATE TABLE IF NOT EXISTS auth.notifications (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id     UUID NOT NULL,
+    type        VARCHAR(40) NOT NULL CHECK (type IN (
+        'ENROLLMENT_REQUESTED',
+        'ENROLLMENT_APPROVED',
+        'ENROLLMENT_REJECTED',
+        'COURSE_ENROLLED',
+        'SYSTEM'
+    )),
+    title       VARCHAR(255) NOT NULL,
+    message     VARCHAR(1000),
+    target_url  VARCHAR(500),
+    is_read     BOOLEAN NOT NULL DEFAULT FALSE,
+    read_at     TIMESTAMPTZ,
+    created_at  TIMESTAMPTZ DEFAULT NOW(),
+    updated_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_notifications_user_created
+    ON auth.notifications (user_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_notifications_user_unread
+    ON auth.notifications (user_id)
+    WHERE is_read = FALSE;
+
+CREATE TABLE IF NOT EXISTS auth.notification_preferences (
+    id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id              UUID NOT NULL UNIQUE,
+    in_app_enabled       BOOLEAN NOT NULL DEFAULT TRUE,
+    email_enabled        BOOLEAN NOT NULL DEFAULT FALSE,
+    enrollment_requests  BOOLEAN NOT NULL DEFAULT TRUE,
+    enrollment_results   BOOLEAN NOT NULL DEFAULT TRUE,
+    course_updates       BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at           TIMESTAMPTZ DEFAULT NOW(),
+    updated_at           TIMESTAMPTZ DEFAULT NOW()
+);
 
 -- ---------------------------------------------------------------------------
 -- Users
@@ -1271,6 +1310,117 @@ WHERE id IN (
     '40000000-0000-0000-0000-000000000017',
     '40000000-0000-0000-0000-000000000022'
 );
+
+INSERT INTO auth.notification_preferences (
+    user_id,
+    in_app_enabled,
+    email_enabled,
+    enrollment_requests,
+    enrollment_results,
+    course_updates,
+    created_at,
+    updated_at
+)
+SELECT
+    id,
+    TRUE,
+    FALSE,
+    TRUE,
+    TRUE,
+    TRUE,
+    NOW(),
+    NOW()
+FROM auth.users
+WHERE email IN (
+    'admin@sagelms.dev',
+    'instructor@sagelms.dev',
+    'frontend.instructor@sagelms.dev',
+    'data.instructor@sagelms.dev',
+    'student@sagelms.dev',
+    'student2@sagelms.dev'
+)
+ON CONFLICT (user_id) DO UPDATE SET
+    in_app_enabled = EXCLUDED.in_app_enabled,
+    enrollment_requests = EXCLUDED.enrollment_requests,
+    enrollment_results = EXCLUDED.enrollment_results,
+    course_updates = EXCLUDED.course_updates,
+    updated_at = NOW();
+
+INSERT INTO auth.notifications (
+    id,
+    user_id,
+    type,
+    title,
+    message,
+    target_url,
+    is_read,
+    created_at,
+    updated_at
+)
+VALUES
+    (
+        '60000000-0000-0000-0000-000000000001',
+        (SELECT id FROM auth.users WHERE email = 'frontend.instructor@sagelms.dev'),
+        'ENROLLMENT_REQUESTED',
+        'Có yêu cầu ghi danh mới',
+        'Second Student muốn ghi danh khóa Admin UX Patterns.',
+        '/courses/30000000-0000-0000-0000-000000000014',
+        FALSE,
+        NOW() - INTERVAL '2 hours',
+        NOW()
+    ),
+    (
+        '60000000-0000-0000-0000-000000000002',
+        (SELECT id FROM auth.users WHERE email = 'data.instructor@sagelms.dev'),
+        'ENROLLMENT_REQUESTED',
+        'Có yêu cầu ghi danh mới',
+        'Student Three muốn ghi danh khóa Machine Learning Basics for Product Teams.',
+        '/courses/30000000-0000-0000-0000-000000000018',
+        FALSE,
+        NOW() - INTERVAL '3 hours',
+        NOW()
+    ),
+    (
+        '60000000-0000-0000-0000-000000000003',
+        (SELECT id FROM auth.users WHERE email = 'student@sagelms.dev'),
+        'COURSE_ENROLLED',
+        'Bạn đã ghi danh thành công',
+        'Bạn có thể tiếp tục học Cloud Security Essentials.',
+        '/courses/30000000-0000-0000-0000-000000000024',
+        FALSE,
+        NOW() - INTERVAL '1 hour',
+        NOW()
+    ),
+    (
+        '60000000-0000-0000-0000-000000000004',
+        (SELECT id FROM auth.users WHERE email = 'student2@sagelms.dev'),
+        'ENROLLMENT_APPROVED',
+        'Yêu cầu ghi danh đã được duyệt',
+        'Bạn đã được duyệt vào khóa CI/CD Quality Gates.',
+        '/courses/30000000-0000-0000-0000-000000000022',
+        TRUE,
+        NOW() - INTERVAL '1 day',
+        NOW()
+    ),
+    (
+        '60000000-0000-0000-0000-000000000005',
+        (SELECT id FROM auth.users WHERE email = 'student3@sagelms.dev'),
+        'ENROLLMENT_REJECTED',
+        'Yêu cầu ghi danh bị từ chối',
+        'Giảng viên cần bạn bổ sung nền tảng JavaScript trước khi tham gia khóa này.',
+        '/courses/30000000-0000-0000-0000-000000000014',
+        FALSE,
+        NOW() - INTERVAL '4 hours',
+        NOW()
+    )
+ON CONFLICT (id) DO UPDATE SET
+    user_id = EXCLUDED.user_id,
+    type = EXCLUDED.type,
+    title = EXCLUDED.title,
+    message = EXCLUDED.message,
+    target_url = EXCLUDED.target_url,
+    is_read = EXCLUDED.is_read,
+    updated_at = NOW();
 
 COMMIT;
 
