@@ -28,6 +28,8 @@ app:
     refresh-token-expiry-ms: 604800000
   gateway:
     secret: ${GATEWAY_SHARED_SECRET:dev-gateway-secret-change-me}
+  internal:
+    secret: ${INTERNAL_API_SECRET:dev-internal-secret-change-me}
 
 management:
   endpoints:
