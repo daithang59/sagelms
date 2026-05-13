@@ -62,12 +62,12 @@ export default {
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
         'gradient-conic': 'conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))',
-        'gradient-brand': 'linear-gradient(135deg, #8b5cf6 0%, #06b6d4 100%)',
+        'gradient-brand': 'linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)',
         'gradient-warm': 'linear-gradient(135deg, #f59e0b 0%, #ef4444 100%)',
         'gradient-cool': 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
       },
       boxShadow: {
-        'soft': '0 2px 15px -3px rgba(0, 0, 0, 0.07), 0 10px 20px -2px rgba(0, 0, 0, 0.04)',
+        'soft': '0 4px 20px -2px rgba(0, 0, 0, 0.03), 0 0 3px rgba(0,0,0,0.02)',
         'glow-brand': '0 0 20px rgba(139, 92, 246, 0.3)',
         'glow-accent': '0 0 20px rgba(6, 182, 212, 0.3)',
         'glow-primary': '0 0 20px rgba(234, 179, 8, 0.3)',
