@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardBody, Button, Badge } from '@/components/ui';
 import { useCourses, useLessons, useEnrollment } from '@/hooks';
@@ -22,12 +22,19 @@ import {
   ExternalLink,
   Award,
   X,
+  UserX,
+  UserCheck,
 } from 'lucide-react';
-import type { Course, Enrollment } from '@/types/course';
+import type { Course, Enrollment, EnrollmentStatus } from '@/types/course';
 import LessonForm from './LessonForm';
 import CourseForm from './CourseForm';
 
 function getEnrollmentStatusLabel(status: string) {
+  if (status === 'PENDING') return 'Chờ duyệt';
+  if (status === 'ACTIVE') return 'Đang học';
+  if (status === 'COMPLETED') return 'Hoàn thành';
+  if (status === 'DROPPED') return 'Đã hủy';
+  if (status === 'REJECTED') return 'Bị từ chối';
   const labels: Record<string, string> = {
     ACTIVE: 'Đang học',
     COMPLETED: 'Hoàn thành',
@@ -37,12 +44,216 @@ function getEnrollmentStatusLabel(status: string) {
 }
 
 function getEnrollmentStatusVariant(status: string): 'success' | 'warning' | 'error' | 'neutral' {
+  if (status === 'PENDING') return 'warning';
+  if (status === 'REJECTED') return 'error';
   const variants: Record<string, 'success' | 'warning' | 'error' | 'neutral'> = {
     ACTIVE: 'success',
     COMPLETED: 'neutral',
     DROPPED: 'warning',
   };
   return variants[status] || 'neutral';
+}
+
+function getParticipantRoleLabel(role?: string | null) {
+  if (role === 'INSTRUCTOR') return 'Giảng viên học';
+  if (role === 'ADMIN') return 'Admin';
+  return 'Học viên';
+}
+
+function getParticipantRoleVariant(role?: string | null): 'info' | 'brand' | 'neutral' {
+  if (role === 'INSTRUCTOR') return 'info';
+  if (role === 'ADMIN') return 'brand';
+  return 'neutral';
+}
+
+function ParticipantRow({
+  enrollment,
+  onDrop,
+  onApprove,
+  onReject,
+}: {
+  enrollment: Enrollment;
+  onDrop: () => void;
+  onApprove: () => void;
+  onReject: () => void;
+}) {
+  const displayName = enrollment.studentFullName || enrollment.studentEmail || enrollment.studentId;
+  const canDrop = enrollment.status !== 'DROPPED';
+
+  return (
+    <div className="flex items-start gap-3 p-4">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-sm font-bold text-violet-700">
+        {displayName.charAt(0).toUpperCase()}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="truncate font-medium text-slate-800">{displayName}</p>
+          <Badge variant={getParticipantRoleVariant(enrollment.studentRole)}>
+            {getParticipantRoleLabel(enrollment.studentRole)}
+          </Badge>
+          <Badge variant={getEnrollmentStatusVariant(enrollment.status)}>
+            {getEnrollmentStatusLabel(enrollment.status)}
+          </Badge>
+        </div>
+        <div className="mt-1 space-y-1 text-sm text-slate-500">
+          {enrollment.studentEmail && (
+            <span className="flex items-center gap-1">
+              <Mail className="h-3.5 w-3.5" />
+              {enrollment.studentEmail}
+            </span>
+          )}
+          <span>Đăng ký: {new Date(enrollment.enrolledAt).toLocaleDateString('vi-VN')}</span>
+        </div>
+      </div>
+      {enrollment.reviewNote && (
+        <div className="max-w-xs rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">
+          Ghi chú: {enrollment.reviewNote}
+        </div>
+      )}
+      {enrollment.status === 'PENDING' && (
+        <div className="flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            onClick={onApprove}
+            className="rounded-lg p-2 text-emerald-600 transition hover:bg-emerald-50"
+            title="Duyệt yêu cầu"
+            aria-label="Duyệt yêu cầu"
+          >
+            <UserCheck className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={onReject}
+            className="rounded-lg p-2 text-amber-600 transition hover:bg-amber-50"
+            title="Từ chối yêu cầu"
+            aria-label="Từ chối yêu cầu"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={onDrop}
+        disabled={!canDrop}
+        className="rounded-lg p-2 text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40"
+        title="Đưa ra khỏi khóa học"
+        aria-label="Đưa ra khỏi khóa học"
+      >
+        <UserX className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
+
+function DropParticipantModal({
+  enrollment,
+  onClose,
+  onSubmit,
+}: {
+  enrollment: Enrollment | null;
+  onClose: () => void;
+  onSubmit: (reason: string) => Promise<void>;
+}) {
+  const [reason, setReason] = useState('');
+
+  useEffect(() => {
+    if (!enrollment) return;
+    void Promise.resolve().then(() => setReason(''));
+  }, [enrollment]);
+
+  if (!enrollment) return null;
+
+  const trimmedReason = reason.trim();
+  const displayName = enrollment.studentFullName || enrollment.studentEmail || enrollment.studentId;
+
+  const handleSubmit = (event: FormEvent) => {
+    event.preventDefault();
+    if (trimmedReason.length >= 10) {
+      void onSubmit(trimmedReason);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl">
+        <div className="flex items-start justify-between border-b border-slate-100 p-5">
+          <div>
+            <h2 className="text-lg font-bold text-slate-900">Đưa người tham gia ra khỏi khóa</h2>
+            <p className="mt-1 text-sm text-slate-500">{displayName}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+            aria-label="Đóng"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4 p-5">
+          <div>
+            <label htmlFor="drop-participant-reason" className="mb-1.5 block text-sm font-medium text-slate-700">
+              Lý do
+            </label>
+            <textarea
+              id="drop-participant-reason"
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
+              minLength={10}
+              maxLength={1000}
+              required
+              rows={4}
+              placeholder="Ví dụ: Người học đăng ký nhầm khóa hoặc không còn phù hợp với lớp này."
+              className="w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
+            />
+          </div>
+          <div className="flex justify-end gap-3">
+            <Button type="button" variant="secondary" onClick={onClose}>
+              Hủy
+            </Button>
+            <Button type="submit" variant="danger" disabled={trimmedReason.length < 10}>
+              Xác nhận
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function ConfirmUnenrollModal({
+  courseTitle,
+  label,
+  onCancel,
+  onConfirm,
+}: {
+  courseTitle: string;
+  label: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-md rounded-2xl bg-white shadow-xl">
+        <div className="border-b border-slate-100 p-5">
+          <h2 className="text-lg font-bold text-slate-900">{label}?</h2>
+          <p className="mt-2 text-sm leading-relaxed text-slate-500">
+            Bạn có chắc chắn muốn {label.toLowerCase()} khóa học <span className="font-semibold text-slate-700">{courseTitle}</span> không?
+          </p>
+        </div>
+        <div className="flex justify-end gap-3 p-5">
+          <Button type="button" variant="secondary" onClick={onCancel}>
+            Giữ lại
+          </Button>
+          <Button type="button" variant="danger" onClick={onConfirm}>
+            {label}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function InstructorProfileModal({
@@ -130,23 +341,35 @@ export default function CourseDetailPage() {
   const { user } = useAuth();
   const { fetchCourse, loading: courseLoading, error: courseError } = useCourses();
   const { lessons, loading: lessonsLoading, fetchLessonsByCourse, fetchLessonsForManagement, deleteLesson, publishLesson } = useLessons();
-  const { enroll, unenroll, checkEnrollment, getCourseStudents } = useEnrollment();
+  const {
+    enroll,
+    unenroll,
+    getEnrollmentCheck,
+    getCourseStudents,
+    dropCourseParticipant,
+    approveCourseParticipant,
+    rejectCourseParticipant,
+  } = useEnrollment();
   const { showToast } = useToast();
 
   const [course, setCourse] = useState<Course | null>(null);
-  const [isEnrolled, setIsEnrolled] = useState(false);
+  const [enrollmentStatus, setEnrollmentStatus] = useState<EnrollmentStatus | null>(null);
   const [showLessonForm, setShowLessonForm] = useState(false);
   const [editingLesson, setEditingLesson] = useState(null);
   const [showCourseForm, setShowCourseForm] = useState(false);
   const [courseStudents, setCourseStudents] = useState<Enrollment[]>([]);
   const [studentsLoading, setStudentsLoading] = useState(false);
   const [showInstructorProfile, setShowInstructorProfile] = useState(false);
+  const [droppingEnrollment, setDroppingEnrollment] = useState<Enrollment | null>(null);
+  const [showUnenrollConfirm, setShowUnenrollConfirm] = useState(false);
 
   const canCreateCourse = user?.role === 'INSTRUCTOR' || user?.role === 'ADMIN';
   const isOwner = canCreateCourse && course?.instructorId === user?.id;
   const isAdmin = user?.role === 'ADMIN';
   const canManageCourse = isOwner || isAdmin;
-  const canEnroll = user?.role === 'STUDENT' && !isOwner && !isAdmin;
+  const canEnroll = (user?.role === 'STUDENT' || user?.role === 'INSTRUCTOR') && !isOwner && !isAdmin;
+  const isEnrolled = enrollmentStatus === 'ACTIVE' || enrollmentStatus === 'COMPLETED';
+  const isPendingApproval = enrollmentStatus === 'PENDING';
 
   useEffect(() => {
     if (id) {
@@ -188,22 +411,26 @@ export default function CourseDetailPage() {
   }, [id, canManageCourse, getCourseStudents]);
 
   useEffect(() => {
-    // Only check enrollment for students
-    if (id && user && user.role === 'STUDENT') {
-      checkEnrollment(id)
-        .then(setIsEnrolled)
-        .catch(() => setIsEnrolled(false));
+    if (id && user && (user.role === 'STUDENT' || user.role === 'INSTRUCTOR')) {
+      getEnrollmentCheck(id)
+        .then((result) => setEnrollmentStatus(result.status))
+        .catch(() => setEnrollmentStatus(null));
     } else {
-      void Promise.resolve().then(() => setIsEnrolled(false));
+      void Promise.resolve().then(() => setEnrollmentStatus(null));
     }
-  }, [id, user, checkEnrollment]);
+  }, [id, user, getEnrollmentCheck]);
 
   const handleEnroll = async () => {
     if (!id) return;
     try {
-      await enroll(id);
-      setIsEnrolled(true);
-      showToast('Đăng ký khoá học thành công!', 'success');
+      const enrollment = await enroll(id);
+      setEnrollmentStatus(enrollment.status);
+      showToast(
+        enrollment.status === 'PENDING'
+          ? 'Đã gửi yêu cầu học. Vui lòng chờ giảng viên duyệt.'
+          : 'Đăng ký khóa học thành công!',
+        'success',
+      );
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Đăng ký thất bại';
       showToast(message, 'error');
@@ -213,15 +440,62 @@ export default function CourseDetailPage() {
 
   const handleUnenroll = async () => {
     if (!id) return;
-    if (!confirm('Bạn có chắc chắn muốn hủy đăng ký khoá học này?')) return;
     try {
       await unenroll(id);
-      setIsEnrolled(false);
+      setEnrollmentStatus('DROPPED');
+      setShowUnenrollConfirm(false);
       showToast('Hủy đăng ký thành công!', 'success');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Hủy đăng ký thất bại';
       showToast(message, 'error');
       console.error('Failed to unenroll:', err);
+    }
+  };
+
+  const handleDropParticipant = async (reason: string) => {
+    if (!id || !droppingEnrollment) return;
+    try {
+      await dropCourseParticipant(id, droppingEnrollment.studentId, reason);
+      setCourseStudents((prev) =>
+        prev.map((item) =>
+          item.id === droppingEnrollment.id ? { ...item, status: 'DROPPED' } : item,
+        ),
+      );
+      setDroppingEnrollment(null);
+      showToast('Đã đưa người tham gia ra khỏi khóa học.', 'success');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Thao tác thất bại';
+      showToast(message, 'error');
+    }
+  };
+
+  const handleApproveParticipant = async (enrollment: Enrollment) => {
+    if (!id) return;
+    try {
+      const updated = await approveCourseParticipant(id, enrollment.studentId);
+      setCourseStudents((prev) =>
+        prev.map((item) => (item.id === enrollment.id ? { ...item, status: updated.status } : item)),
+      );
+      showToast('Đã duyệt yêu cầu học.', 'success');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Duyệt yêu cầu thất bại';
+      showToast(message, 'error');
+    }
+  };
+
+  const handleRejectParticipant = async (enrollment: Enrollment) => {
+    if (!id) return;
+    const reason = window.prompt('Nhập lý do từ chối yêu cầu học:');
+    if (!reason || reason.trim().length < 5) return;
+    try {
+      const updated = await rejectCourseParticipant(id, enrollment.studentId, reason.trim());
+      setCourseStudents((prev) =>
+        prev.map((item) => (item.id === enrollment.id ? { ...item, status: updated.status } : item)),
+      );
+      showToast('Đã từ chối yêu cầu học.', 'success');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Từ chối yêu cầu thất bại';
+      showToast(message, 'error');
     }
   };
 
@@ -236,6 +510,10 @@ export default function CourseDetailPage() {
   };
 
   const handleLessonClick = (lessonId: string) => {
+    if (canEnroll && isPendingApproval) {
+      showToast('Yêu cầu học của bạn đang chờ giảng viên duyệt.', 'warning');
+      return;
+    }
     if (canEnroll && !isEnrolled) {
       showToast('Vui lòng đăng ký khoá học để xem bài học này', 'warning');
       return;
@@ -353,62 +631,6 @@ export default function CourseDetailPage() {
             </CardBody>
           </Card>
 
-          {canManageCourse && (
-            <Card>
-              <CardBody className="p-0">
-                <div className="border-b border-slate-100 p-6">
-                  <h2 className="text-lg font-bold text-slate-800">Học viên trong khóa học</h2>
-                  <p className="mt-1 text-sm text-slate-500">
-                    Danh sách học viên đã từng đăng ký khóa học này.
-                  </p>
-                </div>
-
-                {studentsLoading ? (
-                  <div className="space-y-3 p-6">
-                    {[1, 2, 3].map((item) => (
-                      <div key={item} className="h-14 animate-pulse rounded-xl bg-slate-100" />
-                    ))}
-                  </div>
-                ) : courseStudents.length > 0 ? (
-                  <div className="divide-y divide-slate-100">
-                    {courseStudents.map((enrollment) => (
-                      <div key={enrollment.id} className="flex items-center gap-4 p-4">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-sm font-bold text-violet-700">
-                          {(enrollment.studentFullName || enrollment.studentEmail || enrollment.studentId)
-                            .charAt(0)
-                            .toUpperCase()}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className="truncate font-medium text-slate-800">
-                              {enrollment.studentFullName || 'Chưa có tên'}
-                            </p>
-                            <Badge variant={getEnrollmentStatusVariant(enrollment.status)}>
-                              {getEnrollmentStatusLabel(enrollment.status)}
-                            </Badge>
-                          </div>
-                          <div className="mt-1 flex flex-wrap items-center gap-3 text-sm text-slate-500">
-                            {enrollment.studentEmail && (
-                              <span className="inline-flex items-center gap-1">
-                                <Mail className="h-3.5 w-3.5" />
-                                {enrollment.studentEmail}
-                              </span>
-                            )}
-                            <span>Đăng ký: {new Date(enrollment.enrolledAt).toLocaleDateString('vi-VN')}</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="p-8 text-center text-sm text-slate-500">
-                    Chưa có học viên nào đăng ký khóa học này.
-                  </div>
-                )}
-              </CardBody>
-            </Card>
-          )}
-
           {/* Lessons */}
           <Card>
             <CardBody className="p-0">
@@ -437,7 +659,7 @@ export default function CourseDetailPage() {
                   ))}
                 </div>
               ) : lessons.length > 0 ? (
-                <div className="divide-y divide-slate-100">
+                <div className="max-h-[560px] divide-y divide-slate-100 overflow-y-auto">
                   {lessons.map((lesson) => (
                     <button
                       key={lesson.id}
@@ -529,13 +751,23 @@ export default function CourseDetailPage() {
               </div>
 
               {canEnroll ? (
-                isEnrolled ? (
+                isPendingApproval ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-amber-600">
+                      <Clock className="w-5 h-5" />
+                      <span className="font-medium">Yêu cầu học đang chờ duyệt</span>
+                    </div>
+                    <Button variant="secondary" className="w-full" onClick={() => setShowUnenrollConfirm(true)}>
+                      Hủy yêu cầu
+                    </Button>
+                  </div>
+                ) : isEnrolled ? (
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 text-emerald-600">
                       <CheckCircle className="w-5 h-5" />
                       <span className="font-medium">Bạn đã đăng ký khoá học này</span>
                     </div>
-                    <Button variant="secondary" className="w-full" onClick={handleUnenroll}>
+                    <Button variant="secondary" className="w-full" onClick={() => setShowUnenrollConfirm(true)}>
                       Hủy đăng ký
                     </Button>
                     <Button className="w-full" onClick={handleStartLearning}>
@@ -547,8 +779,13 @@ export default function CourseDetailPage() {
                   <div className="space-y-3">
                     <Button className="w-full" onClick={handleEnroll}>
                       <GraduationCap className="w-4 h-4 mr-2" />
-                      Đăng ký ngay
+                      {course.enrollmentPolicy === 'APPROVAL_REQUIRED' ? 'Gửi yêu cầu học' : 'Đăng ký ngay'}
                     </Button>
+                    {course.enrollmentPolicy === 'APPROVAL_REQUIRED' && (
+                      <p className="text-xs leading-relaxed text-slate-500">
+                        Giảng viên cần duyệt trước khi bạn xem nội dung khóa học.
+                      </p>
+                    )}
                   </div>
                 )
               ) : canManageCourse ? (
@@ -572,6 +809,43 @@ export default function CourseDetailPage() {
               )}
             </CardBody>
           </Card>
+
+          {canManageCourse && (
+            <Card>
+              <CardBody className="p-0">
+                <div className="border-b border-slate-100 p-5">
+                  <h2 className="text-lg font-bold text-slate-800">Người tham gia khóa học</h2>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Bao gồm học viên và giảng viên khác đã đăng ký học khóa này.
+                  </p>
+                </div>
+
+                {studentsLoading ? (
+                  <div className="space-y-3 p-5">
+                    {[1, 2, 3].map((item) => (
+                      <div key={item} className="h-16 animate-pulse rounded-xl bg-slate-100" />
+                    ))}
+                  </div>
+                ) : courseStudents.length > 0 ? (
+                  <div className="max-h-[420px] divide-y divide-slate-100 overflow-y-auto">
+                    {courseStudents.map((enrollment) => (
+                      <ParticipantRow
+                        key={enrollment.id}
+                        enrollment={enrollment}
+                        onDrop={() => setDroppingEnrollment(enrollment)}
+                        onApprove={() => handleApproveParticipant(enrollment)}
+                        onReject={() => handleRejectParticipant(enrollment)}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-8 text-center text-sm text-slate-500">
+                    Chưa có người tham gia nào đăng ký khóa học này.
+                  </div>
+                )}
+              </CardBody>
+            </Card>
+          )}
         </div>
       </div>
 
@@ -600,7 +874,8 @@ export default function CourseDetailPage() {
           editCourse={{
             ...course,
             category: course.category || '',
-            status: course.status
+            status: course.status,
+            enrollmentPolicy: course.enrollmentPolicy || 'OPEN',
           }}
         />
       )}
@@ -609,6 +884,23 @@ export default function CourseDetailPage() {
         course={showInstructorProfile ? course : null}
         onClose={() => setShowInstructorProfile(false)}
       />
+
+      <DropParticipantModal
+        enrollment={droppingEnrollment}
+        onClose={() => setDroppingEnrollment(null)}
+        onSubmit={handleDropParticipant}
+      />
+
+      {showUnenrollConfirm && course && (
+        <ConfirmUnenrollModal
+          courseTitle={course.title}
+          label={isPendingApproval ? 'Hủy yêu cầu' : 'Hủy đăng ký'}
+          onCancel={() => setShowUnenrollConfirm(false)}
+          onConfirm={() => {
+            void handleUnenroll();
+          }}
+        />
+      )}
     </div>
   );
 }

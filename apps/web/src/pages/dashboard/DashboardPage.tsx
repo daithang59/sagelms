@@ -31,6 +31,7 @@ interface AdminDashboardData {
 
 interface InstructorDashboardData {
   courses: Course[];
+  enrollments: Enrollment[];
 }
 
 interface StudentDashboardData {
@@ -68,9 +69,11 @@ const courseStatusLabel: Record<CourseStatus, string> = {
 };
 
 const enrollmentStatusLabel: Record<EnrollmentStatus, string> = {
+  PENDING: 'Chờ duyệt',
   ACTIVE: 'Đang học',
   COMPLETED: 'Hoàn thành',
   DROPPED: 'Đã dừng',
+  REJECTED: 'Bị từ chối',
 };
 
 function formatDate(value?: string | null) {
@@ -96,11 +99,17 @@ function getCourseBadgeVariant(status: CourseStatus) {
 }
 
 function getEnrollmentBadgeVariant(status: EnrollmentStatus) {
+  if (status === 'PENDING') {
+    return 'warning';
+  }
   if (status === 'ACTIVE') {
     return 'info';
   }
   if (status === 'COMPLETED') {
     return 'success';
+  }
+  if (status === 'REJECTED') {
+    return 'error';
   }
   return 'neutral';
 }
@@ -329,6 +338,7 @@ function AdminDashboard({ data }: { data: AdminDashboardData }) {
 function InstructorDashboard({ data }: { data: InstructorDashboardData }) {
   const publishedCourses = data.courses.filter((course) => course.status === 'PUBLISHED');
   const draftCourses = data.courses.filter((course) => course.status === 'DRAFT');
+  const activeEnrollments = data.enrollments.filter((enrollment) => enrollment.status === 'ACTIVE');
   const totalStudents = data.courses.reduce((sum, course) => sum + course.enrollmentCount, 0);
   const latestCourses = data.courses.slice(0, 5);
 
@@ -338,7 +348,7 @@ function InstructorDashboard({ data }: { data: InstructorDashboardData }) {
         <StatCard label="Khóa của tôi" value={data.courses.length} hint="Chỉ tính khóa do bạn tạo" icon={BookOpen} tone="violet" />
         <StatCard label="Đã xuất bản" value={publishedCourses.length} hint="Học viên có thể đăng ký" icon={CheckCircle2} tone="emerald" />
         <StatCard label="Bản nháp" value={draftCourses.length} hint="Cần hoàn thiện trước khi mở học" icon={ClipboardList} tone="amber" />
-        <StatCard label="Học viên" value={totalStudents} hint="Tổng lượt đăng ký trong khóa của bạn" icon={Users} tone="cyan" />
+        <StatCard label="Người học" value={totalStudents} hint="Tổng lượt đăng ký trong khóa của bạn" icon={Users} tone="cyan" />
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
@@ -379,6 +389,20 @@ function InstructorDashboard({ data }: { data: InstructorDashboardData }) {
           </div>
         </Card>
       </div>
+
+      <Card>
+        <SectionHeader
+          title="Khóa tôi đang học"
+          description="Các khóa của giảng viên khác mà bạn đã đăng ký học."
+          icon={GraduationCap}
+          to="/courses"
+        />
+        {activeEnrollments.length > 0 ? (
+          activeEnrollments.slice(0, 5).map((enrollment) => <EnrollmentRow key={enrollment.id} enrollment={enrollment} />)
+        ) : (
+          <EmptyState icon={GraduationCap} title="Chưa đăng ký học khóa nào" description="Mở tab Khám phá khóa học để học thêm từ giảng viên khác." />
+        )}
+      </Card>
     </>
   );
 }
@@ -483,7 +507,10 @@ export default function DashboardPage() {
         }
 
         if (user.role === 'INSTRUCTOR') {
-          const coursesResponse = await api.get<CourseListResponse>('/courses?size=100');
+          const [coursesResponse, enrollmentsResponse] = await Promise.all([
+            api.get<CourseListResponse>('/courses?size=100'),
+            api.get<Enrollment[]>('/courses/enrolled'),
+          ]);
 
           if (!cancelled) {
             setState({
@@ -491,6 +518,7 @@ export default function DashboardPage() {
               error: '',
               instructor: {
                 courses: coursesResponse.content,
+                enrollments: enrollmentsResponse,
               },
             });
           }

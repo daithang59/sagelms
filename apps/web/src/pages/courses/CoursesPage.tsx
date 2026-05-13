@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import { Card, CardBody, Button, Badge } from '@/components/ui';
 import { useCourses, useEnrollment } from '@/hooks';
 import { useAuth } from '@/contexts/AuthContext';
@@ -22,8 +22,11 @@ import {
   Award,
   X,
 } from 'lucide-react';
-import type { Course } from '@/types/course';
+import type { Course, Enrollment, EnrollmentStatus } from '@/types/course';
 import CourseForm from './CourseForm';
+
+type CourseScope = 'teaching' | 'explore';
+type StudentCourseTab = 'explore' | 'enrolled';
 
 const categoryOptions = [
   'Programming',
@@ -46,9 +49,8 @@ const categoryOptions = [
 // ============================================================================
 interface CourseCardProps {
   course: Course;
-  isEnrolled: boolean;
+  enrollmentStatus: EnrollmentStatus | null;
   onEnroll: () => void;
-  onUnenroll: () => void;
   getStatusBadge: (status: string) => React.ReactNode;
   canCreateCourse: boolean;
   currentUserId?: string;
@@ -139,9 +141,8 @@ function InstructorProfileModal({
 
 function CourseCard({
   course,
-  isEnrolled,
+  enrollmentStatus,
   onEnroll,
-  onUnenroll,
   getStatusBadge,
   canCreateCourse,
   currentUserId,
@@ -151,6 +152,9 @@ function CourseCard({
   onInstructorClick,
 }: CourseCardProps) {
   const isOwner = canCreateCourse && course.instructorId === currentUserId;
+  const canEnrollAsLearner = (currentUserRole === 'STUDENT' || currentUserRole === 'INSTRUCTOR') && !isOwner;
+  const isEnrolled = enrollmentStatus === 'ACTIVE' || enrollmentStatus === 'COMPLETED';
+  const isPending = enrollmentStatus === 'PENDING';
   const navigate = useNavigate();
 
   // Generate consistent gradient based on course title
@@ -198,6 +202,14 @@ function CourseCard({
           <div className="absolute bottom-3 left-3 z-20">
             <span className="px-3 py-1.5 rounded-full text-xs font-semibold bg-white/20 backdrop-blur-md text-white border border-white/20">
               {course.category}
+            </span>
+          </div>
+        )}
+
+        {course.enrollmentPolicy === 'APPROVAL_REQUIRED' && (
+          <div className="absolute bottom-3 right-3 z-20">
+            <span className="rounded-full bg-amber-100 px-3 py-1.5 text-xs font-semibold text-amber-700">
+              Cần duyệt
             </span>
           </div>
         )}
@@ -264,12 +276,21 @@ function CourseCard({
 
         {/* Action Buttons */}
         <div className="pt-2">
-          {isEnrolled ? (
+          {isPending ? (
+            <Button
+              variant="secondary"
+              className="w-full justify-center"
+              onClick={() => navigate(`/courses/${course.id}`)}
+            >
+              <span className="truncate">Chờ giảng viên duyệt</span>
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
+          ) : isEnrolled ? (
             <div className="flex gap-2">
               <Button
                 variant="secondary"
                 className="flex-1 justify-center"
-                onClick={onUnenroll}
+                disabled
               >
                 <GraduationCap className="w-4 h-4 mr-2" />
                 <span className="truncate">Đã ghi danh</span>
@@ -293,11 +314,10 @@ function CourseCard({
               <span className="truncate">Quản lý</span>
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
-          ) : currentUserRole === 'STUDENT' ? (
-            // Student - show enroll button
+          ) : canEnrollAsLearner ? (
             <Button className="w-full justify-center" onClick={onEnroll}>
               <Plus className="w-4 h-4 mr-2" />
-              Đăng ký ngay
+              {course.enrollmentPolicy === 'APPROVAL_REQUIRED' ? 'Gửi yêu cầu học' : 'Đăng ký học'}
             </Button>
           ) : (
             // Instructor (non-owner) - show "Chi tiết" button only
@@ -316,69 +336,239 @@ function CourseCard({
   );
 }
 
+function getEnrollmentLabel(status: EnrollmentStatus) {
+  if (status === 'PENDING') return 'Chờ duyệt';
+  if (status === 'ACTIVE') return 'Đang học';
+  if (status === 'COMPLETED') return 'Hoàn thành';
+  if (status === 'DROPPED') return 'Đã hủy';
+  if (status === 'REJECTED') return 'Bị từ chối';
+  return status;
+}
+
+function getEnrollmentVariant(status: EnrollmentStatus): 'success' | 'warning' | 'error' | 'neutral' | 'info' {
+  if (status === 'ACTIVE') return 'info';
+  if (status === 'COMPLETED') return 'success';
+  if (status === 'PENDING') return 'warning';
+  if (status === 'REJECTED') return 'error';
+  return 'neutral';
+}
+
+function EnrolledCourseCard({
+  enrollment,
+  onUnenroll,
+}: {
+  enrollment: Enrollment;
+  onUnenroll: () => void;
+}) {
+  const navigate = useNavigate();
+  const title = enrollment.courseTitle || `Khóa học ${enrollment.courseId.slice(0, 8)}`;
+  const canLearn = enrollment.status === 'ACTIVE' || enrollment.status === 'COMPLETED';
+  const isPending = enrollment.status === 'PENDING';
+
+  return (
+    <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition hover:shadow-lg">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-50 text-violet-600">
+            <GraduationCap className="h-6 w-6" />
+          </div>
+          <h3 className="line-clamp-2 text-lg font-bold text-slate-800">{title}</h3>
+          <p className="mt-2 text-sm text-slate-500">
+            Đăng ký ngày {new Date(enrollment.enrolledAt).toLocaleDateString('vi-VN')}
+          </p>
+        </div>
+        <Badge variant={getEnrollmentVariant(enrollment.status)}>
+          {getEnrollmentLabel(enrollment.status)}
+        </Badge>
+      </div>
+
+      {enrollment.reviewNote && (
+        <p className="mt-4 rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-600">
+          Ghi chú: {enrollment.reviewNote}
+        </p>
+      )}
+
+      <div className="mt-5 flex gap-2">
+        {canLearn ? (
+          <Button className="flex-1 justify-center" onClick={() => navigate(`/courses/${enrollment.courseId}`)}>
+            Học ngay
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </Button>
+        ) : (
+          <Button variant="secondary" className="flex-1 justify-center" onClick={() => navigate(`/courses/${enrollment.courseId}`)}>
+            {isPending ? 'Xem trạng thái' : 'Xem khóa học'}
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </Button>
+        )}
+        {enrollment.status !== 'COMPLETED' && (
+          <Button variant="outline" className="justify-center" onClick={onUnenroll}>
+            Hủy
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ConfirmUnenrollModal({
+  courseTitle,
+  onCancel,
+  onConfirm,
+}: {
+  courseTitle: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-md rounded-2xl bg-white shadow-xl">
+        <div className="border-b border-slate-100 p-5">
+          <h2 className="text-lg font-bold text-slate-900">Hủy đăng ký khóa học?</h2>
+          <p className="mt-2 text-sm leading-relaxed text-slate-500">
+            Bạn có chắc chắn muốn hủy đăng ký khóa học <span className="font-semibold text-slate-700">{courseTitle}</span> không?
+          </p>
+        </div>
+        <div className="flex justify-end gap-3 p-5">
+          <Button type="button" variant="secondary" onClick={onCancel}>
+            Giữ lại
+          </Button>
+          <Button type="button" variant="danger" onClick={onConfirm}>
+            Hủy đăng ký
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ============================================================================
 // Main Courses Page Component
 // ============================================================================
 export default function CoursesPage() {
   const { courses, loading, error, fetchCourses, deleteCourse } = useCourses();
-  const { enroll, unenroll, checkEnrollment } = useEnrollment();
+  const { enroll, unenroll, getEnrollmentCheck, getMyEnrollments } = useEnrollment();
   const { user } = useAuth();
   const { showToast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
-  const [enrolledCourses, setEnrolledCourses] = useState<Set<string>>(new Set());
+  const [enrollmentStatuses, setEnrollmentStatuses] = useState<Map<string, EnrollmentStatus>>(new Map());
+  const [myEnrollments, setMyEnrollments] = useState<Enrollment[]>([]);
+  const [myEnrollmentsLoading, setMyEnrollmentsLoading] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [selectedInstructorCourse, setSelectedInstructorCourse] = useState<Course | null>(null);
+  const [confirmUnenroll, setConfirmUnenroll] = useState<{ courseId: string; title: string } | null>(null);
+  const [courseScope, setCourseScope] = useState<CourseScope>('teaching');
+  const [studentTab, setStudentTab] = useState<StudentCourseTab>('explore');
   const hasFetched = useRef(false);
 
   const canCreateCourse = user?.role === 'INSTRUCTOR' || user?.role === 'ADMIN';
+  const isInstructor = user?.role === 'INSTRUCTOR';
+  const isStudent = user?.role === 'STUDENT';
+  const isStudentEnrolledTab = isStudent && studentTab === 'enrolled';
+  const fetchCourseList = useCallback((scope = courseScope) =>
+    fetchCourses(isInstructor ? { scope } : undefined), [courseScope, fetchCourses, isInstructor]);
+
+  const loadMyEnrollments = useCallback(async () => {
+    if (!isStudent) {
+      setMyEnrollments([]);
+      return;
+    }
+
+    setMyEnrollmentsLoading(true);
+    try {
+      const enrollments = await getMyEnrollments();
+      setMyEnrollments(enrollments);
+      setEnrollmentStatuses((prev) => {
+        const next = new Map(prev);
+        enrollments.forEach((enrollment) => next.set(enrollment.courseId, enrollment.status));
+        return next;
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Không tải được khóa đã ghi danh';
+      showToast(message, 'error');
+    } finally {
+      setMyEnrollmentsLoading(false);
+    }
+  }, [getMyEnrollments, isStudent, showToast]);
 
   useEffect(() => {
     if (!hasFetched.current) {
       hasFetched.current = true;
-      fetchCourses().catch((err) => {
+      fetchCourseList().catch((err) => {
         console.error('[CoursesPage] Failed to fetch courses:', err);
         hasFetched.current = false;
       });
     }
-  }, [fetchCourses]);
+  }, [fetchCourseList]);
+
+  useEffect(() => {
+    if (!isInstructor || !hasFetched.current) return;
+    fetchCourseList(courseScope).catch((err) => {
+      console.error('[CoursesPage] Failed to fetch scoped courses:', err);
+    });
+  }, [courseScope, fetchCourseList, isInstructor]);
+
+  useEffect(() => {
+    void Promise.resolve().then(() => loadMyEnrollments());
+  }, [loadMyEnrollments]);
 
   useEffect(() => {
     const checkEnrollments = async () => {
-      // Only check enrollments for students
-      if (!user || user.role !== 'STUDENT' || courses.length === 0) return;
-      const enrolled = new Set<string>();
+      if (!user || (user.role !== 'STUDENT' && user.role !== 'INSTRUCTOR') || courses.length === 0) return;
+      const statuses = new Map<string, EnrollmentStatus>();
       for (const course of courses) {
         try {
-          const isEnrolled = await checkEnrollment(course.id);
-          if (isEnrolled) enrolled.add(course.id);
+          const result = await getEnrollmentCheck(course.id);
+          if (result.status) statuses.set(course.id, result.status);
         } catch {
           // Not enrolled
         }
       }
-      setEnrolledCourses(enrolled);
+      setEnrollmentStatuses(statuses);
     };
     if (courses.length > 0 && user) {
       checkEnrollments();
     }
-  }, [courses, checkEnrollment, user]);
+  }, [courses, getEnrollmentCheck, user]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    fetchCourses({ search: searchQuery, category: selectedCategory });
+    if (isStudentEnrolledTab) {
+      return;
+    }
+    fetchCourses({
+      search: searchQuery,
+      category: selectedCategory,
+      ...(isInstructor ? { scope: courseScope } : {}),
+    });
   };
 
   const handleCategoryChange = (category: string) => {
     setSelectedCategory(category);
-    fetchCourses({ search: searchQuery, category });
+    if (isStudentEnrolledTab) {
+      return;
+    }
+    fetchCourses({
+      search: searchQuery,
+      category,
+      ...(isInstructor ? { scope: courseScope } : {}),
+    });
   };
 
   const handleEnroll = async (courseId: string) => {
     try {
-      await enroll(courseId);
-      setEnrolledCourses((prev) => new Set([...prev, courseId]));
-      showToast('Đăng ký khoá học thành công!', 'success');
+      const enrollment = await enroll(courseId);
+      setEnrollmentStatuses((prev) => new Map(prev).set(courseId, enrollment.status));
+      if (isStudent) {
+        await loadMyEnrollments();
+      }
+      showToast(
+        enrollment.status === 'PENDING'
+          ? 'Đã gửi yêu cầu học. Vui lòng chờ giảng viên duyệt.'
+          : 'Đăng ký khóa học thành công!',
+        'success',
+      );
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Đăng ký thất bại';
       showToast(message, 'error');
@@ -389,17 +579,21 @@ export default function CoursesPage() {
   const handleUnenroll = async (courseId: string) => {
     try {
       await unenroll(courseId);
-      setEnrolledCourses((prev) => {
-        const newSet = new Set(prev);
-        newSet.delete(courseId);
-        return newSet;
-      });
+      setEnrollmentStatuses((prev) => new Map(prev).set(courseId, 'DROPPED'));
+      if (isStudent) {
+        await loadMyEnrollments();
+      }
+      setConfirmUnenroll(null);
       showToast('Hủy đăng ký khoá học thành công!', 'success');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Hủy đăng ký thất bại';
       showToast(message, 'error');
       console.error('Failed to unenroll:', err);
     }
+  };
+
+  const requestUnenroll = (courseId: string, title: string) => {
+    setConfirmUnenroll({ courseId, title });
   };
 
   const handleEdit = (course: Course) => {
@@ -442,6 +636,12 @@ export default function CoursesPage() {
     );
   };
 
+  const filteredEnrollments = myEnrollments.filter((enrollment) => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return true;
+    return (enrollment.courseTitle || enrollment.courseId).toLowerCase().includes(query);
+  });
+
   return (
     <div className="space-y-8">
       {/* Page Header */}
@@ -469,6 +669,60 @@ export default function CoursesPage() {
         )}
       </div>
 
+      {isInstructor && (
+        <div className="inline-flex rounded-xl bg-white p-1 shadow-sm ring-1 ring-slate-200">
+          <button
+            type="button"
+            onClick={() => setCourseScope('teaching')}
+            className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+              courseScope === 'teaching'
+                ? 'bg-violet-50 text-violet-700 ring-1 ring-violet-200'
+                : 'text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            Khóa của tôi
+          </button>
+          <button
+            type="button"
+            onClick={() => setCourseScope('explore')}
+            className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+              courseScope === 'explore'
+                ? 'bg-violet-50 text-violet-700 ring-1 ring-violet-200'
+                : 'text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            Khám phá khóa học
+          </button>
+        </div>
+      )}
+
+      {isStudent && (
+        <div className="inline-flex rounded-xl bg-white p-1 shadow-sm ring-1 ring-slate-200">
+          <button
+            type="button"
+            onClick={() => setStudentTab('explore')}
+            className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+              studentTab === 'explore'
+                ? 'bg-violet-50 text-violet-700 ring-1 ring-violet-200'
+                : 'text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            Khám phá khóa học
+          </button>
+          <button
+            type="button"
+            onClick={() => setStudentTab('enrolled')}
+            className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+              studentTab === 'enrolled'
+                ? 'bg-violet-50 text-violet-700 ring-1 ring-violet-200'
+                : 'text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            Khóa đã ghi danh
+          </button>
+        </div>
+      )}
+
       {/* Search Bar - Modern Design */}
       <Card className="border-slate-200 shadow-sm">
         <CardBody className="p-2">
@@ -495,6 +749,7 @@ export default function CoursesPage() {
               <span className="hidden sm:inline">Tìm kiếm</span>
             </Button>
           </form>
+          {!isStudentEnrolledTab && (
           <div className="mt-2 flex gap-2 overflow-x-auto px-1 pb-1">
             <button
               type="button"
@@ -522,6 +777,7 @@ export default function CoursesPage() {
               </button>
             ))}
           </div>
+          )}
         </CardBody>
       </Card>
 
@@ -533,7 +789,7 @@ export default function CoursesPage() {
       )}
 
       {/* Loading Skeleton */}
-      {loading && (
+      {!isStudentEnrolledTab && loading && (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {[1, 2, 3, 4, 5, 6].map((i) => (
             <div
@@ -551,16 +807,23 @@ export default function CoursesPage() {
         </div>
       )}
 
+      {isStudentEnrolledTab && myEnrollmentsLoading && (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          {[1, 2, 3].map((item) => (
+            <div key={item} className="h-48 animate-pulse rounded-2xl border border-slate-100 bg-white" />
+          ))}
+        </div>
+      )}
+
       {/* Courses Grid */}
-      {!loading && courses.length > 0 && (
+      {!isStudentEnrolledTab && !loading && courses.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {courses.map((course) => (
             <CourseCard
               key={course.id}
               course={course}
-              isEnrolled={enrolledCourses.has(course.id)}
+              enrollmentStatus={enrollmentStatuses.get(course.id) || null}
               onEnroll={() => handleEnroll(course.id)}
-              onUnenroll={() => handleUnenroll(course.id)}
               getStatusBadge={getStatusBadge}
               canCreateCourse={canCreateCourse}
               currentUserId={user?.id}
@@ -573,8 +836,20 @@ export default function CoursesPage() {
         </div>
       )}
 
+      {isStudentEnrolledTab && !myEnrollmentsLoading && filteredEnrollments.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          {filteredEnrollments.map((enrollment) => (
+            <EnrolledCourseCard
+              key={enrollment.id}
+              enrollment={enrollment}
+              onUnenroll={() => requestUnenroll(enrollment.courseId, enrollment.courseTitle || `Khóa học ${enrollment.courseId.slice(0, 8)}`)}
+            />
+          ))}
+        </div>
+      )}
+
       {/* Empty State */}
-      {!loading && courses.length === 0 && (
+      {!isStudentEnrolledTab && !loading && courses.length === 0 && (
         <Card className="border-slate-200">
           <CardBody className="py-20 text-center">
             <div className="w-24 h-24 mx-auto mb-6 rounded-3xl bg-gradient-to-br from-violet-100 to-indigo-100 flex items-center justify-center">
@@ -604,6 +879,25 @@ export default function CoursesPage() {
         </Card>
       )}
 
+      {isStudentEnrolledTab && !myEnrollmentsLoading && filteredEnrollments.length === 0 && (
+        <Card className="border-slate-200">
+          <CardBody className="py-20 text-center">
+            <div className="w-24 h-24 mx-auto mb-6 rounded-3xl bg-gradient-to-br from-violet-100 to-indigo-100 flex items-center justify-center">
+              <GraduationCap className="w-12 h-12 text-violet-500" />
+            </div>
+            <h3 className="text-xl font-bold text-slate-700 mb-2">
+              Chưa có khóa đã ghi danh
+            </h3>
+            <p className="text-slate-500 max-w-md mx-auto mb-8">
+              Chuyển sang tab Khám phá khóa học để tìm khóa phù hợp và bắt đầu học.
+            </p>
+            <Button onClick={() => setStudentTab('explore')}>
+              Khám phá khóa học
+            </Button>
+          </CardBody>
+        </Card>
+      )}
+
       {/* Course Form Modal */}
       <CourseForm
         isOpen={isFormOpen}
@@ -612,19 +906,30 @@ export default function CoursesPage() {
           setEditingCourse(null);
         }}
         onSuccess={() => {
-          fetchCourses();
+          void fetchCourseList();
         }}
         editCourse={editingCourse ? {
-          ...editingCourse,
-          category: editingCourse.category || '',
-          status: editingCourse.status
-        } : null}
+            ...editingCourse,
+            category: editingCourse.category || '',
+            status: editingCourse.status,
+            enrollmentPolicy: editingCourse.enrollmentPolicy || 'OPEN',
+          } : null}
       />
 
       <InstructorProfileModal
         course={selectedInstructorCourse}
         onClose={() => setSelectedInstructorCourse(null)}
       />
+
+      {confirmUnenroll && (
+        <ConfirmUnenrollModal
+          courseTitle={confirmUnenroll.title}
+          onCancel={() => setConfirmUnenroll(null)}
+          onConfirm={() => {
+            void handleUnenroll(confirmUnenroll.courseId);
+          }}
+        />
+      )}
     </div>
   );
 }

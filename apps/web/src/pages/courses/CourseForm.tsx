@@ -3,7 +3,7 @@ import { Button } from '@/components/ui';
 import { useCourses } from '@/hooks';
 import { useToast } from '@/components/Toast';
 import { X, Image as ImageIcon } from 'lucide-react';
-import type { CourseStatus } from '@/types/course';
+import type { CourseStatus, EnrollmentPolicy } from '@/types/course';
 
 interface CourseFormProps {
   isOpen: boolean;
@@ -16,6 +16,7 @@ interface CourseFormProps {
     category: string;
     thumbnailUrl: string | null;
     status: CourseStatus;
+    enrollmentPolicy: EnrollmentPolicy;
   } | null;
 }
 
@@ -36,10 +37,23 @@ const categories = [
   'Other',
 ];
 
-const statusOptions = [
+const statusOptions: Array<{ value: CourseStatus; label: string }> = [
   { value: 'DRAFT', label: 'Bản nháp' },
   { value: 'PUBLISHED', label: 'Xuất bản' },
   { value: 'ARCHIVED', label: 'Lưu trữ' },
+];
+
+const enrollmentPolicyOptions: Array<{ value: EnrollmentPolicy; label: string; description: string }> = [
+  {
+    value: 'OPEN',
+    label: 'Công khai',
+    description: 'Người học được vào khóa ngay sau khi đăng ký.',
+  },
+  {
+    value: 'APPROVAL_REQUIRED',
+    label: 'Cần duyệt',
+    description: 'Giảng viên/admin phải duyệt trước khi người học vào khóa.',
+  },
 ];
 
 export default function CourseForm({ isOpen, onClose, onSuccess, editCourse }: CourseFormProps) {
@@ -52,12 +66,14 @@ export default function CourseForm({ isOpen, onClose, onSuccess, editCourse }: C
     category: string;
     thumbnailUrl: string;
     status: CourseStatus;
+    enrollmentPolicy: EnrollmentPolicy;
   }>({
     title: editCourse?.title || '',
     description: editCourse?.description || '',
     category: editCourse?.category || '',
     thumbnailUrl: editCourse?.thumbnailUrl || '',
-    status: (editCourse?.status === 'DRAFT' || editCourse?.status === 'PUBLISHED' || editCourse?.status === 'ARCHIVED') ? editCourse.status : 'DRAFT',
+    status: editCourse?.status || 'DRAFT',
+    enrollmentPolicy: editCourse?.enrollmentPolicy || 'OPEN',
   });
 
   useEffect(() => {
@@ -67,26 +83,27 @@ export default function CourseForm({ isOpen, onClose, onSuccess, editCourse }: C
         description: editCourse?.description || '',
         category: editCourse?.category || '',
         thumbnailUrl: editCourse?.thumbnailUrl || '',
-        status: (editCourse?.status === 'DRAFT' || editCourse?.status === 'PUBLISHED' || editCourse?.status === 'ARCHIVED') ? editCourse.status : 'DRAFT',
+        status: editCourse?.status || 'DRAFT',
+        enrollmentPolicy: editCourse?.enrollmentPolicy || 'OPEN',
       });
     });
   }, [editCourse, isOpen]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
 
     try {
       if (editCourse) {
         await updateCourse(editCourse.id, formData);
-        showToast('Cập nhật khoá học thành công!', 'success');
+        showToast('Cập nhật khóa học thành công!', 'success');
       } else {
         await createCourse(formData);
-        showToast('Tạo khoá học thành công!', 'success');
+        showToast('Tạo khóa học thành công!', 'success');
       }
       onSuccess?.();
       onClose();
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Lưu khoá học thất bại';
+      const message = error instanceof Error ? error.message : 'Lưu khóa học thất bại';
       showToast(message, 'error');
       console.error('Failed to save course:', error);
     }
@@ -96,110 +113,100 @@ export default function CourseForm({ isOpen, onClose, onSuccess, editCourse }: C
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={onClose}
-      />
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
 
-      {/* Modal */}
-      <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white rounded-2xl shadow-2xl m-4">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-slate-200">
+      <div className="relative m-4 max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-slate-200 p-6">
           <h2 className="text-xl font-bold text-slate-800">
-            {editCourse ? 'Chỉnh sửa khoá học' : 'Tạo khoá học mới'}
+            {editCourse ? 'Chỉnh sửa khóa học' : 'Tạo khóa học mới'}
           </h2>
           <button
+            type="button"
             onClick={onClose}
-            className="p-2 rounded-xl hover:bg-slate-100 transition-colors"
+            className="rounded-xl p-2 transition-colors hover:bg-slate-100"
+            aria-label="Đóng"
           >
-            <X className="w-5 h-5 text-slate-500" />
+            <X className="h-5 w-5 text-slate-500" />
           </button>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* Thumbnail */}
+        <form onSubmit={handleSubmit} className="space-y-6 p-6">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
+            <label className="mb-2 block text-sm font-medium text-slate-700">
               Ảnh thumbnail
             </label>
-            <div className="relative border-2 border-dashed border-slate-300 rounded-xl hover:border-violet-400 transition-colors">
+            <div className="relative rounded-xl border-2 border-dashed border-slate-300 transition-colors hover:border-violet-400">
               <div className="flex flex-col items-center justify-center py-8">
                 {formData.thumbnailUrl ? (
                   <div className="relative w-full max-w-md">
                     <img
                       src={formData.thumbnailUrl}
                       alt="Thumbnail"
-                      className="w-full h-48 object-cover rounded-lg"
+                      className="h-48 w-full rounded-lg object-cover"
                     />
                     <button
                       type="button"
                       onClick={() => setFormData({ ...formData, thumbnailUrl: '' })}
-                      className="absolute top-2 right-2 p-1 bg-white rounded-lg shadow-md hover:bg-slate-100"
+                      className="absolute right-2 top-2 rounded-lg bg-white p-1 shadow-md hover:bg-slate-100"
+                      aria-label="Xóa ảnh"
                     >
-                      <X className="w-4 h-4" />
+                      <X className="h-4 w-4" />
                     </button>
                   </div>
                 ) : (
                   <>
-                    <ImageIcon className="w-12 h-12 text-slate-300 mb-3" />
-                    <p className="text-sm text-slate-500 mb-2">
-                      Nhập URL ảnh thumbnail
-                    </p>
+                    <ImageIcon className="mb-3 h-12 w-12 text-slate-300" />
+                    <p className="mb-2 text-sm text-slate-500">Nhập URL ảnh thumbnail</p>
                   </>
                 )}
                 <input
                   type="url"
                   placeholder="https://example.com/image.jpg"
                   value={formData.thumbnailUrl}
-                  onChange={(e) => setFormData({ ...formData, thumbnailUrl: e.target.value })}
-                  className="mt-3 w-full max-w-md px-4 py-2 rounded-lg border border-slate-200 focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 outline-none text-sm"
+                  onChange={(event) => setFormData({ ...formData, thumbnailUrl: event.target.value })}
+                  className="mt-3 w-full max-w-md rounded-lg border border-slate-200 px-4 py-2 text-sm outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
                 />
               </div>
             </div>
           </div>
 
-          {/* Title */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
-              Tên khoá học <span className="text-red-500">*</span>
+            <label className="mb-2 block text-sm font-medium text-slate-700">
+              Tên khóa học <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
               required
               value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              onChange={(event) => setFormData({ ...formData, title: event.target.value })}
               placeholder="VD: Lập trình Java từ cơ bản đến nâng cao"
-              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 outline-none transition-all"
+              className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
             />
           </div>
 
-          {/* Description */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
+            <label className="mb-2 block text-sm font-medium text-slate-700">
               Mô tả <span className="text-red-500">*</span>
             </label>
             <textarea
               required
               rows={4}
               value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="Mô tả chi tiết về khoá học..."
-              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 outline-none transition-all resize-none"
+              onChange={(event) => setFormData({ ...formData, description: event.target.value })}
+              placeholder="Mô tả chi tiết về khóa học..."
+              className="w-full resize-none rounded-xl border border-slate-200 px-4 py-3 outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
             />
           </div>
 
-          {/* Category & Status */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
+              <label className="mb-2 block text-sm font-medium text-slate-700">
                 Danh mục
               </label>
               <select
                 value={formData.category}
-                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 outline-none transition-all bg-white"
+                onChange={(event) => setFormData({ ...formData, category: event.target.value })}
+                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
               >
                 <option value="">Chọn danh mục</option>
                 {categories.map((cat) => (
@@ -209,28 +216,50 @@ export default function CourseForm({ isOpen, onClose, onSuccess, editCourse }: C
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
+              <label className="mb-2 block text-sm font-medium text-slate-700">
                 Trạng thái
               </label>
               <select
                 value={formData.status}
-                onChange={(e) => setFormData({ ...formData, status: e.target.value as CourseStatus })}
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 outline-none transition-all bg-white"
+                onChange={(event) => setFormData({ ...formData, status: event.target.value as CourseStatus })}
+                className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
               >
-                {statusOptions.map((opt) => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                {statusOptions.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
                 ))}
               </select>
             </div>
           </div>
 
-          {/* Actions */}
+          <div>
+            <label className="mb-2 block text-sm font-medium text-slate-700">
+              Cách đăng ký
+            </label>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {enrollmentPolicyOptions.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setFormData({ ...formData, enrollmentPolicy: option.value })}
+                  className={`rounded-xl border p-4 text-left transition ${
+                    formData.enrollmentPolicy === option.value
+                      ? 'border-violet-400 bg-violet-50 ring-2 ring-violet-100'
+                      : 'border-slate-200 bg-white hover:border-slate-300'
+                  }`}
+                >
+                  <span className="block text-sm font-semibold text-slate-800">{option.label}</span>
+                  <span className="mt-1 block text-xs leading-relaxed text-slate-500">{option.description}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="flex gap-3 pt-4">
             <Button type="button" variant="secondary" onClick={onClose} className="flex-1">
-              Huỷ
+              Hủy
             </Button>
             <Button type="submit" isLoading={loading} className="flex-1">
-              {editCourse ? 'Lưu thay đổi' : 'Tạo khoá học'}
+              {editCourse ? 'Lưu thay đổi' : 'Tạo khóa học'}
             </Button>
           </div>
         </form>

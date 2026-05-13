@@ -50,6 +50,20 @@ export function useEnrollment() {
     }
   }, []);
 
+  const getEnrollmentCheck = useCallback(async (courseId: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      return await api.get<EnrollmentCheckResponse>(`/courses/${courseId}/enroll/check`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to check enrollment';
+      setError(message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const getMyEnrollments = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -95,14 +109,60 @@ export function useEnrollment() {
     }
   }, []);
 
+  const dropCourseParticipant = useCallback(async (courseId: string, participantId: string, reason: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      await api.post<void>(`/courses/${courseId}/students/${participantId}/drop`, { reason });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to drop participant';
+      setError(message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const approveCourseParticipant = useCallback(async (courseId: string, participantId: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      return await api.post<Enrollment>(`/courses/${courseId}/students/${participantId}/approve`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to approve participant';
+      setError(message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const rejectCourseParticipant = useCallback(async (courseId: string, participantId: string, reason: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      return await api.post<Enrollment>(`/courses/${courseId}/students/${participantId}/reject`, { reason });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to reject participant';
+      setError(message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   return {
     loading,
     error,
     enroll,
     unenroll,
     checkEnrollment,
+    getEnrollmentCheck,
     getMyEnrollments,
     getCourseStudents,
     completeCourse,
+    dropCourseParticipant,
+    approveCourseParticipant,
+    rejectCourseParticipant,
   };
 }
