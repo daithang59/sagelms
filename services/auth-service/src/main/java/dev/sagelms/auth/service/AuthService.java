@@ -18,6 +18,8 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
+import java.util.Collection;
+import java.util.List;
 import java.util.HexFormat;
 import java.util.UUID;
 
@@ -147,25 +149,23 @@ public class AuthService {
     }
 
     @Transactional(readOnly = true)
-    public Page<UserProfileResponse> listUsers(UserRole role, String search, int page, int size) {
+    public List<UserProfileResponse> getUsersByIds(Collection<UUID> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return List.of();
+        }
+        return userRepository.findAllById(userIds).stream()
+                .map(UserProfileResponse::from)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public Page<UserProfileResponse> listUsers(UserRole role, Boolean isActive, String search, int page, int size) {
         PageRequest pageable = PageRequest.of(
                 Math.max(0, page - 1), // API uses 1-based pages
                 Math.min(size, 100),
                 Sort.by(Sort.Direction.DESC, "createdAt"));
 
-        Page<User> users;
-        boolean hasRole = role != null;
-        boolean hasSearch = search != null && !search.isBlank();
-
-        if (hasRole && hasSearch) {
-            users = userRepository.findByRoleAndSearch(role, search, pageable);
-        } else if (hasRole) {
-            users = userRepository.findByRole(role, pageable);
-        } else if (hasSearch) {
-            users = userRepository.findBySearch(search, pageable);
-        } else {
-            users = userRepository.findAll(pageable);
-        }
+        Page<User> users = userRepository.findUsers(role, isActive, normalizeSearch(search), pageable);
 
         return users.map(UserProfileResponse::from);
     }
@@ -184,15 +184,77 @@ public class AuthService {
     }
 
     @Transactional
-    public UserProfileResponse updateUser(UUID userId, UpdateUserRequest request) {
+    public UserProfileResponse updateUser(UUID userId, UUID actorUserId, UpdateUserRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));
+        boolean editingSelf = actorUserId != null && actorUserId.equals(userId);
+
+        if (request.email() != null && !request.email().isBlank()
+                && !request.email().equalsIgnoreCase(user.getEmail())) {
+            String email = request.email().trim().toLowerCase();
+            if (userRepository.existsByEmailAndIdNot(email, userId)) {
+                throw new EmailAlreadyExistsException(email);
+            }
+            user.setEmail(email);
+        }
+        if (request.fullName() != null && !request.fullName().isBlank()) {
+            user.setFullName(request.fullName().trim());
+        }
         if (request.role() != null) {
+            if (editingSelf && request.role() != UserRole.ADMIN) {
+                throw new IllegalArgumentException("Admin cannot remove their own admin role.");
+            }
             user.setRole(request.role());
         }
-        if (request.isActive() != null) {
-            user.setIsActive(request.isActive());
+        if (request.avatarUrl() != null) {
+            user.setAvatarUrl(blankToNull(request.avatarUrl()));
         }
+        if (request.instructorApprovalStatus() != null) {
+            if (user.getRole() != UserRole.INSTRUCTOR) {
+                throw new IllegalArgumentException("Only instructor users can have instructor approval status.");
+            }
+            user.setInstructorApprovalStatus(request.instructorApprovalStatus());
+            user.setInstructorReviewedAt(Instant.now());
+            if (request.instructorApprovalStatus() == InstructorApprovalStatus.APPROVED) {
+                user.setIsActive(true);
+            } else {
+                user.setIsActive(false);
+                refreshTokenRepository.revokeAllByUserId(userId);
+            }
+        }
+        if (request.isActive() != null) {
+            if (editingSelf && !request.isActive()) {
+                throw new IllegalArgumentException("Admin cannot deactivate their own account.");
+            }
+            if (user.getRole() == UserRole.INSTRUCTOR
+                    && user.getInstructorApprovalStatus() != InstructorApprovalStatus.APPROVED
+                    && request.isActive()) {
+                throw new IllegalArgumentException("Instructor must be approved before activation.");
+            }
+            user.setIsActive(request.isActive());
+            if (!request.isActive()) {
+                refreshTokenRepository.revokeAllByUserId(userId);
+            }
+        }
+        if (request.instructorHeadline() != null) {
+            user.setInstructorHeadline(blankToNull(request.instructorHeadline()));
+        }
+        if (request.instructorBio() != null) {
+            user.setInstructorBio(blankToNull(request.instructorBio()));
+        }
+        if (request.instructorExpertise() != null) {
+            user.setInstructorExpertise(blankToNull(request.instructorExpertise()));
+        }
+        if (request.instructorWebsite() != null) {
+            user.setInstructorWebsite(blankToNull(request.instructorWebsite()));
+        }
+        if (request.instructorYearsExperience() != null) {
+            user.setInstructorYearsExperience(Math.max(0, request.instructorYearsExperience()));
+        }
+        if (request.instructorApplicationNote() != null) {
+            user.setInstructorApplicationNote(blankToNull(request.instructorApplicationNote()));
+        }
+
         user = userRepository.save(user);
         return UserProfileResponse.from(user);
     }
@@ -211,7 +273,7 @@ public class AuthService {
     }
 
     @Transactional
-    public UserProfileResponse rejectInstructor(UUID userId) {
+    public UserProfileResponse rejectInstructor(UUID userId, String reason) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));
         if (user.getRole() != UserRole.INSTRUCTOR) {
@@ -220,17 +282,23 @@ public class AuthService {
         user.setInstructorApprovalStatus(InstructorApprovalStatus.REJECTED);
         user.setIsActive(false);
         user.setInstructorReviewedAt(Instant.now());
+        if (reason != null && !reason.isBlank()) {
+            user.setInstructorApplicationNote(blankToNull(reason));
+        }
         refreshTokenRepository.revokeAllByUserId(userId);
         return UserProfileResponse.from(userRepository.save(user));
     }
 
     @Transactional
-    public void deleteUser(UUID userId) {
-        if (!userRepository.existsById(userId)) {
-            throw new UserNotFoundException(userId);
+    public void deleteUser(UUID userId, UUID actorUserId) {
+        if (actorUserId != null && actorUserId.equals(userId)) {
+            throw new IllegalArgumentException("Admin cannot deactivate their own account.");
         }
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException(userId));
+        user.setIsActive(false);
         refreshTokenRepository.revokeAllByUserId(userId);
-        userRepository.deleteById(userId);
+        userRepository.save(user);
     }
 
     // ── Private helpers ─────────────────────────────────
@@ -259,6 +327,20 @@ public class AuthService {
         }
         return user.getRole() != UserRole.INSTRUCTOR
                 || user.getInstructorApprovalStatus() == InstructorApprovalStatus.APPROVED;
+    }
+
+    private static String blankToNull(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return value.trim();
+    }
+
+    private static String normalizeSearch(String search) {
+        if (search == null || search.isBlank()) {
+            return null;
+        }
+        return search.trim();
     }
 
     private static String sha256(String input) {

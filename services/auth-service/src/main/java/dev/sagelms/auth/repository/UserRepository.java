@@ -18,6 +18,22 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
     boolean existsByEmail(String email);
 
+    boolean existsByEmailAndIdNot(String email, UUID id);
+
+    @Query("""
+        SELECT u FROM User u
+        WHERE (:role IS NULL OR u.role = :role)
+          AND (:isActive IS NULL OR u.isActive = :isActive)
+          AND (:search IS NULL OR :search = ''
+               OR LOWER(u.email) LIKE LOWER(CONCAT('%', :search, '%'))
+               OR LOWER(u.fullName) LIKE LOWER(CONCAT('%', :search, '%')))
+        """)
+    Page<User> findUsers(
+            @Param("role") UserRole role,
+            @Param("isActive") Boolean isActive,
+            @Param("search") String search,
+            Pageable pageable);
+
     @Query("""
         SELECT u FROM User u
         WHERE u.role = :role

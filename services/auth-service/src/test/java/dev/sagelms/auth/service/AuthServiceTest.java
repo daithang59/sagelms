@@ -7,6 +7,8 @@ import dev.sagelms.auth.dto.InstructorApplicationRequest;
 import dev.sagelms.auth.dto.InstructorApplicationResponse;
 import dev.sagelms.auth.dto.LoginRequest;
 import dev.sagelms.auth.dto.RegisterRequest;
+import dev.sagelms.auth.dto.UpdateUserRequest;
+import dev.sagelms.auth.dto.UserProfileResponse;
 import dev.sagelms.auth.entity.InstructorApprovalStatus;
 import dev.sagelms.auth.entity.RefreshToken;
 import dev.sagelms.auth.entity.User;
@@ -175,5 +177,105 @@ class AuthServiceTest {
                 () -> authService.refresh(new dev.sagelms.auth.dto.RefreshTokenRequest("raw-token")));
         verify(refreshTokenRepository).revokeAllByUserId(userId);
         assertEquals(true, refreshToken.getRevoked());
+    }
+
+    @Test
+    void updateUser_AdminCanEditBasicAndInstructorProfileFields() {
+        AuthService authService = new AuthService(userRepository, refreshTokenRepository, passwordEncoder, jwtService);
+        UUID userId = UUID.randomUUID();
+        UUID adminId = UUID.randomUUID();
+        User user = new User();
+        user.setId(userId);
+        user.setEmail("teacher@example.com");
+        user.setFullName("Old Name");
+        user.setRole(UserRole.INSTRUCTOR);
+        user.setIsActive(true);
+        user.setInstructorApprovalStatus(InstructorApprovalStatus.APPROVED);
+
+        UpdateUserRequest request = new UpdateUserRequest(
+                "new.teacher@example.com",
+                "New Teacher",
+                UserRole.INSTRUCTOR,
+                true,
+                null,
+                InstructorApprovalStatus.APPROVED,
+                "Senior Instructor",
+                "Updated bio",
+                "Java, React",
+                "https://example.com",
+                9,
+                "Updated note");
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(userRepository.existsByEmailAndIdNot("new.teacher@example.com", userId)).thenReturn(false);
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        UserProfileResponse response = authService.updateUser(userId, adminId, request);
+
+        assertEquals("new.teacher@example.com", response.email());
+        assertEquals("New Teacher", response.fullName());
+        assertEquals("Senior Instructor", response.instructorHeadline());
+        assertEquals(9, response.instructorYearsExperience());
+    }
+
+    @Test
+    void updateUser_AdminCannotDeactivateSelf() {
+        AuthService authService = new AuthService(userRepository, refreshTokenRepository, passwordEncoder, jwtService);
+        UUID adminId = UUID.randomUUID();
+        User admin = new User();
+        admin.setId(adminId);
+        admin.setEmail("admin@example.com");
+        admin.setRole(UserRole.ADMIN);
+        admin.setIsActive(true);
+
+        when(userRepository.findById(adminId)).thenReturn(Optional.of(admin));
+
+        UpdateUserRequest request = new UpdateUserRequest(
+                null, null, null, false, null, null, null, null, null, null, null, null);
+
+        assertThrows(IllegalArgumentException.class, () -> authService.updateUser(adminId, adminId, request));
+    }
+
+    @Test
+    void rejectInstructor_StoresReasonAndRevokesTokens() {
+        AuthService authService = new AuthService(userRepository, refreshTokenRepository, passwordEncoder, jwtService);
+        UUID userId = UUID.randomUUID();
+        User user = new User();
+        user.setId(userId);
+        user.setEmail("teacher@example.com");
+        user.setRole(UserRole.INSTRUCTOR);
+        user.setIsActive(false);
+        user.setInstructorApprovalStatus(InstructorApprovalStatus.PENDING);
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        UserProfileResponse response = authService.rejectInstructor(userId, "Bio needs more teaching experience.");
+
+        assertEquals(InstructorApprovalStatus.REJECTED, response.instructorApprovalStatus());
+        assertEquals(false, response.isActive());
+        assertEquals("Bio needs more teaching experience.", response.instructorApplicationNote());
+        verify(refreshTokenRepository).revokeAllByUserId(userId);
+    }
+
+    @Test
+    void deleteUser_SoftDeactivatesAndRevokesTokens() {
+        AuthService authService = new AuthService(userRepository, refreshTokenRepository, passwordEncoder, jwtService);
+        UUID userId = UUID.randomUUID();
+        UUID adminId = UUID.randomUUID();
+        User user = new User();
+        user.setId(userId);
+        user.setEmail("student@example.com");
+        user.setRole(UserRole.STUDENT);
+        user.setIsActive(true);
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+
+        authService.deleteUser(userId, adminId);
+
+        assertEquals(false, user.getIsActive());
+        verify(refreshTokenRepository).revokeAllByUserId(userId);
+        verify(userRepository).save(user);
+        verify(userRepository, never()).deleteById(userId);
     }
 }
