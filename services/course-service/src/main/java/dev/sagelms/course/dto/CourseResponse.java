@@ -2,6 +2,7 @@ package dev.sagelms.course.dto;
 
 import dev.sagelms.course.entity.Course;
 import dev.sagelms.course.entity.CourseStatus;
+import dev.sagelms.course.entity.EnrollmentPolicy;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -25,6 +26,7 @@ public record CourseResponse(
         Integer instructorYearsExperience,
         CourseStatus status,
         String category,
+        EnrollmentPolicy enrollmentPolicy,
         long enrollmentCount,
         Instant createdAt,
         Instant updatedAt
@@ -63,6 +65,7 @@ public record CourseResponse(
                 instructorYearsExperience,
                 course.getStatus(),
                 course.getCategory(),
+                course.getEnrollmentPolicy(),
                 enrollmentCount,
                 course.getCreatedAt(),
                 course.getUpdatedAt()

@@ -26,6 +26,10 @@ public class Course extends BaseEntity {
     @Column(name = "category", length = 100)
     private String category;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "enrollment_policy", length = 30)
+    private EnrollmentPolicy enrollmentPolicy = EnrollmentPolicy.OPEN;
+
     // ── Getters & Setters ──
 
     public String getTitle() { return title; }
@@ -45,4 +49,7 @@ public class Course extends BaseEntity {
 
     public String getCategory() { return category; }
     public void setCategory(String category) { this.category = category; }
+
+    public EnrollmentPolicy getEnrollmentPolicy() { return enrollmentPolicy; }
+    public void setEnrollmentPolicy(EnrollmentPolicy enrollmentPolicy) { this.enrollmentPolicy = enrollmentPolicy; }
 }

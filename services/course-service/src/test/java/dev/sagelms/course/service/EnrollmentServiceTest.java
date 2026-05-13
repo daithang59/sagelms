@@ -3,6 +3,7 @@ package dev.sagelms.course.service;
 import dev.sagelms.course.dto.EnrollmentResponse;
 import dev.sagelms.course.entity.Course;
 import dev.sagelms.course.entity.Enrollment;
+import dev.sagelms.course.entity.EnrollmentPolicy;
 import dev.sagelms.course.entity.EnrollmentStatus;
 import dev.sagelms.course.repository.CourseRepository;
 import dev.sagelms.course.repository.EnrollmentRepository;
@@ -53,6 +54,7 @@ class EnrollmentServiceTest {
         testCourse = new Course();
         testCourse.setId(courseId);
         testCourse.setTitle("Test Course");
+        testCourse.setInstructorId(UUID.randomUUID());
 
         testEnrollment = new Enrollment();
         testEnrollment.setId(UUID.randomUUID());
@@ -194,10 +196,51 @@ class EnrollmentServiceTest {
     }
 
     @Test
-    void enrollStudent_InstructorRole_ThrowsException() {
+    void enrollStudent_InstructorRoleCanEnrollOtherCourse() {
+        when(courseRepository.findById(courseId)).thenReturn(Optional.of(testCourse));
+        when(enrollmentRepository.existsByStudentIdAndCourseIdAndStatus(studentId, courseId, EnrollmentStatus.ACTIVE)).thenReturn(false);
+        when(enrollmentRepository.findByStudentIdAndCourseId(studentId, courseId)).thenReturn(Optional.empty());
+        when(enrollmentRepository.save(any(Enrollment.class))).thenAnswer(invocation -> {
+            Enrollment saved = invocation.getArgument(0);
+            saved.setId(UUID.randomUUID());
+            return saved;
+        });
+
+        EnrollmentResponse response = enrollmentService.enrollStudent(courseId, studentId, "INSTRUCTOR");
+
+        assertEquals(studentId, response.studentId());
+        assertEquals(EnrollmentStatus.ACTIVE, response.status());
+    }
+
+    @Test
+    void enrollStudent_ApprovalRequiredCourseCreatesPendingRequest() {
+        testCourse.setEnrollmentPolicy(EnrollmentPolicy.APPROVAL_REQUIRED);
+        when(courseRepository.findById(courseId)).thenReturn(Optional.of(testCourse));
+        when(enrollmentRepository.existsByStudentIdAndCourseIdAndStatus(studentId, courseId, EnrollmentStatus.ACTIVE)).thenReturn(false);
+        when(enrollmentRepository.existsByStudentIdAndCourseIdAndStatus(studentId, courseId, EnrollmentStatus.PENDING)).thenReturn(false);
+        when(enrollmentRepository.findByStudentIdAndCourseId(studentId, courseId)).thenReturn(Optional.empty());
+        when(enrollmentRepository.save(any(Enrollment.class))).thenAnswer(invocation -> {
+            Enrollment saved = invocation.getArgument(0);
+            saved.setId(UUID.randomUUID());
+            return saved;
+        });
+
+        EnrollmentResponse response = enrollmentService.enrollStudent(courseId, studentId, "STUDENT");
+
+        assertEquals(studentId, response.studentId());
+        assertEquals(EnrollmentStatus.PENDING, response.status());
+    }
+
+    @Test
+    void enrollStudent_InstructorCannotEnrollOwnCourse() {
+        UUID instructorId = UUID.randomUUID();
+        testCourse.setInstructorId(instructorId);
+        when(courseRepository.findById(courseId)).thenReturn(Optional.of(testCourse));
+
         assertThrows(EnrollmentService.CourseForbiddenException.class, () ->
-                enrollmentService.enrollStudent(courseId, studentId, "INSTRUCTOR")
+                enrollmentService.enrollStudent(courseId, instructorId, "INSTRUCTOR")
         );
+        verify(enrollmentRepository, never()).save(any());
     }
 
     @Test
@@ -223,5 +266,35 @@ class EnrollmentServiceTest {
         when(enrollmentRepository.findByCourseId(courseId)).thenReturn(java.util.List.of(testEnrollment));
 
         assertEquals(1, enrollmentService.getEnrollmentsByCourse(courseId, adminId, "ADMIN").size());
+    }
+
+    @Test
+    void dropParticipant_CourseOwnerCanDropLearner() {
+        UUID courseOwnerId = UUID.randomUUID();
+        testCourse.setInstructorId(courseOwnerId);
+
+        when(courseRepository.findById(courseId)).thenReturn(Optional.of(testCourse));
+        when(enrollmentRepository.findByStudentIdAndCourseId(studentId, courseId)).thenReturn(Optional.of(testEnrollment));
+
+        enrollmentService.dropParticipant(courseId, studentId, courseOwnerId, "INSTRUCTOR", "No longer eligible");
+
+        assertEquals(EnrollmentStatus.DROPPED, testEnrollment.getStatus());
+        verify(enrollmentRepository).save(testEnrollment);
+    }
+
+    @Test
+    void approveParticipant_CourseOwnerCanApprovePendingRequest() {
+        UUID courseOwnerId = UUID.randomUUID();
+        testCourse.setInstructorId(courseOwnerId);
+        testEnrollment.setStatus(EnrollmentStatus.PENDING);
+
+        when(courseRepository.findById(courseId)).thenReturn(Optional.of(testCourse));
+        when(enrollmentRepository.findByStudentIdAndCourseId(studentId, courseId)).thenReturn(Optional.of(testEnrollment));
+        when(enrollmentRepository.save(testEnrollment)).thenReturn(testEnrollment);
+
+        EnrollmentResponse response = enrollmentService.approveParticipant(courseId, studentId, courseOwnerId, "INSTRUCTOR");
+
+        assertEquals(EnrollmentStatus.ACTIVE, testEnrollment.getStatus());
+        assertEquals(EnrollmentStatus.ACTIVE, response.status());
     }
 }

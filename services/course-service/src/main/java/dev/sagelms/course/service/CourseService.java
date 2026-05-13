@@ -4,6 +4,7 @@ import dev.sagelms.course.dto.CourseRequest;
 import dev.sagelms.course.dto.CourseResponse;
 import dev.sagelms.course.entity.Course;
 import dev.sagelms.course.entity.CourseStatus;
+import dev.sagelms.course.entity.EnrollmentPolicy;
 import dev.sagelms.course.repository.CourseRepository;
 import dev.sagelms.course.repository.EnrollmentRepository;
 import dev.sagelms.course.security.RoleUtils;
@@ -49,6 +50,7 @@ public class CourseService {
         course.setThumbnailUrl(request.thumbnailUrl());
         course.setStatus(request.status() != null ? request.status() : CourseStatus.DRAFT);
         course.setCategory(request.category());
+        course.setEnrollmentPolicy(request.enrollmentPolicy() != null ? request.enrollmentPolicy() : EnrollmentPolicy.OPEN);
         course.setInstructorId(instructorId);
 
         Course saved = courseRepository.save(course);
@@ -71,6 +73,7 @@ public class CourseService {
         course.setThumbnailUrl(request.thumbnailUrl());
         course.setStatus(request.status());
         course.setCategory(request.category());
+        course.setEnrollmentPolicy(request.enrollmentPolicy() != null ? request.enrollmentPolicy() : EnrollmentPolicy.OPEN);
 
         Course updated = courseRepository.save(course);
         long enrollmentCount = courseRepository.countEnrollments(courseId);
@@ -127,12 +130,20 @@ public class CourseService {
 
     @Transactional(readOnly = true)
     public Page<CourseResponse> getCoursesForViewer(UUID userId, String roles, Pageable pageable) {
+        return getCoursesForViewer(userId, roles, "teaching", pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<CourseResponse> getCoursesForViewer(UUID userId, String roles, String scope, Pageable pageable) {
         if (RoleUtils.isAdmin(roles)) {
             return getAllCourses(pageable);
         }
         if (RoleUtils.hasRole(roles, "INSTRUCTOR")) {
             if (userId == null) {
                 throw new CourseForbiddenException("Instructor identity required.");
+            }
+            if (isExploreScope(scope)) {
+                return getPublishedCoursesNotOwnedBy(userId, pageable);
             }
             return getCoursesByInstructor(userId, pageable);
         }
@@ -146,7 +157,7 @@ public class CourseService {
 
         boolean canView = RoleUtils.isAdmin(roles)
                 || (RoleUtils.hasRole(roles, "INSTRUCTOR") && userId != null && course.getInstructorId().equals(userId))
-                || (!RoleUtils.hasRole(roles, "INSTRUCTOR") && course.getStatus() == CourseStatus.PUBLISHED);
+                || course.getStatus() == CourseStatus.PUBLISHED;
 
         if (!canView) {
             throw new CourseForbiddenException("Course is not published.");
@@ -162,6 +173,16 @@ public class CourseService {
     @Transactional(readOnly = true)
     public Page<CourseResponse> getPublishedCourses(Pageable pageable) {
         Page<Course> courses = courseRepository.findPublishedCourses(pageable);
+        List<UUID> courseIds = courses.getContent().stream().map(Course::getId).toList();
+
+        Map<UUID, Long> enrollmentCounts = enrollmentRepository.countEnrollmentsByCourseIdsMap(courseIds);
+
+        return mapCoursesWithInstructors(courses, enrollmentCounts);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<CourseResponse> getPublishedCoursesNotOwnedBy(UUID instructorId, Pageable pageable) {
+        Page<Course> courses = courseRepository.findPublishedCoursesNotOwnedBy(instructorId, pageable);
         List<UUID> courseIds = courses.getContent().stream().map(Course::getId).toList();
 
         Map<UUID, Long> enrollmentCounts = enrollmentRepository.countEnrollmentsByCourseIdsMap(courseIds);
@@ -187,6 +208,11 @@ public class CourseService {
 
     @Transactional(readOnly = true)
     public Page<CourseResponse> getCoursesByStatusForViewer(String status, UUID userId, String roles, Pageable pageable) {
+        return getCoursesByStatusForViewer(status, userId, roles, "teaching", pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<CourseResponse> getCoursesByStatusForViewer(String status, UUID userId, String roles, String scope, Pageable pageable) {
         CourseStatus courseStatus;
         try {
             courseStatus = CourseStatus.valueOf(status.toUpperCase());
@@ -201,6 +227,12 @@ public class CourseService {
         if (RoleUtils.hasRole(roles, "INSTRUCTOR")) {
             if (userId == null) {
                 throw new CourseForbiddenException("Instructor identity required.");
+            }
+            if (isExploreScope(scope)) {
+                if (courseStatus != CourseStatus.PUBLISHED) {
+                    throw new CourseForbiddenException("Only published courses can be explored.");
+                }
+                return getPublishedCoursesNotOwnedBy(userId, pageable);
             }
             return getCoursesByInstructorAndStatus(userId, courseStatus, pageable);
         }
@@ -266,6 +298,11 @@ public class CourseService {
 
     @Transactional(readOnly = true)
     public Page<CourseResponse> searchCoursesForViewer(String search, UUID userId, String roles, Pageable pageable) {
+        return searchCoursesForViewer(search, userId, roles, "teaching", pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<CourseResponse> searchCoursesForViewer(String search, UUID userId, String roles, String scope, Pageable pageable) {
         if (RoleUtils.isAdmin(roles)) {
             return searchCourses(search, pageable);
         }
@@ -273,7 +310,9 @@ public class CourseService {
             if (userId == null) {
                 throw new CourseForbiddenException("Instructor identity required.");
             }
-            Page<Course> courses = courseRepository.searchByInstructorAndTitle(userId, search, pageable);
+            Page<Course> courses = isExploreScope(scope)
+                    ? courseRepository.searchPublishedNotOwnedByTitle(userId, search, pageable)
+                    : courseRepository.searchByInstructorAndTitle(userId, search, pageable);
             List<UUID> courseIds = courses.getContent().stream().map(Course::getId).toList();
             Map<UUID, Long> enrollmentCounts = enrollmentRepository.countEnrollmentsByCourseIdsMap(courseIds);
             return mapCoursesWithInstructors(courses, enrollmentCounts);
@@ -288,6 +327,11 @@ public class CourseService {
 
     @Transactional(readOnly = true)
     public Page<CourseResponse> getCoursesByCategory(String category, UUID userId, String roles, Pageable pageable) {
+        return getCoursesByCategory(category, userId, roles, "teaching", pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<CourseResponse> getCoursesByCategory(String category, UUID userId, String roles, String scope, Pageable pageable) {
         Page<Course> courses;
         if (RoleUtils.isAdmin(roles)) {
             courses = courseRepository.findByCategory(category, pageable);
@@ -295,7 +339,10 @@ public class CourseService {
             if (userId == null) {
                 throw new CourseForbiddenException("Instructor identity required.");
             }
-            courses = courseRepository.findByInstructorIdAndCategory(userId, category, pageable);
+            courses = isExploreScope(scope)
+                    ? courseRepository.findByStatusAndInstructorIdNotAndCategoryIgnoreCase(
+                            CourseStatus.PUBLISHED, userId, category, pageable)
+                    : courseRepository.findByInstructorIdAndCategory(userId, category, pageable);
         } else {
             courses = courseRepository.findByStatusAndCategoryIgnoreCase(CourseStatus.PUBLISHED, category, pageable);
         }
@@ -400,6 +447,10 @@ public class CourseService {
     }
 
     public record CourseAccessResult(boolean accessible) {}
+
+    private boolean isExploreScope(String scope) {
+        return "explore".equalsIgnoreCase(scope);
+    }
 
     // ============== Exception Classes ==============
 

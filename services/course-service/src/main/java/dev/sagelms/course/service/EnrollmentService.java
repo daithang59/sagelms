@@ -3,6 +3,7 @@ package dev.sagelms.course.service;
 import dev.sagelms.course.dto.EnrollmentResponse;
 import dev.sagelms.course.entity.Course;
 import dev.sagelms.course.entity.Enrollment;
+import dev.sagelms.course.entity.EnrollmentPolicy;
 import dev.sagelms.course.entity.EnrollmentStatus;
 import dev.sagelms.course.repository.CourseRepository;
 import dev.sagelms.course.repository.EnrollmentRepository;
@@ -10,6 +11,7 @@ import dev.sagelms.course.security.RoleUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -42,34 +44,49 @@ public class EnrollmentService {
         Course course = courseRepository.findById(courseId)
                 .orElseThrow(() -> new CourseNotFoundException("Course not found: " + courseId));
 
-        // Check if already actively enrolled
+        EnrollmentStatus targetStatus = course.getEnrollmentPolicy() == EnrollmentPolicy.APPROVAL_REQUIRED
+                ? EnrollmentStatus.PENDING
+                : EnrollmentStatus.ACTIVE;
+
+        // Check if already enrolled or waiting for approval
         if (enrollmentRepository.existsByStudentIdAndCourseIdAndStatus(studentId, courseId, EnrollmentStatus.ACTIVE)) {
             throw new AlreadyEnrolledException("Student already enrolled in this course");
         }
+        if (enrollmentRepository.existsByStudentIdAndCourseIdAndStatus(studentId, courseId, EnrollmentStatus.PENDING)) {
+            throw new AlreadyEnrolledException("Enrollment request is waiting for instructor approval");
+        }
 
-        // Check if there's a dropped enrollment - reactivate it instead of creating new
+        // Reuse an old dropped/rejected enrollment instead of creating a duplicate row.
         var existingEnrollment = enrollmentRepository.findByStudentIdAndCourseId(studentId, courseId);
         if (existingEnrollment.isPresent()) {
             Enrollment enrollment = existingEnrollment.get();
-            if (enrollment.getStatus() == EnrollmentStatus.DROPPED) {
-                enrollment.setStatus(EnrollmentStatus.ACTIVE);
+            if (enrollment.getStatus() == EnrollmentStatus.DROPPED || enrollment.getStatus() == EnrollmentStatus.REJECTED) {
+                enrollment.setStatus(targetStatus);
+                clearReview(enrollment);
                 Enrollment saved = enrollmentRepository.save(enrollment);
                 return EnrollmentResponse.fromEntity(saved, course.getTitle(), null);
             }
+            throw new AlreadyEnrolledException("Student already has an enrollment for this course");
         }
 
         // Create new enrollment
         Enrollment enrollment = new Enrollment();
         enrollment.setCourseId(courseId);
         enrollment.setStudentId(studentId);
-        enrollment.setStatus(EnrollmentStatus.ACTIVE);
+        enrollment.setStatus(targetStatus);
+        clearReview(enrollment);
 
         Enrollment saved = enrollmentRepository.save(enrollment);
         return EnrollmentResponse.fromEntity(saved, course.getTitle(), null);
     }
 
     public EnrollmentResponse enrollStudent(UUID courseId, UUID studentId, String roles) {
-        requireStudent(roles);
+        requireLearner(roles);
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new CourseNotFoundException("Course not found: " + courseId));
+        if (RoleUtils.hasRole(roles, "INSTRUCTOR") && course.getInstructorId().equals(studentId)) {
+            throw new CourseForbiddenException("Instructor cannot enroll in their own course.");
+        }
         return enrollStudent(courseId, studentId);
     }
 
@@ -85,8 +102,39 @@ public class EnrollmentService {
     }
 
     public void unenrollStudent(UUID courseId, UUID studentId, String roles) {
-        requireStudent(roles);
+        requireLearner(roles);
         unenrollStudent(courseId, studentId);
+    }
+
+    public EnrollmentResponse approveParticipant(UUID courseId, UUID participantId, UUID actorUserId, String roles) {
+        Course course = requireManageableCourse(courseId, actorUserId, roles);
+        Enrollment enrollment = enrollmentRepository.findByStudentIdAndCourseId(participantId, courseId)
+                .orElseThrow(() -> new EnrollmentNotFoundException("Enrollment not found"));
+        if (enrollment.getStatus() != EnrollmentStatus.PENDING) {
+            throw new IllegalArgumentException("Only pending enrollment requests can be approved.");
+        }
+        enrollment.setStatus(EnrollmentStatus.ACTIVE);
+        setReview(enrollment, actorUserId, null);
+        Enrollment saved = enrollmentRepository.save(enrollment);
+        return EnrollmentResponse.fromEntity(saved, course.getTitle(), null);
+    }
+
+    public EnrollmentResponse rejectParticipant(
+            UUID courseId,
+            UUID participantId,
+            UUID actorUserId,
+            String roles,
+            String reason) {
+        Course course = requireManageableCourse(courseId, actorUserId, roles);
+        Enrollment enrollment = enrollmentRepository.findByStudentIdAndCourseId(participantId, courseId)
+                .orElseThrow(() -> new EnrollmentNotFoundException("Enrollment not found"));
+        if (enrollment.getStatus() != EnrollmentStatus.PENDING) {
+            throw new IllegalArgumentException("Only pending enrollment requests can be rejected.");
+        }
+        enrollment.setStatus(EnrollmentStatus.REJECTED);
+        setReview(enrollment, actorUserId, reason);
+        Enrollment saved = enrollmentRepository.save(enrollment);
+        return EnrollmentResponse.fromEntity(saved, course.getTitle(), null);
     }
 
     /**
@@ -129,6 +177,19 @@ public class EnrollmentService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<EnrollmentResponse> getVisibleEnrollmentsByStudent(UUID studentId) {
+        return enrollmentRepository.findVisibleEnrollmentsByStudentId(studentId).stream()
+                .map(enrollment -> {
+                    Course course = courseRepository.findById(enrollment.getCourseId()).orElse(null);
+                    return EnrollmentResponse.fromEntity(
+                            enrollment,
+                            course != null ? course.getTitle() : null,
+                            null);
+                })
+                .toList();
+    }
+
     /**
      * Check if student is actively enrolled in course
      */
@@ -143,6 +204,9 @@ public class EnrollmentService {
     public EnrollmentResponse completeCourse(UUID courseId, UUID studentId) {
         Enrollment enrollment = enrollmentRepository.findByStudentIdAndCourseId(studentId, courseId)
                 .orElseThrow(() -> new EnrollmentNotFoundException("Enrollment not found"));
+        if (enrollment.getStatus() != EnrollmentStatus.ACTIVE) {
+            throw new CourseForbiddenException("Only active enrollments can be completed.");
+        }
 
         enrollment.setStatus(EnrollmentStatus.COMPLETED);
         Enrollment saved = enrollmentRepository.save(enrollment);
@@ -152,14 +216,62 @@ public class EnrollmentService {
     }
 
     public EnrollmentResponse completeCourse(UUID courseId, UUID studentId, String roles) {
-        requireStudent(roles);
+        requireLearner(roles);
         return completeCourse(courseId, studentId);
     }
 
-    private void requireStudent(String roles) {
-        if (!RoleUtils.isStudent(roles)) {
-            throw new CourseForbiddenException("Student role required.");
+    public void dropParticipant(UUID courseId, UUID participantId, UUID actorUserId, String roles, String reason) {
+        Course course = requireManageableCourse(courseId, actorUserId, roles);
+        if (participantId.equals(course.getInstructorId())) {
+            throw new CourseForbiddenException("Course owner cannot be removed from their own course.");
         }
+
+        Enrollment enrollment = enrollmentRepository.findByStudentIdAndCourseId(participantId, courseId)
+                .orElseThrow(() -> new EnrollmentNotFoundException("Enrollment not found"));
+        enrollment.setStatus(EnrollmentStatus.DROPPED);
+        setReview(enrollment, actorUserId, reason);
+        enrollmentRepository.save(enrollment);
+    }
+
+    @Transactional(readOnly = true)
+    public EnrollmentStatus getEnrollmentStatus(UUID studentId, UUID courseId) {
+        return enrollmentRepository.findByStudentIdAndCourseId(studentId, courseId)
+                .map(Enrollment::getStatus)
+                .orElse(null);
+    }
+
+    private void requireLearner(String roles) {
+        if (!RoleUtils.isLearner(roles)) {
+            throw new CourseForbiddenException("Student or instructor role required.");
+        }
+    }
+
+    private Course requireManageableCourse(UUID courseId, UUID actorUserId, String roles) {
+        Course course = courseRepository.findById(courseId)
+                .orElseThrow(() -> new CourseNotFoundException("Course not found: " + courseId));
+        if (!RoleUtils.isAdmin(roles) && !course.getInstructorId().equals(actorUserId)) {
+            throw new CourseForbiddenException("Course owner or admin role required.");
+        }
+        return course;
+    }
+
+    private void setReview(Enrollment enrollment, UUID reviewerId, String note) {
+        enrollment.setReviewedBy(reviewerId);
+        enrollment.setReviewedAt(Instant.now());
+        enrollment.setReviewNote(blankToNull(note));
+    }
+
+    private void clearReview(Enrollment enrollment) {
+        enrollment.setReviewedBy(null);
+        enrollment.setReviewedAt(null);
+        enrollment.setReviewNote(null);
+    }
+
+    private String blankToNull(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return value.trim();
     }
 
     private List<EnrollmentResponse> buildCourseEnrollmentResponses(Course course, List<Enrollment> enrollments) {
@@ -175,7 +287,8 @@ public class EnrollmentService {
                             course.getTitle(),
                             student != null ? student.email() : null,
                             student != null ? student.fullName() : null,
-                            student != null ? student.avatarUrl() : null);
+                            student != null ? student.avatarUrl() : null,
+                            student != null ? student.role() : null);
                 })
                 .toList();
     }

@@ -64,6 +64,7 @@ public class AuthUserClient {
             UUID id,
             String email,
             String fullName,
+            String role,
             String avatarUrl,
             String instructorHeadline,
             String instructorBio,

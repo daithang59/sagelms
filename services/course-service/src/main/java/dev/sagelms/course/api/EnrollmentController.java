@@ -1,7 +1,10 @@
 package dev.sagelms.course.api;
 
 import dev.sagelms.course.dto.EnrollmentResponse;
+import dev.sagelms.course.dto.ManageEnrollmentRequest;
+import dev.sagelms.course.entity.EnrollmentStatus;
 import dev.sagelms.course.service.EnrollmentService;
+import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -81,6 +84,49 @@ public class EnrollmentController {
         return ResponseEntity.ok(enrollmentService.getEnrollmentsByCourse(courseId, userId, roles));
     }
 
+    @PostMapping("/{courseId}/students/{participantId}/drop")
+    public ResponseEntity<Void> dropCourseParticipant(
+            @PathVariable UUID courseId,
+            @PathVariable UUID participantId,
+            @RequestHeader(USER_ID_HEADER) UUID userId,
+            @RequestHeader(ROLES_HEADER) String roles,
+            @Valid @RequestBody(required = false) ManageEnrollmentRequest request
+    ) {
+        enrollmentService.dropParticipant(
+                courseId,
+                participantId,
+                userId,
+                roles,
+                request != null ? request.reason() : null);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{courseId}/students/{participantId}/approve")
+    public ResponseEntity<EnrollmentResponse> approveCourseParticipant(
+            @PathVariable UUID courseId,
+            @PathVariable UUID participantId,
+            @RequestHeader(USER_ID_HEADER) UUID userId,
+            @RequestHeader(ROLES_HEADER) String roles
+    ) {
+        return ResponseEntity.ok(enrollmentService.approveParticipant(courseId, participantId, userId, roles));
+    }
+
+    @PostMapping("/{courseId}/students/{participantId}/reject")
+    public ResponseEntity<EnrollmentResponse> rejectCourseParticipant(
+            @PathVariable UUID courseId,
+            @PathVariable UUID participantId,
+            @RequestHeader(USER_ID_HEADER) UUID userId,
+            @RequestHeader(ROLES_HEADER) String roles,
+            @Valid @RequestBody(required = false) ManageEnrollmentRequest request
+    ) {
+        return ResponseEntity.ok(enrollmentService.rejectParticipant(
+                courseId,
+                participantId,
+                userId,
+                roles,
+                request != null ? request.reason() : null));
+    }
+
     /**
      * GET /api/v1/courses/enrolled - Get student's enrolled courses
      */
@@ -88,7 +134,7 @@ public class EnrollmentController {
     public ResponseEntity<List<EnrollmentResponse>> getMyEnrollments(
             @RequestHeader(USER_ID_HEADER) UUID userId
     ) {
-        return ResponseEntity.ok(enrollmentService.getActiveEnrollmentsByStudent(userId));
+        return ResponseEntity.ok(enrollmentService.getVisibleEnrollmentsByStudent(userId));
     }
 
     /**
@@ -112,11 +158,12 @@ public class EnrollmentController {
             @RequestHeader(USER_ID_HEADER) UUID userId
     ) {
         boolean enrolled = enrollmentService.isEnrolled(userId, courseId);
-        return ResponseEntity.ok(new EnrollmentCheckResponse(enrolled));
+        EnrollmentStatus status = enrollmentService.getEnrollmentStatus(userId, courseId);
+        return ResponseEntity.ok(new EnrollmentCheckResponse(enrolled, status));
     }
 
     /**
      * Simple response for enrollment check
      */
-    public record EnrollmentCheckResponse(boolean enrolled) {}
+    public record EnrollmentCheckResponse(boolean enrolled, EnrollmentStatus status) {}
 }

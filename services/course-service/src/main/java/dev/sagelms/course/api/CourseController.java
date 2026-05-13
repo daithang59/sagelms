@@ -35,20 +35,21 @@ public class CourseController {
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String category,
             @RequestParam(required = false) String search,
+            @RequestParam(required = false, defaultValue = "teaching") String scope,
             @RequestHeader(value = USER_ID_HEADER, required = false) UUID userId,
             @RequestHeader(value = ROLES_HEADER, required = false) String roles
     ) {
         // Priority: search > status > category > role-aware default
         if (search != null && !search.isBlank()) {
-            return ResponseEntity.ok(courseService.searchCoursesForViewer(search, userId, roles, pageable));
+            return ResponseEntity.ok(courseService.searchCoursesForViewer(search, userId, roles, scope, pageable));
         }
         if (status != null && !status.isBlank()) {
-            return ResponseEntity.ok(courseService.getCoursesByStatusForViewer(status, userId, roles, pageable));
+            return ResponseEntity.ok(courseService.getCoursesByStatusForViewer(status, userId, roles, scope, pageable));
         }
         if (category != null && !category.isBlank()) {
-            return ResponseEntity.ok(courseService.getCoursesByCategory(category, userId, roles, pageable));
+            return ResponseEntity.ok(courseService.getCoursesByCategory(category, userId, roles, scope, pageable));
         }
-        return ResponseEntity.ok(courseService.getCoursesForViewer(userId, roles, pageable));
+        return ResponseEntity.ok(courseService.getCoursesForViewer(userId, roles, scope, pageable));
     }
 
     /**

@@ -17,8 +17,12 @@ public record EnrollmentResponse(
         String studentEmail,
         String studentFullName,
         String studentAvatarUrl,
+        String studentRole,
         Instant enrolledAt,
-        EnrollmentStatus status
+        EnrollmentStatus status,
+        String reviewNote,
+        Instant reviewedAt,
+        UUID reviewedBy
 ) {
     /**
      * Convert entity to response DTO
@@ -32,8 +36,12 @@ public record EnrollmentResponse(
                 null, // studentEmail - can be loaded separately if needed
                 null, // studentFullName - can be loaded separately if needed
                 null, // studentAvatarUrl - can be loaded separately if needed
+                null, // studentRole - can be loaded separately if needed
                 enrollment.getEnrolledAt(),
-                enrollment.getStatus()
+                enrollment.getStatus(),
+                enrollment.getReviewNote(),
+                enrollment.getReviewedAt(),
+                enrollment.getReviewedBy()
         );
     }
 
@@ -53,6 +61,16 @@ public record EnrollmentResponse(
             String studentEmail,
             String studentFullName,
             String studentAvatarUrl) {
+        return fromEntity(enrollment, courseTitle, studentEmail, studentFullName, studentAvatarUrl, null);
+    }
+
+    public static EnrollmentResponse fromEntity(
+            Enrollment enrollment,
+            String courseTitle,
+            String studentEmail,
+            String studentFullName,
+            String studentAvatarUrl,
+            String studentRole) {
         return new EnrollmentResponse(
                 enrollment.getId(),
                 enrollment.getCourseId(),
@@ -61,8 +79,12 @@ public record EnrollmentResponse(
                 studentEmail,
                 studentFullName,
                 studentAvatarUrl,
+                studentRole,
                 enrollment.getEnrolledAt(),
-                enrollment.getStatus()
+                enrollment.getStatus(),
+                enrollment.getReviewNote(),
+                enrollment.getReviewedAt(),
+                enrollment.getReviewedBy()
         );
     }
 }

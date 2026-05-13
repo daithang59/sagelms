@@ -231,6 +231,7 @@ class CourseServiceTest {
                         instructorId,
                         "instructor@sagelms.dev",
                         "Demo Instructor",
+                        "INSTRUCTOR",
                         null,
                         "Senior Backend Instructor",
                         "Backend bio",
@@ -315,9 +316,51 @@ class CourseServiceTest {
     }
 
     @Test
-    void getCourseById_InstructorCannotViewOtherInstructorCourse() {
+    void getCoursesForViewer_InstructorExploreSeesPublishedCoursesFromOtherInstructors() {
+        UUID otherInstructorId = UUID.randomUUID();
+        Course otherCourse = new Course();
+        otherCourse.setId(UUID.randomUUID());
+        otherCourse.setTitle("Other Instructor Course");
+        otherCourse.setDescription("Published course from another instructor");
+        otherCourse.setInstructorId(otherInstructorId);
+        otherCourse.setStatus(CourseStatus.PUBLISHED);
+        otherCourse.setCategory("Programming");
+
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, 10);
+        org.springframework.data.domain.Page<Course> page =
+                new org.springframework.data.domain.PageImpl<>(List.of(otherCourse));
+
+        when(courseRepository.findPublishedCoursesNotOwnedBy(instructorId, pageable)).thenReturn(page);
+        when(enrollmentRepository.countEnrollmentsByCourseIdsMap(anyList())).thenReturn(Map.of(otherCourse.getId(), 4L));
+
+        org.springframework.data.domain.Page<CourseResponse> responses = courseService.getCoursesForViewer(
+                instructorId,
+                "INSTRUCTOR",
+                "explore",
+                pageable);
+
+        assertEquals(1, responses.getTotalElements());
+        assertEquals(otherInstructorId, responses.getContent().get(0).instructorId());
+        verify(courseRepository).findPublishedCoursesNotOwnedBy(instructorId, pageable);
+        verify(courseRepository, never()).findByInstructorId(eq(instructorId), any(org.springframework.data.domain.Pageable.class));
+    }
+
+    @Test
+    void getCourseById_InstructorCanViewOtherPublishedCourse() {
         UUID otherInstructorId = UUID.randomUUID();
         testCourse.setStatus(CourseStatus.PUBLISHED);
+        when(courseRepository.findById(courseId)).thenReturn(Optional.of(testCourse));
+        when(courseRepository.countEnrollments(courseId)).thenReturn(0L);
+
+        CourseResponse response = courseService.getCourseById(courseId, otherInstructorId, "INSTRUCTOR");
+
+        assertEquals(courseId, response.id());
+    }
+
+    @Test
+    void getCourseById_InstructorCannotViewOtherDraftCourse() {
+        UUID otherInstructorId = UUID.randomUUID();
+        testCourse.setStatus(CourseStatus.DRAFT);
         when(courseRepository.findById(courseId)).thenReturn(Optional.of(testCourse));
 
         assertThrows(CourseService.CourseForbiddenException.class, () ->

@@ -1,6 +1,7 @@
 package dev.sagelms.course.dto;
 
 import dev.sagelms.course.entity.CourseStatus;
+import dev.sagelms.course.entity.EnrollmentPolicy;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -22,5 +23,16 @@ public record CourseRequest(
         CourseStatus status,
 
         @Size(max = 100, message = "Category must not exceed 100 characters")
-        String category
-) {}
+        String category,
+
+        EnrollmentPolicy enrollmentPolicy
+) {
+    public CourseRequest(
+            String title,
+            String description,
+            String thumbnailUrl,
+            CourseStatus status,
+            String category) {
+        this(title, description, thumbnailUrl, status, category, EnrollmentPolicy.OPEN);
+    }
+}

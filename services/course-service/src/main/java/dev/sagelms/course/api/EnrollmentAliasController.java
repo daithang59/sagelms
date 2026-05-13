@@ -27,6 +27,6 @@ public class EnrollmentAliasController {
     public ResponseEntity<List<EnrollmentResponse>> getMyEnrollments(
             @RequestHeader(USER_ID_HEADER) UUID userId
     ) {
-        return ResponseEntity.ok(enrollmentService.getActiveEnrollmentsByStudent(userId));
+        return ResponseEntity.ok(enrollmentService.getVisibleEnrollmentsByStudent(userId));
     }
 }

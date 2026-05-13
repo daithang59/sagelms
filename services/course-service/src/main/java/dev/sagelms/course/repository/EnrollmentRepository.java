@@ -44,8 +44,11 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, UUID> {
     @Query("SELECT e FROM Enrollment e WHERE e.studentId = :studentId AND e.status = 'ACTIVE'")
     List<Enrollment> findActiveEnrollmentsByStudentId(@Param("studentId") UUID studentId);
 
+    @Query("SELECT e FROM Enrollment e WHERE e.studentId = :studentId AND e.status IN ('PENDING', 'ACTIVE', 'COMPLETED') ORDER BY e.enrolledAt DESC")
+    List<Enrollment> findVisibleEnrollmentsByStudentId(@Param("studentId") UUID studentId);
+
     // Bulk count enrollments for multiple courses (avoid N+1 problem)
-    @Query("SELECT e.courseId, COUNT(e) FROM Enrollment e WHERE e.courseId IN :courseIds GROUP BY e.courseId")
+    @Query("SELECT e.courseId, COUNT(e) FROM Enrollment e WHERE e.courseId IN :courseIds AND e.status IN ('ACTIVE', 'COMPLETED') GROUP BY e.courseId")
     List<Object[]> countEnrollmentsByCourseIds(@Param("courseIds") List<UUID> courseIds);
 
     /**

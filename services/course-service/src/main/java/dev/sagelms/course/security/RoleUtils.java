@@ -27,4 +27,8 @@ public final class RoleUtils {
     public static boolean isStudent(String rolesHeader) {
         return hasRole(rolesHeader, "STUDENT");
     }
+
+    public static boolean isLearner(String rolesHeader) {
+        return isStudent(rolesHeader) || hasRole(rolesHeader, "INSTRUCTOR");
+    }
 }

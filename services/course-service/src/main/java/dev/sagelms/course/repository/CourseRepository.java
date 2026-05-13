@@ -41,9 +41,15 @@ public interface CourseRepository extends JpaRepository<Course, UUID> {
     @Query("SELECT c FROM Course c WHERE c.status = 'PUBLISHED' AND LOWER(c.title) LIKE LOWER(CONCAT('%', :search, '%'))")
     Page<Course> searchPublishedByTitle(@Param("search") String search, Pageable pageable);
 
+    @Query("SELECT c FROM Course c WHERE c.status = 'PUBLISHED' AND c.instructorId <> :instructorId AND LOWER(c.title) LIKE LOWER(CONCAT('%', :search, '%'))")
+    Page<Course> searchPublishedNotOwnedByTitle(@Param("instructorId") UUID instructorId, @Param("search") String search, Pageable pageable);
+
     // Find all published courses
     @Query("SELECT c FROM Course c WHERE c.status = 'PUBLISHED'")
     Page<Course> findPublishedCourses(Pageable pageable);
+
+    @Query("SELECT c FROM Course c WHERE c.status = 'PUBLISHED' AND c.instructorId <> :instructorId")
+    Page<Course> findPublishedCoursesNotOwnedBy(@Param("instructorId") UUID instructorId, Pageable pageable);
 
     Page<Course> findByCategory(String category, Pageable pageable);
 
@@ -53,6 +59,12 @@ public interface CourseRepository extends JpaRepository<Course, UUID> {
 
     Page<Course> findByStatusAndCategoryIgnoreCase(CourseStatus status, String category, Pageable pageable);
 
+    Page<Course> findByStatusAndInstructorIdNotAndCategoryIgnoreCase(
+            CourseStatus status,
+            UUID instructorId,
+            String category,
+            Pageable pageable);
+
     List<Course> findByStatusAndCategoryIgnoreCase(CourseStatus status, String category);
 
     // Find by category
@@ -61,6 +73,6 @@ public interface CourseRepository extends JpaRepository<Course, UUID> {
     List<Course> findByInstructorIdAndCategory(UUID instructorId, String category);
 
     // Count enrollments for a course (using soft reference)
-    @Query("SELECT COUNT(e) FROM Enrollment e WHERE e.courseId = :courseId")
+    @Query("SELECT COUNT(e) FROM Enrollment e WHERE e.courseId = :courseId AND e.status IN ('ACTIVE', 'COMPLETED')")
     long countEnrollments(@Param("courseId") UUID courseId);
 }
