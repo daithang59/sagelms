@@ -46,6 +46,36 @@ BEGIN
     END IF;
 END $$;
 
+-- Keep the dev seed runnable even when the local DB has not been rebuilt after
+-- adding the course enrollment approval migration.
+ALTER TABLE course.courses
+    ADD COLUMN IF NOT EXISTS enrollment_policy VARCHAR(30) NOT NULL DEFAULT 'OPEN';
+
+ALTER TABLE course.courses
+    DROP CONSTRAINT IF EXISTS courses_enrollment_policy_check;
+
+ALTER TABLE course.courses
+    ADD CONSTRAINT courses_enrollment_policy_check
+        CHECK (enrollment_policy IN ('OPEN', 'APPROVAL_REQUIRED'));
+
+ALTER TABLE course.enrollments
+    DROP CONSTRAINT IF EXISTS enrollments_status_check;
+
+ALTER TABLE course.enrollments
+    ADD CONSTRAINT enrollments_status_check
+        CHECK (status IN ('PENDING', 'ACTIVE', 'DROPPED', 'COMPLETED', 'REJECTED'));
+
+ALTER TABLE course.enrollments
+    ADD COLUMN IF NOT EXISTS review_note VARCHAR(1000),
+    ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS reviewed_by UUID;
+
+CREATE INDEX IF NOT EXISTS idx_courses_enrollment_policy
+    ON course.courses (enrollment_policy);
+
+CREATE INDEX IF NOT EXISTS idx_enrollments_course_status
+    ON course.enrollments (course_id, status);
+
 -- ---------------------------------------------------------------------------
 -- Users
 -- ---------------------------------------------------------------------------
@@ -1222,6 +1252,25 @@ ON CONFLICT (course_id, sort_order) DO UPDATE SET
     duration_minutes = EXCLUDED.duration_minutes,
     is_published = EXCLUDED.is_published,
     updated_at = NOW();
+
+UPDATE course.courses
+SET enrollment_policy = 'APPROVAL_REQUIRED',
+    updated_at = NOW()
+WHERE id IN (
+    '30000000-0000-0000-0000-000000000005',
+    '30000000-0000-0000-0000-000000000014',
+    '30000000-0000-0000-0000-000000000018',
+    '30000000-0000-0000-0000-000000000024',
+    '30000000-0000-0000-0000-000000000026'
+);
+
+UPDATE course.enrollments
+SET status = 'PENDING'
+WHERE id IN (
+    '40000000-0000-0000-0000-000000000014',
+    '40000000-0000-0000-0000-000000000017',
+    '40000000-0000-0000-0000-000000000022'
+);
 
 COMMIT;
 
