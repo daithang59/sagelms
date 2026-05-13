@@ -2,7 +2,7 @@ import { Badge, Button, Card, CardBody } from '@/components/ui';
 import { useToast } from '@/components/Toast';
 import api from '@/lib/api';
 import type { InstructorApprovalStatus, User, UserListResponse } from '@/types/auth';
-import { CheckCircle2, Clock3, ExternalLink, RefreshCw, SearchX, XCircle } from 'lucide-react';
+import { CheckCircle2, Clock3, ExternalLink, RefreshCw, SearchX, X, XCircle } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 const statuses: InstructorApprovalStatus[] = ['PENDING', 'APPROVED', 'REJECTED'];
@@ -31,6 +31,7 @@ export default function InstructorApplicationsPage() {
   const [applications, setApplications] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionUserId, setActionUserId] = useState<string | null>(null);
+  const [rejectingUser, setRejectingUser] = useState<User | null>(null);
   const [error, setError] = useState('');
   const [totalElements, setTotalElements] = useState(0);
 
@@ -55,18 +56,29 @@ export default function InstructorApplicationsPage() {
     void Promise.resolve().then(loadApplications);
   }, [loadApplications]);
 
-  const handleDecision = async (userId: string, decision: 'approve' | 'reject') => {
+  const handleApprove = async (userId: string) => {
     setActionUserId(userId);
     try {
-      const endpoint =
-        decision === 'approve'
-          ? `/users/${userId}/approve-instructor`
-          : `/users/${userId}/reject-instructor`;
-      await api.post<User>(endpoint);
-      showToast(decision === 'approve' ? 'Đã duyệt giáo viên.' : 'Đã từ chối hồ sơ.', 'success');
+      await api.post<User>(`/users/${userId}/approve-instructor`);
+      showToast('Đã duyệt giáo viên.', 'success');
       await loadApplications();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Thao tác thất bại.';
+      showToast(message, 'error');
+    } finally {
+      setActionUserId(null);
+    }
+  };
+
+  const handleReject = async (user: User, reason: string) => {
+    setActionUserId(user.id);
+    try {
+      await api.post<User>(`/users/${user.id}/reject-instructor`, { reason });
+      showToast('Đã từ chối hồ sơ và lưu lý do.', 'success');
+      setRejectingUser(null);
+      await loadApplications();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Từ chối hồ sơ thất bại.';
       showToast(message, 'error');
     } finally {
       setActionUserId(null);
@@ -146,12 +158,19 @@ export default function InstructorApplicationsPage() {
               application={application}
               status={status}
               isActing={actionUserId === application.id}
-              onApprove={() => handleDecision(application.id, 'approve')}
-              onReject={() => handleDecision(application.id, 'reject')}
+              onApprove={() => handleApprove(application.id)}
+              onReject={() => setRejectingUser(application)}
             />
           ))}
         </div>
       )}
+
+      <RejectInstructorModal
+        user={rejectingUser}
+        isSaving={actionUserId === rejectingUser?.id}
+        onClose={() => setRejectingUser(null)}
+        onSubmit={handleReject}
+      />
     </div>
   );
 }
@@ -169,6 +188,8 @@ function InstructorApplicationCard({
   onApprove: () => void;
   onReject: () => void;
 }) {
+  const currentStatus = application.instructorApprovalStatus ?? status;
+
   return (
     <Card className="overflow-hidden">
       <CardBody className="space-y-5">
@@ -176,8 +197,8 @@ function InstructorApplicationCard({
           <div>
             <div className="flex flex-wrap items-center gap-3">
               <h2 className="text-lg font-semibold text-slate-900">{application.fullName}</h2>
-              <Badge variant={statusVariants[application.instructorApprovalStatus ?? status]}>
-                {statusLabels[application.instructorApprovalStatus ?? status]}
+              <Badge variant={statusVariants[currentStatus]}>
+                {statusLabels[currentStatus]}
               </Badge>
             </div>
             <p className="mt-1 text-sm text-slate-500">{application.email}</p>
@@ -229,10 +250,96 @@ function InstructorApplicationCard({
           <TextSection label="Bio giảng dạy" value={application.instructorBio} />
         )}
         {application.instructorApplicationNote && (
-          <TextSection label="Ghi chú onboarding" value={application.instructorApplicationNote} />
+          <TextSection
+            label={currentStatus === 'REJECTED' ? 'Lý do từ chối / ghi chú' : 'Ghi chú onboarding'}
+            value={application.instructorApplicationNote}
+          />
         )}
       </CardBody>
     </Card>
+  );
+}
+
+function RejectInstructorModal({
+  user,
+  isSaving,
+  onClose,
+  onSubmit,
+}: {
+  user: User | null;
+  isSaving: boolean;
+  onClose: () => void;
+  onSubmit: (user: User, reason: string) => Promise<void>;
+}) {
+  const [reason, setReason] = useState('');
+
+  useEffect(() => {
+    if (!user) return;
+    void Promise.resolve().then(() => setReason(''));
+  }, [user]);
+
+  if (!user) return null;
+
+  const trimmedReason = reason.trim();
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl">
+        <div className="flex items-center justify-between border-b border-slate-100 p-5">
+          <div>
+            <h2 className="text-lg font-bold text-slate-900">Từ chối hồ sơ giáo viên</h2>
+            <p className="mt-1 text-sm text-slate-500">{user.fullName} · {user.email}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+            aria-label="Đóng"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <form
+          className="space-y-4 p-5"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (trimmedReason.length >= 10) {
+              void onSubmit(user, trimmedReason);
+            }
+          }}
+        >
+          <div>
+            <label htmlFor="reject-reason" className="mb-1.5 block text-sm font-medium text-slate-700">
+              Lý do từ chối
+            </label>
+            <textarea
+              id="reject-reason"
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
+              rows={5}
+              required
+              minLength={10}
+              maxLength={2000}
+              placeholder="Ví dụ: Bio chưa đủ chi tiết, cần bổ sung kinh nghiệm giảng dạy hoặc link portfolio/chứng chỉ."
+              className="w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
+            />
+            <p className="mt-1 text-xs text-slate-500">
+              Lý do này sẽ được lưu vào ghi chú hồ sơ để admin/giáo viên biết cần bổ sung gì.
+            </p>
+          </div>
+
+          <div className="flex justify-end gap-3">
+            <Button type="button" variant="secondary" onClick={onClose}>
+              Hủy
+            </Button>
+            <Button type="submit" variant="danger" isLoading={isSaving} disabled={trimmedReason.length < 10}>
+              Xác nhận từ chối
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }
 
