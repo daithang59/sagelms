@@ -3,6 +3,7 @@ package dev.sagelms.challenge.dto;
 import dev.sagelms.challenge.entity.ChallengeQuestionType;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.UUID;
 
 public record ChallengeAnswerResultResponse(
@@ -11,6 +12,7 @@ public record ChallengeAnswerResultResponse(
         String prompt,
         ChallengeQuestionType type,
         BigDecimal points,
+        List<ChallengeChoiceResponse> choices,
         UUID selectedChoiceId,
         String selectedChoiceText,
         UUID correctChoiceId,

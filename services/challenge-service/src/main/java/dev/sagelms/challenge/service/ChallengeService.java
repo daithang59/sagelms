@@ -305,6 +305,19 @@ public class ChallengeService {
     }
 
     @Transactional(readOnly = true)
+    public List<ChallengeSubmissionSummaryResponse> getMyGradedSubmissions(UUID challengeId, UUID participantId, String roles) {
+        if (participantId == null) {
+            throw new ForbiddenException("Login required to view challenge results.");
+        }
+        Challenge challenge = findChallenge(challengeId);
+        requireCanView(challenge, participantId, roles);
+        return attemptRepository.findByChallengeIdAndParticipantIdAndSubmittedAtIsNotNullOrderBySubmittedAtDesc(challengeId, participantId).stream()
+                .filter(attempt -> attempt.getGradingStatus() == GradingStatus.GRADED)
+                .map(this::toSubmissionSummary)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public List<ChallengeSubmissionSummaryResponse> getParticipantSubmissions(UUID challengeId, UUID participantId, UUID userId, String roles) {
         Challenge challenge = findChallenge(challengeId);
         requireCanManage(challenge, userId, roles);
@@ -621,18 +634,22 @@ public class ChallengeService {
                 .map(answer -> {
                     ChallengeQuestion question = answer.getQuestion();
                     ChallengeChoice selected = answer.getChoice();
-                    ChallengeChoice correct = question.getType() == ChallengeQuestionType.MULTIPLE_CHOICE
-                            ? choiceRepository.findByQuestionIdOrderBySortOrderAsc(question.getId()).stream()
-                                .filter(choice -> Boolean.TRUE.equals(choice.getIsCorrect()))
-                                .findFirst()
-                                .orElse(null)
-                            : null;
+                    List<ChallengeChoice> choices = question.getType() == ChallengeQuestionType.MULTIPLE_CHOICE
+                            ? choiceRepository.findByQuestionIdOrderBySortOrderAsc(question.getId())
+                            : List.of();
+                    ChallengeChoice correct = choices.stream()
+                            .filter(choice -> Boolean.TRUE.equals(choice.getIsCorrect()))
+                            .findFirst()
+                            .orElse(null);
                     return new ChallengeAnswerResultResponse(
                             question.getId(),
                             question.getTitle(),
                             question.getPrompt(),
                             question.getType(),
                             question.getPoints(),
+                            choices.stream()
+                                    .map(choice -> ChallengeChoiceResponse.from(choice, true))
+                                    .toList(),
                             selected != null ? selected.getId() : null,
                             selected != null ? selected.getText() : null,
                             correct != null ? correct.getId() : null,

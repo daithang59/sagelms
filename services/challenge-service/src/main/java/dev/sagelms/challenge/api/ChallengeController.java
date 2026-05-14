@@ -204,6 +204,14 @@ public class ChallengeController {
         return ResponseEntity.ok(challengeService.getSubmissions(challengeId, userId, roles));
     }
 
+    @GetMapping("/challenges/{challengeId}/my-submissions")
+    public ResponseEntity<List<ChallengeSubmissionSummaryResponse>> getMyGradedSubmissions(
+            @PathVariable UUID challengeId,
+            @RequestHeader(USER_ID_HEADER) UUID userId,
+            @RequestHeader(value = ROLES_HEADER, required = false) String roles) {
+        return ResponseEntity.ok(challengeService.getMyGradedSubmissions(challengeId, userId, roles));
+    }
+
     @GetMapping("/challenges/{challengeId}/leaderboard")
     public ResponseEntity<List<ChallengeLeaderboardEntryResponse>> getLeaderboard(
             @PathVariable UUID challengeId,
