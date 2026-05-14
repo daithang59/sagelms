@@ -9,6 +9,7 @@ interface CourseFormProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  publishedLessonsCount?: number;
   editCourse?: {
     id: string;
     title: string;
@@ -56,7 +57,7 @@ const enrollmentPolicyOptions: Array<{ value: EnrollmentPolicy; label: string; d
   },
 ];
 
-export default function CourseForm({ isOpen, onClose, onSuccess, editCourse }: CourseFormProps) {
+export default function CourseForm({ isOpen, onClose, onSuccess, editCourse, publishedLessonsCount }: CourseFormProps) {
   const { createCourse, updateCourse, loading } = useCourses();
   const { showToast } = useToast();
 
@@ -91,6 +92,21 @@ export default function CourseForm({ isOpen, onClose, onSuccess, editCourse }: C
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+
+    if (formData.status === 'PUBLISHED') {
+      if (!editCourse) {
+        showToast('Hãy tạo khóa ở trạng thái bản nháp, thêm bài học rồi mới xuất bản.', 'warning');
+        return;
+      }
+      if (publishedLessonsCount !== undefined && publishedLessonsCount < 1) {
+        showToast('Cần có ít nhất 1 bài học đã xuất bản trước khi xuất bản khóa học.', 'warning');
+        return;
+      }
+      if (!formData.category || formData.description.trim().length < 30) {
+        showToast('Vui lòng bổ sung danh mục và mô tả đủ rõ trước khi xuất bản khóa học.', 'warning');
+        return;
+      }
+    }
 
     try {
       if (editCourse) {

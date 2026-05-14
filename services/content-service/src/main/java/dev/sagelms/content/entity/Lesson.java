@@ -4,8 +4,7 @@ import jakarta.persistence.*;
 import java.util.UUID;
 
 @Entity
-@Table(name = "lessons", schema = "content",
-       uniqueConstraints = @UniqueConstraint(columnNames = {"course_id", "sort_order"}))
+@Table(name = "lessons", schema = "content")
 public class Lesson extends BaseEntity {
 
     @Column(name = "course_id", nullable = false)
@@ -32,6 +31,9 @@ public class Lesson extends BaseEntity {
 
     @Column(name = "is_published")
     private Boolean isPublished = false;
+
+    @Column(name = "is_deleted", nullable = false)
+    private Boolean isDeleted = false;
 
     @Column(name = "instructor_id", nullable = false)
     private UUID instructorId;  // Track who created this lesson
@@ -61,6 +63,9 @@ public class Lesson extends BaseEntity {
 
     public Boolean getIsPublished() { return isPublished; }
     public void setIsPublished(Boolean isPublished) { this.isPublished = isPublished; }
+
+    public Boolean getIsDeleted() { return isDeleted; }
+    public void setIsDeleted(Boolean isDeleted) { this.isDeleted = isDeleted; }
 
     public UUID getInstructorId() { return instructorId; }
     public void setInstructorId(UUID instructorId) { this.instructorId = instructorId; }

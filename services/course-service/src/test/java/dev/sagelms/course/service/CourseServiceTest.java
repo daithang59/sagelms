@@ -180,16 +180,18 @@ class CourseServiceTest {
     // ============== DELETE TESTS ==============
 
     @Test
-    void deleteCourse_Success() {
+    void deleteCourse_ArchivesCourse() {
         // Arrange
         when(courseRepository.findById(courseId)).thenReturn(Optional.of(testCourse));
-        doNothing().when(courseRepository).delete(testCourse);
+        when(courseRepository.save(any(Course.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         // Act
         courseService.deleteCourse(courseId, instructorId, "INSTRUCTOR");
 
         // Assert
-        verify(courseRepository, times(1)).delete(testCourse);
+        assertEquals(CourseStatus.ARCHIVED, testCourse.getStatus());
+        verify(courseRepository, times(1)).save(testCourse);
+        verify(courseRepository, never()).delete(testCourse);
     }
 
     @Test

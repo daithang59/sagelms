@@ -2,6 +2,7 @@ package dev.sagelms.content.api;
 
 import dev.sagelms.content.service.LessonService.LessonNotFoundException;
 import dev.sagelms.content.service.LessonService.LessonOwnershipException;
+import dev.sagelms.content.service.FileStorageService.FileNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -22,6 +23,17 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(LessonNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleLessonNotFound(LessonNotFoundException ex) {
+        ErrorResponse error = new ErrorResponse(
+                HttpStatus.NOT_FOUND.value(),
+                "NOT_FOUND",
+                ex.getMessage(),
+                Instant.now()
+        );
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+    }
+
+    @ExceptionHandler(FileNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleFileNotFound(FileNotFoundException ex) {
         ErrorResponse error = new ErrorResponse(
                 HttpStatus.NOT_FOUND.value(),
                 "NOT_FOUND",

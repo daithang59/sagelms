@@ -137,7 +137,7 @@ class LessonServiceTest {
                 null  // not used - comes from header
         );
 
-        when(lessonRepository.findById(lessonId)).thenReturn(Optional.of(testLesson));
+        when(lessonRepository.findByIdAndIsDeletedFalse(lessonId)).thenReturn(Optional.of(testLesson));
         when(lessonRepository.save(any(Lesson.class))).thenReturn(testLesson);
 
         // Act
@@ -163,7 +163,7 @@ class LessonServiceTest {
                 null  // not used - comes from header
         );
 
-        when(lessonRepository.findById(lessonId)).thenReturn(Optional.of(testLesson));
+        when(lessonRepository.findByIdAndIsDeletedFalse(lessonId)).thenReturn(Optional.of(testLesson));
         when(courseOwnershipClient.isCourseOwner(courseId, otherInstructorId)).thenReturn(false);
 
         // Act & Assert - the header instructorId (otherInstructorId) is checked against lesson's instructorId
@@ -187,7 +187,7 @@ class LessonServiceTest {
                 null  // not used
         );
 
-        when(lessonRepository.findById(notFoundId)).thenReturn(Optional.empty());
+        when(lessonRepository.findByIdAndIsDeletedFalse(notFoundId)).thenReturn(Optional.empty());
 
         // Act & Assert
         assertThrows(LessonService.LessonNotFoundException.class, () ->
@@ -198,23 +198,26 @@ class LessonServiceTest {
     // ============== DELETE TESTS ==============
 
     @Test
-    void deleteLesson_Success() {
+    void deleteLesson_SoftDeletesLesson() {
         // Arrange
-        when(lessonRepository.findById(lessonId)).thenReturn(Optional.of(testLesson));
-        doNothing().when(lessonRepository).delete(testLesson);
+        when(lessonRepository.findByIdAndIsDeletedFalse(lessonId)).thenReturn(Optional.of(testLesson));
+        when(lessonRepository.save(any(Lesson.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         // Act
         lessonService.deleteLesson(lessonId, instructorId);
 
         // Assert
-        verify(lessonRepository, times(1)).delete(testLesson);
+        assertTrue(testLesson.getIsDeleted());
+        assertFalse(testLesson.getIsPublished());
+        verify(lessonRepository, times(1)).save(testLesson);
+        verify(lessonRepository, never()).delete(testLesson);
     }
 
     @Test
     void deleteLesson_NotOwner_ThrowsException() {
         // Arrange
         UUID otherInstructorId = UUID.randomUUID();
-        when(lessonRepository.findById(lessonId)).thenReturn(Optional.of(testLesson));
+        when(lessonRepository.findByIdAndIsDeletedFalse(lessonId)).thenReturn(Optional.of(testLesson));
         when(courseOwnershipClient.isCourseOwner(courseId, otherInstructorId)).thenReturn(false);
 
         // Act & Assert
@@ -228,7 +231,7 @@ class LessonServiceTest {
     @Test
     void getLessonById_Success() {
         // Arrange
-        when(lessonRepository.findById(lessonId)).thenReturn(Optional.of(testLesson));
+        when(lessonRepository.findByIdAndIsDeletedFalse(lessonId)).thenReturn(Optional.of(testLesson));
 
         // Act
         LessonResponse response = lessonService.getLessonById(lessonId);
@@ -243,7 +246,7 @@ class LessonServiceTest {
     void getLessonById_NotFound_ThrowsException() {
         // Arrange
         UUID notFoundId = UUID.randomUUID();
-        when(lessonRepository.findById(notFoundId)).thenReturn(Optional.empty());
+        when(lessonRepository.findByIdAndIsDeletedFalse(notFoundId)).thenReturn(Optional.empty());
 
         // Act & Assert
         assertThrows(LessonService.LessonNotFoundException.class, () ->
@@ -255,7 +258,7 @@ class LessonServiceTest {
     void getLessonsByCourse_Success() {
         // Arrange
         List<Lesson> lessons = List.of(testLesson);
-        when(lessonRepository.findByCourseIdAndIsPublishedTrueOrderBySortOrderAsc(courseId)).thenReturn(lessons);
+        when(lessonRepository.findByCourseIdAndIsPublishedTrueAndIsDeletedFalseOrderBySortOrderAsc(courseId)).thenReturn(lessons);
 
         // Act
         List<LessonResponse> responses = lessonService.getLessonsByCourse(courseId);
@@ -269,7 +272,7 @@ class LessonServiceTest {
     void getPublishedLessonsByCourse_Success() {
         // Arrange
         List<Lesson> lessons = List.of(testLesson);
-        when(lessonRepository.findByCourseIdAndIsPublishedTrueOrderBySortOrderAsc(courseId))
+        when(lessonRepository.findByCourseIdAndIsPublishedTrueAndIsDeletedFalseOrderBySortOrderAsc(courseId))
                 .thenReturn(lessons);
 
         // Act
@@ -302,8 +305,8 @@ class LessonServiceTest {
 
         List<UUID> newOrder = List.of(lessonId2, lessonId1);
 
-        when(lessonRepository.findById(lessonId1)).thenReturn(Optional.of(lesson1));
-        when(lessonRepository.findById(lessonId2)).thenReturn(Optional.of(lesson2));
+        when(lessonRepository.findByIdAndIsDeletedFalse(lessonId1)).thenReturn(Optional.of(lesson1));
+        when(lessonRepository.findByIdAndIsDeletedFalse(lessonId2)).thenReturn(Optional.of(lesson2));
         when(lessonRepository.save(any(Lesson.class))).thenReturn(lesson1);
 
         // Act
@@ -340,7 +343,7 @@ class LessonServiceTest {
     @Test
     void publishLesson_Success() {
         // Arrange
-        when(lessonRepository.findById(lessonId)).thenReturn(Optional.of(testLesson));
+        when(lessonRepository.findByIdAndIsDeletedFalse(lessonId)).thenReturn(Optional.of(testLesson));
         when(lessonRepository.save(any(Lesson.class))).thenReturn(testLesson);
 
         // Act
@@ -354,7 +357,7 @@ class LessonServiceTest {
     void publishLesson_NotOwner_ThrowsException() {
         // Arrange
         UUID otherInstructorId = UUID.randomUUID();
-        when(lessonRepository.findById(lessonId)).thenReturn(Optional.of(testLesson));
+        when(lessonRepository.findByIdAndIsDeletedFalse(lessonId)).thenReturn(Optional.of(testLesson));
         when(courseOwnershipClient.isCourseOwner(courseId, otherInstructorId)).thenReturn(false);
 
         // Act & Assert
@@ -386,13 +389,13 @@ class LessonServiceTest {
 
     @Test
     void getLessonsByCourse_DefaultOnlyPublished() {
-        when(lessonRepository.findByCourseIdAndIsPublishedTrueOrderBySortOrderAsc(courseId))
+        when(lessonRepository.findByCourseIdAndIsPublishedTrueAndIsDeletedFalseOrderBySortOrderAsc(courseId))
                 .thenReturn(List.of(testLesson));
 
         List<LessonResponse> responses = lessonService.getLessonsByCourse(courseId);
 
         assertEquals(1, responses.size());
-        verify(lessonRepository, never()).findByCourseIdOrderBySortOrderAsc(courseId);
+        verify(lessonRepository, never()).findByCourseIdAndIsDeletedFalseOrderBySortOrderAsc(courseId);
     }
 
     @Test
@@ -408,7 +411,7 @@ class LessonServiceTest {
     @Test
     void getLessonById_UnpublishedRequiresOwnerOrAdmin() {
         testLesson.setIsPublished(false);
-        when(lessonRepository.findById(lessonId)).thenReturn(Optional.of(testLesson));
+        when(lessonRepository.findByIdAndIsDeletedFalse(lessonId)).thenReturn(Optional.of(testLesson));
 
         LessonResponse response = lessonService.getLessonById(lessonId, instructorId, "INSTRUCTOR");
 
@@ -418,7 +421,7 @@ class LessonServiceTest {
     @Test
     void getLessonById_PublishedRequiresCourseContentAccess() {
         UUID studentId = UUID.randomUUID();
-        when(lessonRepository.findById(lessonId)).thenReturn(Optional.of(testLesson));
+        when(lessonRepository.findByIdAndIsDeletedFalse(lessonId)).thenReturn(Optional.of(testLesson));
         when(courseOwnershipClient.canAccessCourseContent(courseId, studentId, "STUDENT")).thenReturn(false);
 
         assertThrows(LessonService.LessonOwnershipException.class, () ->
@@ -431,7 +434,7 @@ class LessonServiceTest {
         UUID studentId = UUID.randomUUID();
         testLesson.setType(ContentType.TEXT);
         testLesson.setTextContent("Lesson body");
-        when(lessonRepository.findById(lessonId)).thenReturn(Optional.of(testLesson));
+        when(lessonRepository.findByIdAndIsDeletedFalse(lessonId)).thenReturn(Optional.of(testLesson));
         when(courseOwnershipClient.canAccessCourseContent(courseId, studentId, "STUDENT")).thenReturn(true);
 
         var response = lessonService.getLessonTextContent(lessonId, studentId, "STUDENT");

@@ -81,7 +81,7 @@ public class CourseService {
     }
 
     /**
-     * Delete a course
+     * Archive a course instead of hard-deleting it.
      */
     public void deleteCourse(UUID courseId, UUID userId, String roles) {
         Course course = courseRepository.findById(courseId)
@@ -91,7 +91,8 @@ public class CourseService {
             throw new CourseOwnershipException("You do not own this course");
         }
 
-        courseRepository.delete(course);
+        course.setStatus(CourseStatus.ARCHIVED);
+        courseRepository.save(course);
     }
 
     @Transactional(readOnly = true)

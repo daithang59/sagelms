@@ -925,6 +925,7 @@ export default function CourseDetailPage() {
             status: course.status,
             enrollmentPolicy: course.enrollmentPolicy || 'OPEN',
           }}
+          publishedLessonsCount={lessons.filter((lesson) => lesson.isPublished).length}
         />
       )}
 

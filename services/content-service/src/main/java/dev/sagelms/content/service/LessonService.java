@@ -77,7 +77,7 @@ public class LessonService {
     }
 
     public LessonResponse updateLesson(UUID lessonId, LessonRequest request, UUID instructorId, String roles) {
-        Lesson lesson = lessonRepository.findById(lessonId)
+        Lesson lesson = lessonRepository.findByIdAndIsDeletedFalse(lessonId)
                 .orElseThrow(() -> new LessonNotFoundException("Lesson not found: " + lessonId));
 
         requireCourseManager(lesson.getCourseId(), instructorId, roles);
@@ -111,12 +111,14 @@ public class LessonService {
     }
 
     public void deleteLesson(UUID lessonId, UUID instructorId, String roles) {
-        Lesson lesson = lessonRepository.findById(lessonId)
+        Lesson lesson = lessonRepository.findByIdAndIsDeletedFalse(lessonId)
                 .orElseThrow(() -> new LessonNotFoundException("Lesson not found: " + lessonId));
 
         requireCourseManager(lesson.getCourseId(), instructorId, roles);
 
-        lessonRepository.delete(lesson);
+        lesson.setIsDeleted(true);
+        lesson.setIsPublished(false);
+        lessonRepository.save(lesson);
     }
 
     /**
@@ -124,14 +126,14 @@ public class LessonService {
      */
     @Transactional(readOnly = true)
     public LessonResponse getLessonById(UUID lessonId) {
-        Lesson lesson = lessonRepository.findById(lessonId)
+        Lesson lesson = lessonRepository.findByIdAndIsDeletedFalse(lessonId)
                 .orElseThrow(() -> new LessonNotFoundException("Lesson not found: " + lessonId));
         return LessonResponse.fromEntity(lesson);
     }
 
     @Transactional(readOnly = true)
     public LessonResponse getLessonById(UUID lessonId, UUID userId, String roles) {
-        Lesson lesson = lessonRepository.findById(lessonId)
+        Lesson lesson = lessonRepository.findByIdAndIsDeletedFalse(lessonId)
                 .orElseThrow(() -> new LessonNotFoundException("Lesson not found: " + lessonId));
         if (!Boolean.TRUE.equals(lesson.getIsPublished())) {
             requireCourseManager(lesson.getCourseId(), userId, roles);
@@ -143,7 +145,7 @@ public class LessonService {
 
     @Transactional(readOnly = true)
     public LessonTextContentResponse getLessonTextContent(UUID lessonId, UUID userId, String roles) {
-        Lesson lesson = lessonRepository.findById(lessonId)
+        Lesson lesson = lessonRepository.findByIdAndIsDeletedFalse(lessonId)
                 .orElseThrow(() -> new LessonNotFoundException("Lesson not found: " + lessonId));
         if (!Boolean.TRUE.equals(lesson.getIsPublished())) {
             requireCourseManager(lesson.getCourseId(), userId, roles);
@@ -174,7 +176,7 @@ public class LessonService {
     @Transactional(readOnly = true)
     public List<LessonResponse> getLessonsByCourseForManagement(UUID courseId, UUID userId, String roles) {
         requireCourseManager(courseId, userId, roles);
-        return lessonRepository.findByCourseIdOrderBySortOrderAsc(courseId).stream()
+        return lessonRepository.findByCourseIdAndIsDeletedFalseOrderBySortOrderAsc(courseId).stream()
                 .map(LessonResponse::fromEntity)
                 .toList();
     }
@@ -184,7 +186,7 @@ public class LessonService {
      */
     @Transactional(readOnly = true)
     public List<LessonResponse> getPublishedLessonsByCourse(UUID courseId) {
-        return lessonRepository.findByCourseIdAndIsPublishedTrueOrderBySortOrderAsc(courseId).stream()
+        return lessonRepository.findByCourseIdAndIsPublishedTrueAndIsDeletedFalseOrderBySortOrderAsc(courseId).stream()
                 .map(LessonResponse::fromEntity)
                 .toList();
     }
@@ -207,7 +209,7 @@ public class LessonService {
         }
 
         List<Lesson> lessons = lessonIds.stream()
-                .map(lessonId -> lessonRepository.findById(lessonId)
+                .map(lessonId -> lessonRepository.findByIdAndIsDeletedFalse(lessonId)
                         .orElseThrow(() -> new LessonNotFoundException("Lesson not found: " + lessonId)))
                 .toList();
 
@@ -240,7 +242,7 @@ public class LessonService {
     }
 
     public LessonResponse publishLesson(UUID lessonId, boolean publish, UUID instructorId, String roles) {
-        Lesson lesson = lessonRepository.findById(lessonId)
+        Lesson lesson = lessonRepository.findByIdAndIsDeletedFalse(lessonId)
                 .orElseThrow(() -> new LessonNotFoundException("Lesson not found: " + lessonId));
 
         requireCourseManager(lesson.getCourseId(), instructorId, roles);
