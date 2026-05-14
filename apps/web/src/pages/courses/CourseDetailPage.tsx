@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Card, CardBody, Button, Badge } from '@/components/ui';
+import { Card, CardBody, Button, Badge, useConfirm } from '@/components/ui';
 import { useCourses, useLessons, useEnrollment } from '@/hooks';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/Toast';
@@ -30,6 +30,7 @@ export default function CourseDetailPage() {
   const { lessons, loading: lessonsLoading, fetchLessonsByCourse, fetchLessonsForManagement, deleteLesson, publishLesson } = useLessons();
   const { enroll, unenroll, checkEnrollment } = useEnrollment();
   const { showToast } = useToast();
+  const confirm = useConfirm();
 
   const [course, setCourse] = useState<Course | null>(null);
   const [isEnrolled, setIsEnrolled] = useState(false);
@@ -83,7 +84,14 @@ export default function CourseDetailPage() {
 
   const handleUnenroll = async () => {
     if (!id) return;
-    if (!confirm('Bạn có chắc chắn muốn hủy đăng ký khoá học này?')) return;
+    const confirmed = await confirm({
+      title: 'Hủy đăng ký khóa học',
+      message: 'Bạn có chắc chắn muốn hủy đăng ký khóa học này?',
+      confirmLabel: 'Hủy đăng ký',
+      cancelLabel: 'Quay lại',
+      variant: 'danger',
+    });
+    if (!confirmed) return;
     try {
       await unenroll(id);
       setIsEnrolled(false);
@@ -209,8 +217,8 @@ export default function CourseDetailPage() {
         <div className="lg:col-span-2 space-y-6">
           {/* Description */}
           <Card>
-            <CardBody>
-              <h2 className="text-lg font-bold text-slate-800 mb-4">Mô tả khoá học</h2>
+            <CardBody className="p-2">
+              <h2 className="text-lg font-bold text-slate-800 mb-2">Mô tả khoá học</h2>
               <p className="text-slate-600 leading-relaxed">{course.description}</p>
             </CardBody>
           </Card>
@@ -218,7 +226,7 @@ export default function CourseDetailPage() {
           {/* Lessons */}
           <Card>
             <CardBody className="p-0">
-              <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+              <div className="p-2 mb-4 border-b border-slate-100 flex items-center justify-between">
                 <h2 className="text-lg font-bold text-slate-800">
                   Nội dung khoá học
                   <span className="ml-2 text-sm font-normal text-slate-500">
@@ -248,7 +256,7 @@ export default function CourseDetailPage() {
                     <button
                       key={lesson.id}
                       onClick={() => handleLessonClick(lesson.id)}
-                      className="w-full p-4 flex items-center gap-4 hover:bg-slate-50 transition-colors text-left"
+                      className="w-full p-2 mb-4 flex items-center gap-4 hover:bg-slate-50 transition-colors text-left"
                     >
                       <div className="w-10 h-10 rounded-xl bg-violet-100 text-violet-600 flex items-center justify-center">
                         {getLessonIcon(lesson.type)}
@@ -293,14 +301,20 @@ export default function CourseDetailPage() {
                           <button
                             onClick={async (e) => {
                               e.stopPropagation();
-                              if (confirm('Xóa bài học này?')) {
-                                try {
-                                  await deleteLesson(lesson.id);
-                                  showToast('Xóa bài học thành công!', 'success');
-                                } catch (err) {
-                                  const message = err instanceof Error ? err.message : 'Xóa bài học thất bại';
-                                  showToast(message, 'error');
-                                }
+                              const confirmed = await confirm({
+                                title: 'Xóa bài học',
+                                message: `Bạn có chắc chắn muốn xóa bài học "${lesson.title}"?`,
+                                confirmLabel: 'Xóa bài học',
+                                cancelLabel: 'Hủy',
+                                variant: 'danger',
+                              });
+                              if (!confirmed) return;
+                              try {
+                                await deleteLesson(lesson.id);
+                                showToast('Xóa bài học thành công!', 'success');
+                              } catch (err) {
+                                const message = err instanceof Error ? err.message : 'Xóa bài học thất bại';
+                                showToast(message, 'error');
                               }
                             }}
                             className="p-2 rounded-lg hover:bg-red-50 text-red-500"

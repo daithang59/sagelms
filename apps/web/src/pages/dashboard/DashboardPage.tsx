@@ -19,7 +19,7 @@ const stats = [
     iconColor: 'text-violet-600',
   },
   {
-    label: 'Bài kiểm tra',
+    label: 'Thử thách',
     value: '—',
     icon: ClipboardList,
     gradient: 'from-cyan-500 to-blue-600',
@@ -116,14 +116,14 @@ export default function DashboardPage() {
                 <div className="w-10 h-10 rounded-xl bg-cyan-100 flex items-center justify-center">
                   <ClipboardList className="w-5 h-5 text-cyan-600" />
                 </div>
-                <h3 className="text-lg font-semibold text-surface-800">Bài kiểm tra sắp tới</h3>
+                <h3 className="text-lg font-semibold text-surface-800">Thử thách sắp tới</h3>
               </div>
             </div>
             <div className="p-12 text-center">
               <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-surface-100 flex items-center justify-center">
                 <ClipboardList className="w-8 h-8 text-surface-300" />
               </div>
-              <p className="text-surface-500 mb-4">Chưa có bài kiểm tra nào</p>
+              <p className="text-surface-500 mb-4">Chưa có Thử thách nào</p>
               <button className="inline-flex items-center gap-2 text-sm font-medium text-cyan-600 hover:text-cyan-700 transition-colors">
                 Xem lịch sử <ArrowRight className="w-4 h-4" />
               </button>
