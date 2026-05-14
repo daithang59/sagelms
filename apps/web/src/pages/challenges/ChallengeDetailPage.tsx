@@ -9,9 +9,10 @@ import { ArrowLeft, BookOpen, Plus, Trophy, Users } from 'lucide-react';
 import ChallengeForm from './ChallengeForm';
 import ChallengeQuestionPage from './ChallengeQuestionPage';
 import ChallengeRankingPage from './ChallengeRankingPage';
+import ChallengeResultListPage from './ChallengeResultListPage';
 import ChallengeSubmitPage from './ChallengeSubmitPage';
 
-type ChallengeDetailTab = 'questions' | 'submissions' | 'ranking';
+type ChallengeDetailTab = 'questions' | 'submissions' | 'results' | 'ranking';
 
 function statusBadge(status: string) {
   const variants: Record<string, 'success' | 'warning' | 'neutral'> = {
@@ -36,7 +37,7 @@ function visibleQuestionSets(questionSets: ChallengeQuestionSet[]) {
 
 function getTabFromSearch(searchParams: URLSearchParams): ChallengeDetailTab {
   const tab = searchParams.get('tab');
-  return tab === 'submissions' || tab === 'ranking' ? tab : 'questions';
+  return tab === 'submissions' || tab === 'results' || tab === 'ranking' ? tab : 'questions';
 }
 
 export default function ChallengeDetailPage() {
@@ -46,11 +47,18 @@ export default function ChallengeDetailPage() {
   const { user } = useAuth();
   const { showToast } = useToast();
   const { fetchChallenge, loading } = useChallenges();
-  const { startQuestionSetAttempt, fetchSubmissions, fetchLeaderboard, loading: attemptLoading } = useChallengeAttempt();
+  const {
+    startQuestionSetAttempt,
+    fetchSubmissions,
+    fetchMyGradedSubmissions,
+    fetchLeaderboard,
+    loading: attemptLoading,
+  } = useChallengeAttempt();
   const { fetchPublicUserProfiles } = useUserProfiles();
   const [challenge, setChallenge] = useState<Challenge | null>(null);
   const [questionSets, setQuestionSets] = useState<ChallengeQuestionSet[]>([]);
   const [submissions, setSubmissions] = useState<ChallengeSubmissionSummary[]>([]);
+  const [myGradedSubmissions, setMyGradedSubmissions] = useState<ChallengeSubmissionSummary[]>([]);
   const [leaderboard, setLeaderboard] = useState<ChallengeLeaderboardEntry[]>([]);
   const [participantNames, setParticipantNames] = useState<Record<string, string>>({});
   const [showChallengeForm, setShowChallengeForm] = useState(false);
@@ -59,7 +67,10 @@ export default function ChallengeDetailPage() {
   const userRole = user?.role;
   const canManage = userRole === 'ADMIN' || challenge?.instructorId === userId;
   const activeTab = getTabFromSearch(searchParams);
-  const currentTab = activeTab === 'submissions' && !canManage ? 'questions' : activeTab;
+  const currentTab = (
+    (activeTab === 'submissions' && !canManage)
+    || (activeTab === 'results' && canManage)
+  ) ? 'questions' : activeTab;
 
   const latestSubmissionByParticipantAndSet = useMemo(() => {
     const grouped = new Map<string, ChallengeSubmissionSummary>();
@@ -107,6 +118,13 @@ export default function ChallengeDetailPage() {
             setSubmissions(data);
           }
         }
+
+        if (userId) {
+          const data = await fetchMyGradedSubmissions(id);
+          if (!ignore) {
+            setMyGradedSubmissions(data);
+          }
+        }
       })
       .catch((error) => {
         if (!ignore) {
@@ -117,7 +135,7 @@ export default function ChallengeDetailPage() {
     return () => {
       ignore = true;
     };
-  }, [id, fetchChallenge, fetchLeaderboard, fetchSubmissions, showToast, userId, userRole]);
+  }, [id, fetchChallenge, fetchLeaderboard, fetchMyGradedSubmissions, fetchSubmissions, showToast, userId, userRole]);
 
   useEffect(() => {
     if (!participantIdKey) {
@@ -142,6 +160,29 @@ export default function ChallengeDetailPage() {
       ignore = true;
     };
   }, [fetchPublicUserProfiles, participantIdKey]);
+
+  useEffect(() => {
+    if (!id || !userId || currentTab !== 'results') {
+      return;
+    }
+
+    let ignore = false;
+    fetchMyGradedSubmissions(id)
+      .then((data) => {
+        if (!ignore) {
+          setMyGradedSubmissions(data);
+        }
+      })
+      .catch((error) => {
+        if (!ignore) {
+          showToast(error instanceof Error ? error.message : 'Không tải được kết quả bài làm', 'error');
+        }
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [currentTab, fetchMyGradedSubmissions, id, showToast, userId]);
 
   const handleStartSet = async (questionSet: ChallengeQuestionSet) => {
     try {
@@ -210,6 +251,11 @@ export default function ChallengeDetailPage() {
                 Nộp bài
               </Button>
             )}
+            {!canManage && (
+              <Button type="button" variant={currentTab === 'results' ? 'primary' : 'secondary'} onClick={() => setSearchParams({ tab: 'results' })}>
+                Kết quả
+              </Button>
+            )}
             <Button type="button" variant={currentTab === 'ranking' ? 'primary' : 'secondary'} onClick={() => setSearchParams({ tab: 'ranking' })}>
               Xếp hạng
             </Button>
@@ -261,6 +307,8 @@ export default function ChallengeDetailPage() {
         </div>
       ) : currentTab === 'submissions' && canManage ? (
         <ChallengeSubmitPage challengeId={challenge.id} submissions={latestSubmissionByParticipantAndSet} participantNames={participantNames} />
+      ) : currentTab === 'results' && !canManage ? (
+        <ChallengeResultListPage challengeId={challenge.id} submissions={myGradedSubmissions} />
       ) : currentTab === 'ranking' ? (
         <ChallengeRankingPage leaderboard={leaderboard} participantNames={participantNames} />
       ) : null}

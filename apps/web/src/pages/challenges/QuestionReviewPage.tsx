@@ -18,7 +18,7 @@ function formatDuration(startedAt: string, submittedAt: string | null) {
   return `${minutes} phút ${seconds} giây`;
 }
 
-export default function ChallengeReviewPage() {
+export default function QuestionReviewPage() {
   const { id, attemptId } = useParams<{ id: string; attemptId: string }>();
   const navigate = useNavigate();
   const { showToast } = useToast();
@@ -96,7 +96,7 @@ export default function ChallengeReviewPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
-      <button onClick={() => navigate(`/challenges/${id}`)} className="flex items-center gap-2 text-slate-600 hover:text-slate-900">
+      <button onClick={() => navigate(`/challenges/${id}?tab=submissions`)} className="flex items-center gap-2 text-slate-600 hover:text-slate-900">
         <ArrowLeft className="h-5 w-5" />
         Quay lại chi tiết thử thách
       </button>

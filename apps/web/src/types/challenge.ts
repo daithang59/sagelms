@@ -145,6 +145,7 @@ export interface ChallengeAttemptResult {
     prompt: string;
     type: ChallengeQuestionType;
     points: number;
+    choices: ChallengeChoice[];
     selectedChoiceId: string | null;
     selectedChoiceText: string | null;
     correctChoiceId: string | null;

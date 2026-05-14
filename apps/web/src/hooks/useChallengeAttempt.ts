@@ -57,6 +57,15 @@ export function useChallengeAttempt() {
     }
   }, []);
 
+  const fetchMyGradedSubmissions = useCallback(async (challengeId: string) => {
+    setLoading(true);
+    try {
+      return await api.get<ChallengeSubmissionSummary[]>(`/challenges/${challengeId}/my-submissions`);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const fetchLeaderboard = useCallback(async (challengeId: string) => {
     setLoading(true);
     try {
@@ -100,6 +109,7 @@ export function useChallengeAttempt() {
     submitAttempt,
     getAttemptResult,
     fetchSubmissions,
+    fetchMyGradedSubmissions,
     fetchLeaderboard,
     getAttemptReview,
     gradeAttempt,

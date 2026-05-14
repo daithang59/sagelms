@@ -19,7 +19,7 @@ function formatRemainingTime(totalSeconds: number) {
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
-export default function ChallengeTakingPage() {
+export default function QuestionTakingPage() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const requestedAttemptId = searchParams.get('attemptId') || '';
