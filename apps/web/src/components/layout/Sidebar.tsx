@@ -26,8 +26,8 @@ const navigation = [
     roles: ['ADMIN', 'INSTRUCTOR', 'STUDENT'],
   },
   {
-    name: 'Bài kiểm tra',
-    path: '/quizzes',
+    name: 'Thử thách',
+    path: '/challenges',
     icon: ClipboardList,
     roles: ['ADMIN', 'INSTRUCTOR', 'STUDENT'],
   },
