@@ -57,6 +57,23 @@ spring:
             - StripPrefix=0
             - RemoveRequestHeader=X-Forwarded-Authorization
 
+        # --- Assessment Service ---
+        # Temporarily disabled until course-scoped assignments are implemented.
+        # - id: assessment-service
+        #   uri: http://${ASSESSMENT_SERVICE_HOST:localhost}:${ASSESSMENT_SERVICE_PORT:8085}
+        #   predicates:
+        #     - Path=/api/v1/assessment/**,/api/v1/assessment-attempts/**
+        #   filters:
+        #     - StripPrefix=0
+
+        # --- Challenge Service ---
+        - id: challenge-service
+          uri: http://${CHALLENGE_SERVICE_HOST:localhost}:${CHALLENGE_SERVICE_PORT:8086}
+          predicates:
+            - Path=/api/v1/challenges/**,/api/v1/question-sets/**,/api/v1/challenge-attempts/**
+          filters:
+            - StripPrefix=0
+
         # --- Progress Service (comment out nếu service chưa chạy — tránh network error khi demo) ---
         # - id: progress-service
         #   uri: http://${PROGRESS_SERVICE_HOST:localhost}:${PROGRESS_SERVICE_PORT:8084}

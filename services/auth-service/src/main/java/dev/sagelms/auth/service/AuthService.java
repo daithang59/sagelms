@@ -18,6 +18,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
+import java.util.List;
 import java.util.HexFormat;
 import java.util.UUID;
 
@@ -144,6 +145,16 @@ public class AuthService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));
         return UserProfileResponse.from(user);
+    }
+
+    @Transactional(readOnly = true)
+    public List<PublicUserProfileResponse> getPublicUserProfiles(List<UUID> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return List.of();
+        }
+        return userRepository.findAllById(userIds).stream()
+                .map(PublicUserProfileResponse::from)
+                .toList();
     }
 
     @Transactional(readOnly = true)
