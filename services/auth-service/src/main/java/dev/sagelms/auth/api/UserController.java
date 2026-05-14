@@ -2,6 +2,7 @@ package dev.sagelms.auth.api;
 
 import dev.sagelms.auth.dto.UpdateUserRequest;
 import dev.sagelms.auth.dto.UserProfileResponse;
+import dev.sagelms.auth.dto.DeactivateUserRequest;
 import dev.sagelms.auth.dto.RejectInstructorRequest;
 import dev.sagelms.auth.entity.InstructorApprovalStatus;
 import dev.sagelms.auth.entity.UserRole;
@@ -79,18 +80,20 @@ public class UserController {
     @PostMapping("/{userId}/approve-instructor")
     public ResponseEntity<UserProfileResponse> approveInstructor(
             @RequestHeader(value = ROLES_HEADER, required = false) String roles,
+            @RequestHeader(value = USER_ID_HEADER, required = false) UUID actorUserId,
             @PathVariable UUID userId) {
         requireAdmin(roles);
-        return ResponseEntity.ok(authService.approveInstructor(userId));
+        return ResponseEntity.ok(authService.approveInstructor(userId, actorUserId));
     }
 
     @PostMapping("/{userId}/reject-instructor")
     public ResponseEntity<UserProfileResponse> rejectInstructor(
             @RequestHeader(value = ROLES_HEADER, required = false) String roles,
+            @RequestHeader(value = USER_ID_HEADER, required = false) UUID actorUserId,
             @PathVariable UUID userId,
             @Valid @RequestBody(required = false) RejectInstructorRequest request) {
         requireAdmin(roles);
-        return ResponseEntity.ok(authService.rejectInstructor(userId, request != null ? request.reason() : null));
+        return ResponseEntity.ok(authService.rejectInstructor(userId, actorUserId, request != null ? request.reason() : null));
     }
 
     @GetMapping("/{userId}")
@@ -115,9 +118,10 @@ public class UserController {
     public ResponseEntity<Void> deleteUser(
             @RequestHeader(value = ROLES_HEADER, required = false) String roles,
             @RequestHeader(value = USER_ID_HEADER, required = false) UUID actorUserId,
-            @PathVariable UUID userId) {
+            @PathVariable UUID userId,
+            @RequestBody(required = false) DeactivateUserRequest request) {
         requireAdmin(roles);
-        authService.deleteUser(userId, actorUserId);
+        authService.deleteUser(userId, actorUserId, request != null ? request.reason() : null);
         return ResponseEntity.noContent().build();
     }
 

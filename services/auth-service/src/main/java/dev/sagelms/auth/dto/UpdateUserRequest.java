@@ -15,5 +15,6 @@ public record UpdateUserRequest(
         String instructorExpertise,
         String instructorWebsite,
         Integer instructorYearsExperience,
-        String instructorApplicationNote
+        String instructorApplicationNote,
+        String adminActionReason
 ) {}

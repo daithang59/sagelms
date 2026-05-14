@@ -1,10 +1,14 @@
 package dev.sagelms.auth.service;
 
 import dev.sagelms.auth.dto.*;
+import dev.sagelms.auth.entity.AdminAuditAction;
+import dev.sagelms.auth.entity.AdminAuditLog;
 import dev.sagelms.auth.entity.RefreshToken;
 import dev.sagelms.auth.entity.User;
 import dev.sagelms.auth.entity.InstructorApprovalStatus;
 import dev.sagelms.auth.entity.UserRole;
+import dev.sagelms.auth.entity.NotificationType;
+import dev.sagelms.auth.repository.AdminAuditLogRepository;
 import dev.sagelms.auth.repository.RefreshTokenRepository;
 import dev.sagelms.auth.repository.UserRepository;
 import org.springframework.data.domain.Page;
@@ -28,15 +32,21 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final AdminAuditLogRepository adminAuditLogRepository;
+    private final NotificationService notificationService;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
 
     public AuthService(UserRepository userRepository,
                        RefreshTokenRepository refreshTokenRepository,
+                       AdminAuditLogRepository adminAuditLogRepository,
+                       NotificationService notificationService,
                        PasswordEncoder passwordEncoder,
                        JwtService jwtService) {
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
+        this.adminAuditLogRepository = adminAuditLogRepository;
+        this.notificationService = notificationService;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
     }
@@ -188,6 +198,17 @@ public class AuthService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));
         boolean editingSelf = actorUserId != null && actorUserId.equals(userId);
+        UserRole previousRole = user.getRole();
+        Boolean previousActive = user.getIsActive();
+        InstructorApprovalStatus previousApproval = user.getInstructorApprovalStatus();
+
+        if (!editingSelf && user.getRole() == UserRole.ADMIN
+                && (request.role() != null || request.isActive() != null)) {
+            throw new IllegalArgumentException("Admin accounts cannot be role-changed or deactivated by another admin.");
+        }
+        if (request.role() == UserRole.ADMIN && user.getRole() != UserRole.ADMIN) {
+            throw new IllegalArgumentException("Promoting another user to admin requires a higher-privileged admin workflow.");
+        }
 
         if (request.email() != null && !request.email().isBlank()
                 && !request.email().equalsIgnoreCase(user.getEmail())) {
@@ -213,6 +234,9 @@ public class AuthService {
             if (user.getRole() != UserRole.INSTRUCTOR) {
                 throw new IllegalArgumentException("Only instructor users can have instructor approval status.");
             }
+            if (request.instructorApprovalStatus() == InstructorApprovalStatus.REJECTED) {
+                requireReason(request.instructorApplicationNote(), "Rejection reason is required.");
+            }
             user.setInstructorApprovalStatus(request.instructorApprovalStatus());
             user.setInstructorReviewedAt(Instant.now());
             if (request.instructorApprovalStatus() == InstructorApprovalStatus.APPROVED) {
@@ -225,6 +249,9 @@ public class AuthService {
         if (request.isActive() != null) {
             if (editingSelf && !request.isActive()) {
                 throw new IllegalArgumentException("Admin cannot deactivate their own account.");
+            }
+            if (!request.isActive()) {
+                requireReason(request.adminActionReason(), "Deactivation reason is required.");
             }
             if (user.getRole() == UserRole.INSTRUCTOR
                     && user.getInstructorApprovalStatus() != InstructorApprovalStatus.APPROVED
@@ -256,6 +283,7 @@ public class AuthService {
         }
 
         user = userRepository.save(user);
+        auditUserUpdate(actorUserId, user, previousRole, previousActive, previousApproval, request);
         return UserProfileResponse.from(user);
     }
 
@@ -300,7 +328,7 @@ public class AuthService {
     }
 
     @Transactional
-    public UserProfileResponse approveInstructor(UUID userId) {
+    public UserProfileResponse approveInstructor(UUID userId, UUID actorUserId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));
         if (user.getRole() != UserRole.INSTRUCTOR) {
@@ -309,36 +337,51 @@ public class AuthService {
         user.setInstructorApprovalStatus(InstructorApprovalStatus.APPROVED);
         user.setIsActive(true);
         user.setInstructorReviewedAt(Instant.now());
-        return UserProfileResponse.from(userRepository.save(user));
+        User saved = userRepository.save(user);
+        logAdminAction(actorUserId, userId, AdminAuditAction.APPROVE_INSTRUCTOR, null,
+                "Instructor approved: " + saved.getEmail());
+        notifyUser(userId, "Hồ sơ giảng viên đã được duyệt",
+                "Bạn có thể đăng nhập và bắt đầu tạo khóa học trên SageLMS.", "/dashboard");
+        return UserProfileResponse.from(saved);
     }
 
     @Transactional
-    public UserProfileResponse rejectInstructor(UUID userId, String reason) {
+    public UserProfileResponse rejectInstructor(UUID userId, UUID actorUserId, String reason) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));
         if (user.getRole() != UserRole.INSTRUCTOR) {
             throw new IllegalArgumentException("User is not an instructor.");
         }
+        String normalizedReason = requireReason(reason, "Rejection reason is required.");
         user.setInstructorApprovalStatus(InstructorApprovalStatus.REJECTED);
         user.setIsActive(false);
         user.setInstructorReviewedAt(Instant.now());
-        if (reason != null && !reason.isBlank()) {
-            user.setInstructorApplicationNote(blankToNull(reason));
-        }
+        user.setInstructorApplicationNote(normalizedReason);
         refreshTokenRepository.revokeAllByUserId(userId);
-        return UserProfileResponse.from(userRepository.save(user));
+        User saved = userRepository.save(user);
+        logAdminAction(actorUserId, userId, AdminAuditAction.REJECT_INSTRUCTOR, normalizedReason,
+                "Instructor rejected: " + saved.getEmail());
+        notifyUser(userId, "Hồ sơ giảng viên bị từ chối", normalizedReason, "/profile");
+        return UserProfileResponse.from(saved);
     }
 
     @Transactional
-    public void deleteUser(UUID userId, UUID actorUserId) {
+    public void deleteUser(UUID userId, UUID actorUserId, String reason) {
         if (actorUserId != null && actorUserId.equals(userId)) {
             throw new IllegalArgumentException("Admin cannot deactivate their own account.");
         }
+        String normalizedReason = requireReason(reason, "Deactivation reason is required.");
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UserNotFoundException(userId));
+        if (user.getRole() == UserRole.ADMIN) {
+            throw new IllegalArgumentException("Admin accounts cannot be deactivated by another admin.");
+        }
         user.setIsActive(false);
         refreshTokenRepository.revokeAllByUserId(userId);
         userRepository.save(user);
+        logAdminAction(actorUserId, userId, AdminAuditAction.DEACTIVATE_USER, normalizedReason,
+                "User deactivated: " + user.getEmail());
+        notifyUser(userId, "Tài khoản đã bị vô hiệu hóa", normalizedReason, "/login");
     }
 
     // ── Private helpers ─────────────────────────────────
@@ -374,6 +417,84 @@ public class AuthService {
             return null;
         }
         return value.trim();
+    }
+
+    private String requireReason(String value, String message) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(message);
+        }
+        return value.trim();
+    }
+
+    private void auditUserUpdate(
+            UUID actorUserId,
+            User user,
+            UserRole previousRole,
+            Boolean previousActive,
+            InstructorApprovalStatus previousApproval,
+            UpdateUserRequest request) {
+        if (request.role() != null && request.role() != previousRole) {
+            logAdminAction(actorUserId, user.getId(), AdminAuditAction.CHANGE_ROLE, request.adminActionReason(),
+                    "Role changed from " + previousRole + " to " + request.role());
+        }
+        if (request.isActive() != null && !request.isActive().equals(previousActive)) {
+            AdminAuditAction action = request.isActive() ? AdminAuditAction.UNLOCK_USER : AdminAuditAction.LOCK_USER;
+            logAdminAction(actorUserId, user.getId(), action, request.adminActionReason(),
+                    "Active changed from " + previousActive + " to " + request.isActive());
+            notifyUser(
+                    user.getId(),
+                    request.isActive() ? "Tài khoản đã được mở khóa" : "Tài khoản đã bị khóa",
+                    request.isActive()
+                            ? "Bạn có thể đăng nhập và tiếp tục sử dụng SageLMS."
+                            : request.adminActionReason(),
+                    request.isActive() ? "/dashboard" : "/login");
+        }
+        if (request.instructorApprovalStatus() != null
+                && request.instructorApprovalStatus() != previousApproval) {
+            AdminAuditAction action = request.instructorApprovalStatus() == InstructorApprovalStatus.APPROVED
+                    ? AdminAuditAction.APPROVE_INSTRUCTOR
+                    : AdminAuditAction.REJECT_INSTRUCTOR;
+            logAdminAction(actorUserId, user.getId(), action, request.instructorApplicationNote(),
+                    "Instructor approval changed from " + previousApproval + " to " + request.instructorApprovalStatus());
+            if (request.instructorApprovalStatus() == InstructorApprovalStatus.APPROVED) {
+                notifyUser(user.getId(), "Hồ sơ giảng viên đã được duyệt",
+                        "Bạn có thể đăng nhập và bắt đầu tạo khóa học trên SageLMS.", "/dashboard");
+            } else if (request.instructorApprovalStatus() == InstructorApprovalStatus.REJECTED) {
+                notifyUser(user.getId(), "Hồ sơ giảng viên bị từ chối",
+                        request.instructorApplicationNote(), "/profile");
+            }
+        }
+        if (request.email() != null || request.fullName() != null || request.avatarUrl() != null
+                || request.instructorHeadline() != null || request.instructorBio() != null
+                || request.instructorExpertise() != null || request.instructorWebsite() != null
+                || request.instructorYearsExperience() != null || request.instructorApplicationNote() != null) {
+            logAdminAction(actorUserId, user.getId(), AdminAuditAction.UPDATE_USER_PROFILE, request.adminActionReason(),
+                    "Admin updated profile fields for " + user.getEmail());
+        }
+    }
+
+    private void logAdminAction(
+            UUID actorUserId,
+            UUID targetUserId,
+            AdminAuditAction action,
+            String reason,
+            String details) {
+        AdminAuditLog log = new AdminAuditLog();
+        log.setActorUserId(actorUserId);
+        log.setTargetUserId(targetUserId);
+        log.setAction(action);
+        log.setReason(blankToNull(reason));
+        log.setDetails(blankToNull(details));
+        adminAuditLogRepository.save(log);
+    }
+
+    private void notifyUser(UUID userId, String title, String message, String targetUrl) {
+        notificationService.create(new NotificationRequest(
+                userId,
+                NotificationType.SYSTEM,
+                title,
+                message,
+                targetUrl));
     }
 
     private static String normalizeSearch(String search) {

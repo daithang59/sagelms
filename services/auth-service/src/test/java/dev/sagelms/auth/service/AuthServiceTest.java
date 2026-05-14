@@ -13,6 +13,7 @@ import dev.sagelms.auth.entity.InstructorApprovalStatus;
 import dev.sagelms.auth.entity.RefreshToken;
 import dev.sagelms.auth.entity.User;
 import dev.sagelms.auth.entity.UserRole;
+import dev.sagelms.auth.repository.AdminAuditLogRepository;
 import dev.sagelms.auth.repository.RefreshTokenRepository;
 import dev.sagelms.auth.repository.UserRepository;
 import org.junit.jupiter.api.Test;
@@ -44,14 +45,30 @@ class AuthServiceTest {
     private RefreshTokenRepository refreshTokenRepository;
 
     @Mock
+    private AdminAuditLogRepository adminAuditLogRepository;
+
+    @Mock
+    private NotificationService notificationService;
+
+    @Mock
     private PasswordEncoder passwordEncoder;
 
     @Mock
     private JwtService jwtService;
 
+    private AuthService authService() {
+        return new AuthService(
+                userRepository,
+                refreshTokenRepository,
+                adminAuditLogRepository,
+                notificationService,
+                passwordEncoder,
+                jwtService);
+    }
+
     @Test
     void registerPublic_DefaultsToStudentRole() {
-        AuthService authService = new AuthService(userRepository, refreshTokenRepository, passwordEncoder, jwtService);
+        AuthService authService = authService();
         RegisterRequest request = new RegisterRequest("student@example.com", "Password123!", "Student User");
 
         when(userRepository.existsByEmail(request.email())).thenReturn(false);
@@ -83,7 +100,7 @@ class AuthServiceTest {
         RegisterRequest request = new ObjectMapper()
                 .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
                 .readValue(json, RegisterRequest.class);
-        AuthService authService = new AuthService(userRepository, refreshTokenRepository, passwordEncoder, jwtService);
+        AuthService authService = authService();
 
         when(userRepository.existsByEmail(request.email())).thenReturn(false);
         when(passwordEncoder.encode(request.password())).thenReturn("hash");
@@ -105,7 +122,7 @@ class AuthServiceTest {
 
     @Test
     void applyInstructor_CreatesPendingInactiveInstructor() {
-        AuthService authService = new AuthService(userRepository, refreshTokenRepository, passwordEncoder, jwtService);
+        AuthService authService = authService();
         InstructorApplicationRequest request = new InstructorApplicationRequest(
                 "teacher@example.com",
                 "Password123!",
@@ -138,7 +155,7 @@ class AuthServiceTest {
 
     @Test
     void loginPendingInstructor_WithWrongPasswordDoesNotRevealApprovalStatus() {
-        AuthService authService = new AuthService(userRepository, refreshTokenRepository, passwordEncoder, jwtService);
+        AuthService authService = authService();
         User user = new User();
         user.setEmail("teacher@example.com");
         user.setPasswordHash("hash");
@@ -157,7 +174,7 @@ class AuthServiceTest {
 
     @Test
     void refresh_InactiveUserRevokesTokenAndFails() {
-        AuthService authService = new AuthService(userRepository, refreshTokenRepository, passwordEncoder, jwtService);
+        AuthService authService = authService();
         User user = new User();
         UUID userId = UUID.randomUUID();
         user.setId(userId);
@@ -181,7 +198,7 @@ class AuthServiceTest {
 
     @Test
     void updateUser_AdminCanEditBasicAndInstructorProfileFields() {
-        AuthService authService = new AuthService(userRepository, refreshTokenRepository, passwordEncoder, jwtService);
+        AuthService authService = authService();
         UUID userId = UUID.randomUUID();
         UUID adminId = UUID.randomUUID();
         User user = new User();
@@ -204,7 +221,8 @@ class AuthServiceTest {
                 "Java, React",
                 "https://example.com",
                 9,
-                "Updated note");
+                "Updated note",
+                "Admin profile correction");
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(userRepository.existsByEmailAndIdNot("new.teacher@example.com", userId)).thenReturn(false);
@@ -220,7 +238,7 @@ class AuthServiceTest {
 
     @Test
     void updateUser_AdminCannotDeactivateSelf() {
-        AuthService authService = new AuthService(userRepository, refreshTokenRepository, passwordEncoder, jwtService);
+        AuthService authService = authService();
         UUID adminId = UUID.randomUUID();
         User admin = new User();
         admin.setId(adminId);
@@ -231,14 +249,14 @@ class AuthServiceTest {
         when(userRepository.findById(adminId)).thenReturn(Optional.of(admin));
 
         UpdateUserRequest request = new UpdateUserRequest(
-                null, null, null, false, null, null, null, null, null, null, null, null);
+                null, null, null, false, null, null, null, null, null, null, null, null, "Security review");
 
         assertThrows(IllegalArgumentException.class, () -> authService.updateUser(adminId, adminId, request));
     }
 
     @Test
     void rejectInstructor_StoresReasonAndRevokesTokens() {
-        AuthService authService = new AuthService(userRepository, refreshTokenRepository, passwordEncoder, jwtService);
+        AuthService authService = authService();
         UUID userId = UUID.randomUUID();
         User user = new User();
         user.setId(userId);
@@ -250,7 +268,7 @@ class AuthServiceTest {
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        UserProfileResponse response = authService.rejectInstructor(userId, "Bio needs more teaching experience.");
+        UserProfileResponse response = authService.rejectInstructor(userId, UUID.randomUUID(), "Bio needs more teaching experience.");
 
         assertEquals(InstructorApprovalStatus.REJECTED, response.instructorApprovalStatus());
         assertEquals(false, response.isActive());
@@ -260,7 +278,7 @@ class AuthServiceTest {
 
     @Test
     void deleteUser_SoftDeactivatesAndRevokesTokens() {
-        AuthService authService = new AuthService(userRepository, refreshTokenRepository, passwordEncoder, jwtService);
+        AuthService authService = authService();
         UUID userId = UUID.randomUUID();
         UUID adminId = UUID.randomUUID();
         User user = new User();
@@ -271,7 +289,7 @@ class AuthServiceTest {
 
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
 
-        authService.deleteUser(userId, adminId);
+        authService.deleteUser(userId, adminId, "Policy violation.");
 
         assertEquals(false, user.getIsActive());
         verify(refreshTokenRepository).revokeAllByUserId(userId);
