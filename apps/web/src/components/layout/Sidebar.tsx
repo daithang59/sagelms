@@ -1,16 +1,16 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard,
-  BookOpen,
-  ClipboardList,
   Bot,
-  Users,
-  UserCog,
+  BookOpen,
   ChevronLeft,
   ChevronRight,
-  LogOut,
+  ClipboardList,
   GraduationCap,
+  LayoutDashboard,
+  LogOut,
+  UserCog,
+  Users,
 } from 'lucide-react';
 
 const navigation = [
@@ -42,6 +42,12 @@ const navigation = [
     name: 'Quản lý user',
     path: '/admin/users',
     icon: UserCog,
+    roles: ['ADMIN'],
+  },
+  {
+    name: 'Quản trị khóa',
+    path: '/admin/courses',
+    icon: BookOpen,
     roles: ['ADMIN'],
   },
   {

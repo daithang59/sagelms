@@ -286,8 +286,39 @@ function QuickAction({
 
 function AdminDashboard({ data }: { data: AdminDashboardData }) {
   const publishedCourses = data.courses.filter((course) => course.status === 'PUBLISHED').length;
+  const draftCourses = data.courses.filter((course) => course.status === 'DRAFT');
+  const archivedCourses = data.courses.filter((course) => course.status === 'ARCHIVED');
+  const publishedWithoutLearners = data.courses.filter(
+    (course) => course.status === 'PUBLISHED' && course.enrollmentCount === 0,
+  );
   const activeUsers = data.users.filter((user) => user.isActive !== false).length;
   const recentCourses = data.courses.slice(0, 5);
+  const operationItems = [
+    {
+      label: 'Hồ sơ giảng viên chờ duyệt',
+      value: data.totalPendingInstructors,
+      tone: 'warning' as const,
+      visible: data.totalPendingInstructors > 0,
+    },
+    {
+      label: 'Khóa bản nháp cần theo dõi',
+      value: draftCourses.length,
+      tone: 'info' as const,
+      visible: draftCourses.length > 0,
+    },
+    {
+      label: 'Khóa đã lưu trữ',
+      value: archivedCourses.length,
+      tone: 'neutral' as const,
+      visible: archivedCourses.length > 0,
+    },
+    {
+      label: 'Khóa đã xuất bản nhưng chưa có học viên',
+      value: publishedWithoutLearners.length,
+      tone: 'warning' as const,
+      visible: publishedWithoutLearners.length > 0,
+    },
+  ].filter((item) => item.visible);
 
   return (
     <>
@@ -314,9 +345,34 @@ function AdminDashboard({ data }: { data: AdminDashboardData }) {
         </Card>
 
         <div className="space-y-4">
+          <QuickAction to="/admin/courses" icon={BookOpen} title="Quản trị khóa học" description="Giám sát, lưu trữ hoặc khôi phục khóa trong hệ thống." />
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
+                  <AlertCircle className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-slate-900">Việc cần xử lý</h3>
+                  <p className="text-sm text-slate-500">Tín hiệu vận hành dành riêng cho admin.</p>
+                </div>
+              </div>
+            </CardHeader>
+            <CardBody className="space-y-3">
+              {operationItems.length > 0 ? (
+                operationItems.map((item) => (
+                  <div key={item.label} className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2">
+                    <span className="text-sm text-slate-600">{item.label}</span>
+                    <Badge variant={item.tone}>{item.value}</Badge>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-slate-500">Chưa có cảnh báo vận hành cần xử lý.</p>
+              )}
+            </CardBody>
+          </Card>
           <QuickAction to="/admin/users" icon={UserCog} title="Quản lý user" description="Tìm kiếm, chỉnh sửa, khóa hoặc mở tài khoản." />
           <QuickAction to="/admin/instructors" icon={ShieldCheck} title="Duyệt giảng viên" description="Duyệt hoặc từ chối hồ sơ đăng ký giảng viên." />
-          <QuickAction to="/courses" icon={BookOpen} title="Quản lý khóa học" description="Theo dõi danh sách khóa học trong hệ thống." />
         </div>
       </div>
 
@@ -325,7 +381,7 @@ function AdminDashboard({ data }: { data: AdminDashboardData }) {
           title="Khóa học gần đây"
           description="Các khóa mới hoặc vừa cập nhật trong hệ thống."
           icon={BookOpen}
-          to="/courses"
+          to="/admin/courses"
         />
         {recentCourses.length > 0 ? (
           recentCourses.map((course) => <CourseRow key={course.id} course={course} showInstructor />)

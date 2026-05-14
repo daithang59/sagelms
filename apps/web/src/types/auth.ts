@@ -69,6 +69,7 @@ export interface UpdateUserRequest {
   instructorWebsite?: string;
   instructorYearsExperience?: number;
   instructorApplicationNote?: string;
+  adminActionReason?: string;
 }
 
 export interface SelfProfileUpdateRequest {

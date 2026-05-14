@@ -1,10 +1,5 @@
-import type { FormEvent, ReactNode } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Badge, Button, Card, CardBody } from '@/components/ui';
-import { useToast } from '@/components/Toast';
-import { useAuth } from '@/contexts/AuthContext';
-import api from '@/lib/api';
-import type { InstructorApprovalStatus, UpdateUserRequest, User, UserListResponse, UserRole } from '@/types/auth';
+import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
   Ban,
   ChevronLeft,
@@ -19,7 +14,11 @@ import {
   Unlock,
   X,
 } from 'lucide-react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { Badge, Button, Card, CardBody } from '@/components/ui';
+import { useToast } from '@/components/Toast';
+import { useAuth } from '@/contexts/AuthContext';
+import api from '@/lib/api';
+import type { InstructorApprovalStatus, UpdateUserRequest, User, UserListResponse, UserRole } from '@/types/auth';
 
 const pageSize = 20;
 
@@ -48,6 +47,8 @@ const approvalLabels: Record<InstructorApprovalStatus, string> = {
   REJECTED: 'Từ chối',
 };
 
+type ReasonAction = 'lock' | 'unlock' | 'deactivate';
+
 export default function AdminUsersPage() {
   const { user: currentUser } = useAuth();
   const { showToast } = useToast();
@@ -64,6 +65,7 @@ export default function AdminUsersPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [viewingUser, setViewingUser] = useState<User | null>(null);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [reasonModal, setReasonModal] = useState<{ action: ReasonAction; user: User } | null>(null);
 
   const loadUsers = useCallback(async () => {
     setLoading(true);
@@ -89,34 +91,48 @@ export default function AdminUsersPage() {
     void Promise.resolve().then(loadUsers);
   }, [loadUsers]);
 
+  const summary = useMemo(() => {
+    const activeCount = users.filter((item) => item.isActive).length;
+    const instructorCount = users.filter((item) => item.role === 'INSTRUCTOR').length;
+    return { activeCount, instructorCount };
+  }, [users]);
+
   const handleSearchSubmit = (event: FormEvent) => {
     event.preventDefault();
     setPage(1);
     setSearch(searchInput.trim());
   };
 
-  const handleRoleChange = (nextRole: '' | UserRole) => {
-    setPage(1);
-    setRole(nextRole);
-  };
-
-  const handleActiveChange = (nextActive: string) => {
-    setPage(1);
-    setActive(nextActive);
-  };
-
-  const handleToggleActive = async (target: User) => {
+  const openReasonModal = (action: ReasonAction, target: User) => {
     if (target.id === currentUser?.id) {
-      showToast('Bạn không thể khóa tài khoản đang đăng nhập.', 'warning');
+      showToast('Bạn không thể thao tác khóa hoặc vô hiệu hóa tài khoản đang đăng nhập.', 'warning');
       return;
     }
-    const nextActive = !target.isActive;
-    if (!confirm(nextActive ? 'Mở khóa tài khoản này?' : 'Khóa tài khoản này?')) return;
+    if (target.role === 'ADMIN') {
+      showToast('Tài khoản admin cần quy trình phân quyền cao hơn để khóa hoặc đổi trạng thái.', 'warning');
+      return;
+    }
+    setReasonModal({ action, user: target });
+  };
 
-    setActingUserId(target.id);
+  const submitReasonAction = async (reason: string) => {
+    if (!reasonModal) return;
+
+    const { action, user } = reasonModal;
+    setActingUserId(user.id);
     try {
-      await api.put<User>(`/users/${target.id}`, { isActive: nextActive });
-      showToast(nextActive ? 'Đã mở khóa tài khoản.' : 'Đã khóa tài khoản.', 'success');
+      if (action === 'deactivate') {
+        await api.delete<void>(`/users/${user.id}`, { reason });
+        showToast('Đã vô hiệu hóa tài khoản.', 'success');
+      } else {
+        const nextActive = action === 'unlock';
+        await api.put<User>(`/users/${user.id}`, {
+          isActive: nextActive,
+          adminActionReason: reason || undefined,
+        } satisfies UpdateUserRequest);
+        showToast(nextActive ? 'Đã mở khóa tài khoản.' : 'Đã khóa tài khoản.', 'success');
+      }
+      setReasonModal(null);
       await loadUsers();
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Thao tác thất bại.', 'error');
@@ -124,31 +140,6 @@ export default function AdminUsersPage() {
       setActingUserId(null);
     }
   };
-
-  const handleSoftDelete = async (target: User) => {
-    if (target.id === currentUser?.id) {
-      showToast('Bạn không thể vô hiệu hóa tài khoản đang đăng nhập.', 'warning');
-      return;
-    }
-    if (!confirm('Vô hiệu hóa tài khoản này? User sẽ không đăng nhập được, dữ liệu liên quan vẫn được giữ lại.')) return;
-
-    setActingUserId(target.id);
-    try {
-      await api.delete<void>(`/users/${target.id}`);
-      showToast('Đã vô hiệu hóa tài khoản.', 'success');
-      await loadUsers();
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Vô hiệu hóa thất bại.', 'error');
-    } finally {
-      setActingUserId(null);
-    }
-  };
-
-  const summary = useMemo(() => {
-    const activeCount = users.filter((item) => item.isActive).length;
-    const instructorCount = users.filter((item) => item.role === 'INSTRUCTOR').length;
-    return { activeCount, instructorCount };
-  }, [users]);
 
   return (
     <div className="space-y-6">
@@ -187,40 +178,26 @@ export default function AdminUsersPage() {
                 className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-4 text-sm outline-none transition focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
               />
             </div>
-            <div>
-              <label htmlFor="admin-user-role-filter" className="sr-only">
-                Lọc theo vai trò
-              </label>
-              <select
-                id="admin-user-role-filter"
-                value={role}
-                onChange={(event) => handleRoleChange(event.target.value as '' | UserRole)}
-                className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
-              >
-                {roleOptions.map((item) => (
-                  <option key={item.value || 'all'} value={item.value}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="admin-user-active-filter" className="sr-only">
-                Lọc theo trạng thái
-              </label>
-              <select
-                id="admin-user-active-filter"
-                value={active}
-                onChange={(event) => handleActiveChange(event.target.value)}
-                className="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
-              >
-                {activeOptions.map((item) => (
-                  <option key={item.value || 'all'} value={item.value}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <SelectField
+              id="admin-user-role-filter"
+              label="Lọc theo vai trò"
+              value={role}
+              onChange={(value) => {
+                setPage(1);
+                setRole(value as '' | UserRole);
+              }}
+              options={roleOptions}
+            />
+            <SelectField
+              id="admin-user-active-filter"
+              label="Lọc theo trạng thái"
+              value={active}
+              onChange={(value) => {
+                setPage(1);
+                setActive(value);
+              }}
+              options={activeOptions}
+            />
             <Button type="submit" className="h-11">
               Tìm kiếm
             </Button>
@@ -267,8 +244,8 @@ export default function AdminUsersPage() {
                   </tr>
                 ) : (
                   users.map((item, index) => (
-                    <tr 
-                      key={item.id} 
+                    <tr
+                      key={item.id}
                       className="align-top opacity-0 animate-fade-up"
                       style={{ animationDelay: `${Math.min(index * 40, 400)}ms` }}
                     >
@@ -313,16 +290,16 @@ export default function AdminUsersPage() {
                           </IconButton>
                           <IconButton
                             title={item.isActive ? 'Khóa tài khoản' : 'Mở khóa tài khoản'}
-                            disabled={actingUserId === item.id || item.id === currentUser?.id}
-                            onClick={() => handleToggleActive(item)}
+                            disabled={actingUserId === item.id || item.id === currentUser?.id || item.role === 'ADMIN'}
+                            onClick={() => openReasonModal(item.isActive ? 'lock' : 'unlock', item)}
                           >
                             {item.isActive ? <Ban className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}
                           </IconButton>
                           <IconButton
                             title="Vô hiệu hóa"
                             danger
-                            disabled={actingUserId === item.id || item.id === currentUser?.id || !item.isActive}
-                            onClick={() => handleSoftDelete(item)}
+                            disabled={actingUserId === item.id || item.id === currentUser?.id || item.role === 'ADMIN' || !item.isActive}
+                            onClick={() => openReasonModal('deactivate', item)}
                           >
                             <Trash2 className="h-4 w-4" />
                           </IconButton>
@@ -335,13 +312,7 @@ export default function AdminUsersPage() {
             </table>
           </div>
 
-          <Pagination
-            page={page}
-            totalPages={totalPages}
-            totalElements={totalElements}
-            isLoading={loading}
-            onPageChange={setPage}
-          />
+          <Pagination page={page} totalPages={totalPages} totalElements={totalElements} isLoading={loading} onPageChange={setPage} />
         </CardBody>
       </Card>
 
@@ -355,6 +326,15 @@ export default function AdminUsersPage() {
               setEditingUser(null);
               await loadUsers();
             }}
+          />
+        )}
+        {reasonModal && (
+          <ReasonModal
+            action={reasonModal.action}
+            user={reasonModal.user}
+            onClose={() => setReasonModal(null)}
+            onSubmit={submitReasonAction}
+            isLoading={actingUserId === reasonModal.user.id}
           />
         )}
       </AnimatePresence>
@@ -392,9 +372,7 @@ function Pagination({
   return (
     <div className="flex flex-col gap-3 border-t border-slate-100 px-5 py-4 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
       <div>
-        {totalElements === 0
-          ? 'Không có dữ liệu'
-          : `Hiển thị ${start}-${end} trong ${totalElements} người dùng`}
+        {totalElements === 0 ? 'Không có dữ liệu' : `Hiển thị ${start}-${end} trong ${totalElements} người dùng`}
       </div>
       <div className="flex items-center gap-2">
         <button
@@ -472,6 +450,7 @@ function UserProfileModal({ user, onClose }: { user: User | null; onClose: () =>
           <Info label="Vai trò" value={roleLabels[user.role]} />
           <Info label="Trạng thái" value={user.isActive ? 'Hoạt động' : 'Đã khóa'} />
           <Info label="Ngày tạo" value={formatDate(user.createdAt)} />
+          <Info label="Đăng nhập gần nhất" value={formatDate(user.lastLoginAt)} />
           <Info label="Trạng thái giảng viên" value={user.role === 'INSTRUCTOR' ? approvalLabels[user.instructorApprovalStatus || 'PENDING'] : 'Không áp dụng'} />
         </div>
 
@@ -479,10 +458,7 @@ function UserProfileModal({ user, onClose }: { user: User | null; onClose: () =>
           <div className="space-y-3">
             <Info label="Headline" value={user.instructorHeadline || 'Chưa cung cấp'} />
             <Info label="Chuyên môn" value={user.instructorExpertise || 'Chưa cung cấp'} />
-            <Info
-              label="Kinh nghiệm"
-              value={user.instructorYearsExperience != null ? `${user.instructorYearsExperience} năm` : 'Chưa cung cấp'}
-            />
+            <Info label="Kinh nghiệm" value={user.instructorYearsExperience != null ? `${user.instructorYearsExperience} năm` : 'Chưa cung cấp'} />
             <Info label="Website" value={user.instructorWebsite || 'Chưa cung cấp'} />
             <Info label="Bio" value={user.instructorBio || 'Chưa cung cấp'} />
             <Info label="Ghi chú / lý do từ chối" value={user.instructorApplicationNote || 'Chưa cung cấp'} />
@@ -521,6 +497,7 @@ function EditUserModal({
         instructorWebsite: user.instructorWebsite || '',
         instructorYearsExperience: user.instructorYearsExperience || 0,
         instructorApplicationNote: user.instructorApplicationNote || '',
+        adminActionReason: '',
       });
     });
   }, [user]);
@@ -534,12 +511,13 @@ function EditUserModal({
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
 
-    if (
-      (form.role || user.role) === 'INSTRUCTOR'
-      && form.instructorApprovalStatus === 'REJECTED'
-      && !form.instructorApplicationNote?.trim()
-    ) {
+    if ((form.role || user.role) === 'INSTRUCTOR' && form.instructorApprovalStatus === 'REJECTED' && !form.instructorApplicationNote?.trim()) {
       showToast('Vui lòng nhập lý do từ chối trong ghi chú hồ sơ.', 'warning');
+      return;
+    }
+
+    if (form.isActive === false && !form.adminActionReason?.trim()) {
+      showToast('Vui lòng nhập lý do khóa hoặc vô hiệu hóa tài khoản.', 'warning');
       return;
     }
 
@@ -579,7 +557,9 @@ function EditUserModal({
             <select id="edit-user-role" value={form.role || user.role} onChange={(event) => update('role', event.target.value as UserRole)} className={inputClass}>
               <option value="STUDENT">Học viên</option>
               <option value="INSTRUCTOR">Giảng viên</option>
-              <option value="ADMIN">Admin</option>
+              <option value="ADMIN" disabled={user.role !== 'ADMIN'}>
+                Admin
+              </option>
             </select>
           </Field>
           <Field id="edit-user-active" label="Trạng thái">
@@ -589,6 +569,17 @@ function EditUserModal({
             </select>
           </Field>
         </div>
+
+        <Field id="edit-admin-action-reason" label="Lý do thao tác admin">
+          <textarea
+            id="edit-admin-action-reason"
+            value={form.adminActionReason || ''}
+            onChange={(event) => update('adminActionReason', event.target.value)}
+            rows={3}
+            placeholder="Bắt buộc nếu khóa tài khoản; nên nhập khi đổi vai trò hoặc trạng thái duyệt."
+            className={inputClass}
+          />
+        </Field>
 
         {(form.role || user.role) === 'INSTRUCTOR' && (
           <div className="space-y-4 rounded-xl border border-slate-200 p-4">
@@ -657,8 +648,95 @@ function EditUserModal({
   );
 }
 
+function ReasonModal({
+  action,
+  user,
+  onClose,
+  onSubmit,
+  isLoading,
+}: {
+  action: ReasonAction;
+  user: User;
+  onClose: () => void;
+  onSubmit: (reason: string) => Promise<void>;
+  isLoading: boolean;
+}) {
+  const [reason, setReason] = useState('');
+  const isRequired = action !== 'unlock';
+  const title = action === 'unlock' ? 'Mở khóa tài khoản' : action === 'lock' ? 'Khóa tài khoản' : 'Vô hiệu hóa tài khoản';
+  const description =
+    action === 'unlock'
+      ? 'User sẽ có thể đăng nhập lại nếu tài khoản hợp lệ.'
+      : 'User sẽ không thể đăng nhập. Lý do sẽ được lưu vào audit log và gửi thông báo cho user.';
+
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (isRequired && !reason.trim()) return;
+    await onSubmit(reason.trim());
+  };
+
+  return (
+    <ModalShell title={title} onClose={onClose}>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="rounded-xl bg-slate-50 p-4">
+          <div className="font-semibold text-slate-900">{user.fullName || user.email}</div>
+          <div className="text-sm text-slate-500">{user.email}</div>
+        </div>
+        <Field id="admin-reason" label={isRequired ? 'Lý do bắt buộc' : 'Lý do mở khóa'}>
+          <textarea
+            id="admin-reason"
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            rows={4}
+            placeholder="Ví dụ: Vi phạm quy định lớp học, tài khoản cần xác minh lại, mở khóa sau khi xác minh..."
+            className={inputClass}
+          />
+        </Field>
+        <p className="text-sm text-slate-500">{description}</p>
+        <div className="flex justify-end gap-3 pt-2">
+          <Button type="button" variant="secondary" onClick={onClose}>
+            Hủy
+          </Button>
+          <Button type="submit" variant={action === 'unlock' ? 'primary' : 'danger'} isLoading={isLoading} disabled={isRequired && !reason.trim()}>
+            Xác nhận
+          </Button>
+        </div>
+      </form>
+    </ModalShell>
+  );
+}
+
 const inputClass =
   'w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-violet-400 focus:ring-2 focus:ring-violet-100';
+
+function SelectField({
+  id,
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: Array<{ value: string; label: string }>;
+}) {
+  return (
+    <div>
+      <label htmlFor={id} className="sr-only">
+        {label}
+      </label>
+      <select id={id} value={value} onChange={(event) => onChange(event.target.value)} className={inputClass}>
+        {options.map((item) => (
+          <option key={item.value || 'all'} value={item.value}>
+            {item.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
 
 function Field({ id, label, children }: { id: string; label: string; children: ReactNode }) {
   return (
@@ -695,7 +773,7 @@ function ModalShell({ title, children, onClose }: { title: string; children: Rea
         initial={{ opacity: 0, scale: 0.95, y: 10 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 10 }}
-        transition={{ duration: 0.2, ease: "easeOut" }}
+        transition={{ duration: 0.2, ease: 'easeOut' }}
         className="relative max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white shadow-xl"
       >
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-100 bg-white p-5">
@@ -703,7 +781,7 @@ function ModalShell({ title, children, onClose }: { title: string; children: Rea
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
+            className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
             aria-label="Đóng"
           >
             <X className="h-5 w-5" />
@@ -715,7 +793,7 @@ function ModalShell({ title, children, onClose }: { title: string; children: Rea
   );
 }
 
-function formatDate(value?: string) {
+function formatDate(value?: string | null) {
   if (!value) return 'Chưa có';
   return new Intl.DateTimeFormat('vi-VN', {
     dateStyle: 'medium',

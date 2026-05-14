@@ -19,8 +19,8 @@ const api = {
   patch: <T>(url: string, data?: unknown) =>
     apiClient.patch<T>(url, data).then((res) => res.data),
 
-  delete: <T>(url: string) =>
-    apiClient.delete<T>(url).then((res) => res.data),
+  delete: <T>(url: string, data?: unknown) =>
+    apiClient.delete<T>(url, { data }).then((res) => res.data),
 };
 
 export default api;
