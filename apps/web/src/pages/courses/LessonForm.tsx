@@ -4,6 +4,7 @@ import { useLessons } from '@/hooks';
 import { useToast } from '@/components/Toast';
 import apiClient from '@/lib/axios';
 import { renderMarkdown } from '@/lib/markdown';
+import PdfPreview from '@/components/pdf/PdfPreview';
 import DOMPurify from 'dompurify';
 import { File, FileText, Link as LinkIcon, PlayCircle, Upload, X } from 'lucide-react';
 import type { ContentType, LessonRequest } from '@/types/lesson';
@@ -45,7 +46,6 @@ export default function LessonForm({ isOpen, onClose, courseId, onSuccess, editL
   const { showToast } = useToast();
   const [uploading, setUploading] = useState(false);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
-  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
 
   const [formData, setFormData] = useState<{
     title: string;
@@ -84,22 +84,8 @@ export default function LessonForm({ isOpen, onClose, courseId, onSuccess, editL
     });
   }, [editLesson, isOpen]);
 
-  useEffect(() => {
-    if (!pdfFile) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setPdfPreviewUrl(null);
-      return undefined;
-    }
-
-    const pdfBlob = pdfFile.type === 'application/pdf' ? pdfFile : new Blob([pdfFile], { type: 'application/pdf' });
-    const objectUrl = URL.createObjectURL(pdfBlob);
-    setPdfPreviewUrl(objectUrl);
-    return () => {
-      URL.revokeObjectURL(objectUrl);
-    };
-  }, [pdfFile]);
-
   const markdownPreview = DOMPurify.sanitize(renderMarkdown(formData.textContent || ''));
+  const pdfPreviewSource = pdfFile || formData.contentUrl.trim();
 
   const updateType = (type: ContentType) => {
     setPdfFile(null);
@@ -295,15 +281,12 @@ export default function LessonForm({ isOpen, onClose, courseId, onSuccess, editL
                   }}
                 />
               </label>
-              {pdfPreviewUrl && (
+              {pdfPreviewSource && (
                 <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
-                  <div className="border-b border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700">
-                    Xem trước PDF
-                  </div>
-                  <iframe
-                    src={`${pdfPreviewUrl}#toolbar=1&navpanes=0&scrollbar=1`}
-                    title="PDF preview"
-                    className="h-[420px] w-full bg-white"
+                  <PdfPreview
+                    source={pdfPreviewSource}
+                    title="Xem trước PDF"
+                    heightClassName="h-[420px]"
                   />
                 </div>
               )}

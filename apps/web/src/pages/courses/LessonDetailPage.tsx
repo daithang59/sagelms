@@ -5,8 +5,8 @@ import { useLessons } from '@/hooks';
 import { useCourses } from '@/hooks/useCourses';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/Toast';
-import apiClient from '@/lib/axios';
 import { renderMarkdown } from '@/lib/markdown';
+import PdfPreview from '@/components/pdf/PdfPreview';
 import DOMPurify from 'dompurify';
 import {
   ArrowLeft,
@@ -50,26 +50,6 @@ function getTypeIcon(type: string) {
 
 function toYouTubeEmbedUrl(url: string) {
   return url.replace('watch?v=', 'embed/').replace('youtu.be/', 'www.youtube.com/embed/');
-}
-
-function toInternalPdfApiPath(url: string) {
-  const value = url.trim();
-  if (!value) return '';
-  if (!/^https?:\/\//i.test(value)) {
-    return value.replace(/^\/api\/v1/, '');
-  }
-
-  try {
-    const apiBase = new URL(apiClient.defaults.baseURL || '', window.location.origin);
-    const parsed = new URL(value);
-    if (parsed.origin === apiBase.origin && parsed.pathname.startsWith('/api/v1/content/files/')) {
-      return `${parsed.pathname.replace(/^\/api\/v1/, '')}${parsed.search}`;
-    }
-  } catch {
-    return '';
-  }
-
-  return '';
 }
 
 export default function LessonDetailPage() {
@@ -413,7 +393,7 @@ function LessonContent({ lesson }: { lesson: Lesson }) {
   }
 
   if (lesson.type === 'PDF' && lesson.contentUrl) {
-    return <PdfLessonContent lesson={lesson} />;
+    return <PdfPreview source={lesson.contentUrl} title={lesson.title} />;
   }
 
   if (lesson.type === 'LINK' && lesson.contentUrl) {
@@ -437,84 +417,6 @@ function LessonContent({ lesson }: { lesson: Lesson }) {
   return (
     <div className="rounded-2xl border border-slate-100 bg-slate-50 p-10 text-center text-slate-500">
       Bài học chưa có nội dung hiển thị.
-    </div>
-  );
-}
-
-function PdfLessonContent({ lesson }: { lesson: Lesson }) {
-  const [pdfUrl, setPdfUrl] = useState(lesson.contentUrl || '');
-  const [loading, setLoading] = useState(Boolean(lesson.contentUrl && toInternalPdfApiPath(lesson.contentUrl)));
-  const [loadError, setLoadError] = useState(false);
-
-  useEffect(() => {
-    let objectUrl: string | null = null;
-    let cancelled = false;
-    const internalPath = lesson.contentUrl ? toInternalPdfApiPath(lesson.contentUrl) : '';
-
-    if (!lesson.contentUrl || !internalPath) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setPdfUrl(lesson.contentUrl || '');
-      setLoading(false);
-      setLoadError(false);
-      return undefined;
-    }
-
-    setLoading(true);
-    setLoadError(false);
-    void apiClient
-      .get<Blob>(internalPath, { responseType: 'blob' })
-      .then((response) => {
-        if (cancelled) return;
-        const pdfBlob = new Blob([response.data], { type: 'application/pdf' });
-        objectUrl = URL.createObjectURL(pdfBlob);
-        setPdfUrl(objectUrl);
-      })
-      .catch((error) => {
-        console.error('Failed to load PDF file:', error);
-        if (!cancelled) setLoadError(true);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
-  }, [lesson.contentUrl]);
-
-  return (
-    <div className="space-y-4">
-      <div className="rounded-xl border border-amber-100 bg-amber-50 p-4">
-        <div className="mb-2 flex items-center gap-3">
-          <File className="h-6 w-6 text-amber-600" />
-          <span className="font-medium text-amber-800">Tài liệu PDF</span>
-        </div>
-        {pdfUrl && (
-          <a
-            href={pdfUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 text-amber-700 transition-colors hover:text-amber-900"
-          >
-            <ExternalLink className="h-4 w-4" />
-            Mở PDF trong tab mới nếu trình duyệt không hỗ trợ preview
-          </a>
-        )}
-      </div>
-      {loading ? (
-        <div className="skeleton h-[680px] w-full rounded-2xl" />
-      ) : loadError ? (
-        <div className="rounded-2xl border border-red-100 bg-red-50 p-8 text-center text-red-700">
-          Không tải được file PDF để xem trước. Vui lòng kiểm tra file đã được upload hoặc thử mở trong tab mới.
-        </div>
-      ) : (
-        <iframe
-          src={`${pdfUrl}#toolbar=1&navpanes=0&scrollbar=1`}
-          title={lesson.title}
-          className="h-[680px] w-full rounded-2xl border border-slate-200"
-        />
-      )}
     </div>
   );
 }
