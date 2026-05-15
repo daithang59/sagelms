@@ -43,19 +43,16 @@ public class ChallengeService {
     }
 
     @Transactional(readOnly = true)
-    public Page<ChallengeResponse> listChallenges(String search, UUID viewerId, String roles, Pageable pageable) {
-        boolean hasSearch = search != null && !search.isBlank();
+    public Page<ChallengeResponse> listChallenges(String search, String category, UUID viewerId, String roles, Pageable pageable) {
+        String normalizedSearch = search != null && !search.isBlank() ? search.trim() : null;
+        String normalizedCategory = category != null && !category.isBlank() ? category.trim() : null;
         Page<Challenge> challenges;
         if (RoleUtils.isAdmin(roles)) {
-            challenges = hasSearch ? challengeRepository.search(search, pageable) : challengeRepository.findAll(pageable);
+            challenges = challengeRepository.findAllFiltered(normalizedSearch, normalizedCategory, pageable);
         } else if (RoleUtils.isInstructor(roles) && viewerId != null) {
-            challenges = hasSearch
-                    ? challengeRepository.searchVisibleToInstructor(viewerId, search, pageable)
-                    : challengeRepository.findVisibleToInstructor(viewerId, pageable);
+            challenges = challengeRepository.findVisibleToInstructorFiltered(viewerId, normalizedSearch, normalizedCategory, pageable);
         } else {
-            challenges = hasSearch
-                    ? challengeRepository.searchPublished(search, pageable)
-                    : challengeRepository.findByStatus(ChallengeStatus.PUBLISHED, pageable);
+            challenges = challengeRepository.findPublishedFiltered(normalizedSearch, normalizedCategory, pageable);
         }
         return challenges.map(this::toResponse);
     }

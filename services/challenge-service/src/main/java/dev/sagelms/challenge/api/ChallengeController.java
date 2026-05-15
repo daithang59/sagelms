@@ -30,10 +30,11 @@ public class ChallengeController {
     @GetMapping("/challenges")
     public ResponseEntity<Page<ChallengeResponse>> listChallenges(
             @RequestParam(required = false) String search,
+            @RequestParam(required = false) String category,
             @RequestHeader(value = USER_ID_HEADER, required = false) UUID userId,
             @RequestHeader(value = ROLES_HEADER, required = false) String roles,
             @PageableDefault(size = 20) Pageable pageable) {
-        return ResponseEntity.ok(challengeService.listChallenges(search, userId, roles, pageable));
+        return ResponseEntity.ok(challengeService.listChallenges(search, category, userId, roles, pageable));
     }
 
     @PostMapping("/challenges")

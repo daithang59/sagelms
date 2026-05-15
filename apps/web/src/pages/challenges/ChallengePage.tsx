@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Badge, Button, Card, CardBody, useConfirm } from '@/components/ui';
 import { useToast } from '@/components/Toast';
@@ -19,6 +19,28 @@ import {
   Users,
 } from 'lucide-react';
 import ChallengeForm from './ChallengeForm';
+
+type InstructorChallengeTab = 'mine' | 'explore';
+
+const staggerStyle = (index: number) => ({
+  '--stagger-delay': `${Math.min(index * 40, 400)}ms`,
+}) as CSSProperties;
+
+const categoryOptions = [
+  'Programming',
+  'Web Development',
+  'Database',
+  'Data Science',
+  'AI',
+  'Mobile Development',
+  'DevOps',
+  'Cybersecurity',
+  'Design',
+  'Education',
+  'Product',
+  'Business',
+  'Marketing',
+];
 
 const gradients = [
   'from-violet-500 via-purple-500 to-indigo-500',
@@ -60,7 +82,7 @@ function ChallengeCard({
   const gradient = gradients[challenge.title.charCodeAt(0) % gradients.length];
 
   return (
-    <div className="group relative overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm transition-all duration-300 hover:shadow-xl">
+    <div className="interactive-surface group relative overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm transition-all duration-300 hover:shadow-xl">
       <div className={`relative flex h-40 items-center justify-center overflow-hidden bg-gradient-to-br ${gradient}`}>
         {challenge.thumbnailUrl ? (
           <img src={challenge.thumbnailUrl} alt={challenge.title} className="h-full w-full object-cover" />
@@ -79,10 +101,10 @@ function ChallengeCard({
         )}
         {canManage && (
           <div className="absolute left-3 top-3 z-20 flex gap-2">
-            <button onClick={() => onEdit(challenge)} className="rounded-lg bg-white/20 p-2 backdrop-blur-md transition-colors hover:bg-white/30">
+            <button onClick={() => onEdit(challenge)} className="pressable rounded-lg bg-white/20 p-2 backdrop-blur-md transition-colors hover:bg-white/30">
               <Edit className="h-4 w-4 text-white" />
             </button>
-            <button onClick={() => onDelete(challenge)} className="rounded-lg bg-white/20 p-2 backdrop-blur-md transition-colors hover:bg-red-500/80">
+            <button onClick={() => onDelete(challenge)} className="pressable rounded-lg bg-white/20 p-2 backdrop-blur-md transition-colors hover:bg-red-500/80">
               <Trash2 className="h-4 w-4 text-white" />
             </button>
           </div>
@@ -132,11 +154,22 @@ export default function ChallengesPage() {
   const { showToast } = useToast();
   const confirm = useConfirm();
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingChallenge, setEditingChallenge] = useState<Challenge | null>(null);
   const [creatorNames, setCreatorNames] = useState<Record<string, string>>({});
+  const [instructorTab, setInstructorTab] = useState<InstructorChallengeTab>('mine');
   const hasFetched = useRef(false);
   const canCreateChallenge = user?.role === 'INSTRUCTOR' || user?.role === 'ADMIN';
+  const isInstructor = user?.role === 'INSTRUCTOR';
+  const tabAnimationKey = isInstructor ? instructorTab : 'all-challenges';
+  const displayedChallenges = !isInstructor || !user?.id
+    ? challenges
+    : instructorTab === 'mine'
+      ? challenges.filter((challenge) => challenge.instructorId === user.id)
+      : challenges.filter((challenge) => (
+        challenge.status === 'PUBLISHED' && challenge.instructorId !== user.id
+      ));
 
   useEffect(() => {
     if (!hasFetched.current) {
@@ -174,7 +207,12 @@ export default function ChallengesPage() {
 
   const handleSearch = (event: FormEvent) => {
     event.preventDefault();
-    fetchChallenges({ search: searchQuery });
+    fetchChallenges({ search: searchQuery, category: selectedCategory });
+  };
+
+  const handleCategoryChange = (category: string) => {
+    setSelectedCategory(category);
+    fetchChallenges({ search: searchQuery, category });
   };
 
   const handleDelete = async (challenge: Challenge) => {
@@ -221,6 +259,33 @@ export default function ChallengesPage() {
         )}
       </div>
 
+      {isInstructor && (
+        <div className="inline-flex rounded-xl bg-white p-1 shadow-sm ring-1 ring-slate-200">
+          <button
+            type="button"
+            onClick={() => setInstructorTab('mine')}
+            className={`pressable rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-200 ${
+              instructorTab === 'mine'
+                ? 'bg-violet-50 text-violet-700 ring-1 ring-violet-200'
+                : 'text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            Quản lý thử thách
+          </button>
+          <button
+            type="button"
+            onClick={() => setInstructorTab('explore')}
+            className={`pressable rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-200 ${
+              instructorTab === 'explore'
+                ? 'bg-violet-50 text-violet-700 ring-1 ring-violet-200'
+                : 'text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            Khám phá thử thách
+          </button>
+        </div>
+      )}
+
       <Card className="border-slate-200 shadow-sm">
         <CardBody className="p-2">
           <form onSubmit={handleSearch} className="flex gap-2">
@@ -238,6 +303,33 @@ export default function ChallengesPage() {
               <span className="hidden sm:inline">Tìm kiếm</span>
             </Button>
           </form>
+          <div className="mt-2 flex gap-2 overflow-x-auto px-1 pb-1">
+            <button
+              type="button"
+              onClick={() => handleCategoryChange('')}
+              className={`pressable shrink-0 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                selectedCategory === ''
+                  ? 'bg-violet-600 text-white'
+                  : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              Tất cả lĩnh vực
+            </button>
+            {categoryOptions.map((category) => (
+              <button
+                key={category}
+                type="button"
+                onClick={() => handleCategoryChange(category)}
+                className={`pressable shrink-0 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                  selectedCategory === category
+                    ? 'bg-violet-600 text-white'
+                    : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                {category}
+              </button>
+            ))}
+          </div>
         </CardBody>
       </Card>
 
@@ -245,31 +337,40 @@ export default function ChallengesPage() {
 
       {loading && (
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
-          {[1, 2, 3, 4, 5, 6].map((item) => (
-            <div key={item} className="h-80 animate-pulse rounded-2xl bg-white ring-1 ring-slate-100" />
-          ))}
-        </div>
-      )}
-
-      {!loading && challenges.length > 0 && (
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
-          {challenges.map((challenge) => (
-            <ChallengeCard
-              key={challenge.id}
-              challenge={challenge}
-              canManage={user?.role === 'ADMIN' || challenge.instructorId === user?.id}
-              creatorName={creatorNames[challenge.instructorId] || 'Giảng viên'}
-              onEdit={(item) => {
-                setEditingChallenge(item);
-                setIsFormOpen(true);
-              }}
-              onDelete={handleDelete}
+          {[1, 2, 3, 4, 5, 6].map((item, index) => (
+            <div
+              key={item}
+              className="stagger-enter h-80 skeleton rounded-2xl bg-white ring-1 ring-slate-100"
+              style={staggerStyle(index)}
             />
           ))}
         </div>
       )}
 
-      {!loading && challenges.length === 0 && (
+      {!loading && displayedChallenges.length > 0 && (
+        <div key={`challenges-${tabAnimationKey}`} className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+          {displayedChallenges.map((challenge, index) => (
+            <div
+              key={`${tabAnimationKey}-${challenge.id}`}
+              className="stagger-enter"
+              style={staggerStyle(index)}
+            >
+              <ChallengeCard
+                challenge={challenge}
+                canManage={user?.role === 'ADMIN' || challenge.instructorId === user?.id}
+                creatorName={creatorNames[challenge.instructorId] || 'Giảng viên'}
+                onEdit={(item) => {
+                  setEditingChallenge(item);
+                  setIsFormOpen(true);
+                }}
+                onDelete={handleDelete}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {!loading && displayedChallenges.length === 0 && (
         <Card className="border-slate-200 py-10">
           <CardBody className="text-center">
             <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-cyan-100 to-blue-100">
@@ -277,9 +378,15 @@ export default function ChallengesPage() {
             </div>
             <h3 className="mb-2 text-xl font-bold text-slate-700">Chưa có thử thách nào</h3>
             <p className="mx-auto mb-8 max-w-md text-slate-500">
-              {canCreateChallenge ? 'Hãy tạo thử thách đầu tiên để học viên có thể tham gia.' : 'Hiện chưa có thử thách nào đang mở.'}
+              {isInstructor && instructorTab === 'mine'
+                ? 'Hãy tạo thử thách đầu tiên để học viên và giảng viên khác có thể tham gia.'
+                : isInstructor && instructorTab === 'explore'
+                  ? 'Chưa có thử thách published nào từ giảng viên khác để bạn tham gia.'
+                  : canCreateChallenge
+                    ? 'Hãy tạo thử thách đầu tiên để học viên có thể tham gia.'
+                    : 'Hiện chưa có thử thách nào đang mở.'}
             </p>
-            {canCreateChallenge && (
+            {canCreateChallenge && (!isInstructor || instructorTab === 'mine') && (
               <Button className="gap-2 shadow-lg shadow-violet-500/25" onClick={() => setIsFormOpen(true)}>
                 <Plus className="h-4 w-4" />
                 Tạo thử thách đầu tiên
@@ -295,7 +402,7 @@ export default function ChallengesPage() {
           setIsFormOpen(false);
           setEditingChallenge(null);
         }}
-        onSuccess={() => fetchChallenges()}
+        onSuccess={() => fetchChallenges({ search: searchQuery, category: selectedCategory })}
         editChallenge={editingChallenge}
       />
     </div>

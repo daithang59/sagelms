@@ -17,12 +17,13 @@ export function useChallenges() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchChallenges = useCallback(async (params?: { search?: string; page?: number; size?: number }) => {
+  const fetchChallenges = useCallback(async (params?: { search?: string; category?: string; page?: number; size?: number }) => {
     setLoading(true);
     setError(null);
     try {
       const queryParams = new URLSearchParams();
       if (params?.search) queryParams.set('search', params.search);
+      if (params?.category) queryParams.set('category', params.category);
       if (params?.page !== undefined) queryParams.set('page', String(params.page));
       if (params?.size !== undefined) queryParams.set('size', String(params.size));
       const query = queryParams.toString();
