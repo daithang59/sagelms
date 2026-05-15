@@ -29,6 +29,10 @@ import { AnimatePresence, motion } from 'framer-motion';
 type CourseScope = 'teaching' | 'explore';
 type StudentCourseTab = 'explore' | 'enrolled';
 
+const staggerStyle = (index: number) => ({
+  '--stagger-delay': `${Math.min(index * 40, 400)}ms`,
+}) as React.CSSProperties;
+
 const categoryOptions = [
   'Programming',
   'Web Development',
@@ -496,6 +500,7 @@ export default function CoursesPage() {
   const isInstructor = user?.role === 'INSTRUCTOR';
   const isStudent = user?.role === 'STUDENT';
   const isStudentEnrolledTab = isStudent && studentTab === 'enrolled';
+  const tabAnimationKey = isStudent ? studentTab : isInstructor ? courseScope : 'all-courses';
   const fetchCourseList = useCallback((scope = courseScope) =>
     fetchCourses(isInstructor ? { scope } : undefined), [courseScope, fetchCourses, isInstructor]);
 
@@ -710,7 +715,7 @@ export default function CoursesPage() {
           <button
             type="button"
             onClick={() => setCourseScope('teaching')}
-            className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+            className={`pressable rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-200 ${
               courseScope === 'teaching'
                 ? 'bg-violet-50 text-violet-700 ring-1 ring-violet-200'
                 : 'text-slate-600 hover:bg-slate-50'
@@ -721,7 +726,7 @@ export default function CoursesPage() {
           <button
             type="button"
             onClick={() => setCourseScope('explore')}
-            className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+            className={`pressable rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-200 ${
               courseScope === 'explore'
                 ? 'bg-violet-50 text-violet-700 ring-1 ring-violet-200'
                 : 'text-slate-600 hover:bg-slate-50'
@@ -737,7 +742,7 @@ export default function CoursesPage() {
           <button
             type="button"
             onClick={() => setStudentTab('explore')}
-            className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+            className={`pressable rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-200 ${
               studentTab === 'explore'
                 ? 'bg-violet-50 text-violet-700 ring-1 ring-violet-200'
                 : 'text-slate-600 hover:bg-slate-50'
@@ -748,7 +753,7 @@ export default function CoursesPage() {
           <button
             type="button"
             onClick={() => setStudentTab('enrolled')}
-            className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
+            className={`pressable rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-200 ${
               studentTab === 'enrolled'
                 ? 'bg-violet-50 text-violet-700 ring-1 ring-violet-200'
                 : 'text-slate-600 hover:bg-slate-50'
@@ -845,40 +850,45 @@ export default function CoursesPage() {
 
       {isStudentEnrolledTab && myEnrollmentsLoading && (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-          {[1, 2, 3].map((item) => (
-            <div key={item} className="h-48 animate-pulse rounded-2xl border border-slate-100 bg-white" />
+          {[1, 2, 3].map((item, index) => (
+            <div key={item} className="stagger-enter h-48 skeleton rounded-2xl border border-slate-100 bg-white" style={staggerStyle(index)} />
           ))}
         </div>
       )}
 
       {/* Courses Grid */}
       {!isStudentEnrolledTab && !loading && courses.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-          {courses.map((course) => (
-            <CourseCard
-              key={course.id}
-              course={course}
-              enrollmentStatus={enrollmentStatuses.get(course.id) || null}
-              onEnroll={() => handleEnroll(course.id)}
-              getStatusBadge={getStatusBadge}
-              canCreateCourse={canCreateCourse}
-              currentUserId={user?.id}
-              currentUserRole={user?.role}
-              onEdit={handleEdit}
-              onDelete={() => handleDelete(course.id, course.instructorId)}
-              onInstructorClick={setSelectedInstructorCourse}
-            />
+        <div key={`courses-${tabAnimationKey}`} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          {courses.map((course, index) => (
+            <div
+              key={`${tabAnimationKey}-${course.id}`}
+              className="stagger-enter"
+              style={staggerStyle(index)}
+            >
+              <CourseCard
+                course={course}
+                enrollmentStatus={enrollmentStatuses.get(course.id) || null}
+                onEnroll={() => handleEnroll(course.id)}
+                getStatusBadge={getStatusBadge}
+                canCreateCourse={canCreateCourse}
+                currentUserId={user?.id}
+                currentUserRole={user?.role}
+                onEdit={handleEdit}
+                onDelete={() => handleDelete(course.id, course.instructorId)}
+                onInstructorClick={setSelectedInstructorCourse}
+              />
+            </div>
           ))}
         </div>
       )}
 
       {isStudentEnrolledTab && !myEnrollmentsLoading && filteredEnrollments.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        <div key={`enrollments-${tabAnimationKey}`} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {filteredEnrollments.map((enrollment, index) => (
             <div
-              key={enrollment.id}
-              className="opacity-0 animate-fade-up"
-              style={{ animationDelay: `${Math.min(index * 40, 400)}ms` }}
+              key={`${tabAnimationKey}-${enrollment.id}`}
+              className="stagger-enter"
+              style={staggerStyle(index)}
             >
               <EnrolledCourseCard
                 enrollment={enrollment}
