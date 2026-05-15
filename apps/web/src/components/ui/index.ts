@@ -4,4 +4,6 @@ export { Card, CardBody, CardHeader } from './Card';
 export { default as Input } from './Input';
 export { PageLoading, Skeleton, Spinner } from './Loading';
 export { default as Modal } from './Modal';
-
+export { default as ConfirmDialogProvider } from './ConfirmDialog';
+export { default as useConfirm } from '../../hooks/useConfirm';
+export type { ConfirmOptions, ConfirmVariant } from '../../contexts/ConfirmContext';

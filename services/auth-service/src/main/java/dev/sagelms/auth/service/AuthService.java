@@ -169,6 +169,16 @@ public class AuthService {
     }
 
     @Transactional(readOnly = true)
+    public List<PublicUserProfileResponse> getPublicUserProfiles(List<UUID> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return List.of();
+        }
+        return userRepository.findAllById(userIds).stream()
+                .map(PublicUserProfileResponse::from)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public Page<UserProfileResponse> listUsers(UserRole role, Boolean isActive, String search, int page, int size) {
         PageRequest pageable = PageRequest.of(
                 Math.max(0, page - 1), // API uses 1-based pages

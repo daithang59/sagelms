@@ -30,7 +30,7 @@ export default function AuthLayout() {
               <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
                 <ClipboardList className="w-5 h-5" />
               </div>
-              <span>Quiz & bài kiểm tra tự động</span>
+              <span>Thử thách và chấm điểm tự động</span>
             </div>
             <div className="flex items-center gap-3 text-white/80">
               <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">

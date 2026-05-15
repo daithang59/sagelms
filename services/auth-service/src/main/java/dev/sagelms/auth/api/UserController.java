@@ -1,5 +1,6 @@
 package dev.sagelms.auth.api;
 
+import dev.sagelms.auth.dto.PublicUserProfileResponse;
 import dev.sagelms.auth.dto.UpdateUserRequest;
 import dev.sagelms.auth.dto.UserProfileResponse;
 import dev.sagelms.auth.dto.DeactivateUserRequest;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Arrays;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -53,6 +55,12 @@ public class UserController {
         body.put("data", result.getContent());
         body.put("meta", meta);
         return ResponseEntity.ok(body);
+    }
+
+    @GetMapping("/public-profiles")
+    public ResponseEntity<List<PublicUserProfileResponse>> getPublicProfiles(
+            @RequestParam List<UUID> ids) {
+        return ResponseEntity.ok(authService.getPublicUserProfiles(ids));
     }
 
     @GetMapping("/instructor-applications")

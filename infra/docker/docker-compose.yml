@@ -68,12 +68,16 @@ services:
       COURSE_SERVICE_PORT: 8082
       CONTENT_SERVICE_HOST: content-service
       CONTENT_SERVICE_PORT: 8083
+      CHALLENGE_SERVICE_HOST: challenge-service
+      CHALLENGE_SERVICE_PORT: 8086
     depends_on:
       auth-service:
         condition: service_started
       course-service:
         condition: service_started
       content-service:
+        condition: service_started
+      challenge-service:
         condition: service_started
     profiles:
       - app
@@ -140,6 +144,24 @@ services:
       CONTENT_UPLOAD_DIR: /data/content-uploads
     volumes:
       - sagelms_content_uploads:/data/content-uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles:
+      - app
+
+  challenge-service:
+    build:
+      context: ../../services/challenge-service
+      dockerfile: Dockerfile
+    expose:
+      - "8086"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-sagelms}
+      DB_USER: ${POSTGRES_USER:-sagelms}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-sagelms}
     depends_on:
       postgres:
         condition: service_healthy

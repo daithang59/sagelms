@@ -1,6 +1,6 @@
 import { useEffect, useState, type CSSProperties, type FormEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Card, CardBody, Button, Badge } from '@/components/ui';
+import { Card, CardBody, Button, Badge, useConfirm } from '@/components/ui';
 import { useCourses, useLessons, useEnrollment } from '@/hooks';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/Toast';
@@ -394,6 +394,7 @@ export default function CourseDetailPage() {
     rejectCourseParticipant,
   } = useEnrollment();
   const { showToast } = useToast();
+  const confirm = useConfirm();
 
   const [course, setCourse] = useState<Course | null>(null);
   const [enrollmentStatus, setEnrollmentStatus] = useState<EnrollmentStatus | null>(null);
@@ -668,8 +669,8 @@ export default function CourseDetailPage() {
         <div className="lg:col-span-2 space-y-6">
           {/* Description */}
           <Card>
-            <CardBody>
-              <h2 className="text-lg font-bold text-slate-800 mb-4">Mô tả khoá học</h2>
+            <CardBody className="p-2">
+              <h2 className="text-lg font-bold text-slate-800 mb-2">Mô tả khoá học</h2>
               <p className="text-slate-600 leading-relaxed">{course.description}</p>
             </CardBody>
           </Card>
@@ -677,7 +678,7 @@ export default function CourseDetailPage() {
           {/* Lessons */}
           <Card>
             <CardBody className="p-0">
-              <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+              <div className="p-2 mb-4 border-b border-slate-100 flex items-center justify-between">
                 <h2 className="text-lg font-bold text-slate-800">
                   Nội dung khoá học
                   <span className="ml-2 text-sm font-normal text-slate-500">
@@ -753,14 +754,20 @@ export default function CourseDetailPage() {
                           <button
                             onClick={async (e) => {
                               e.stopPropagation();
-                              if (confirm('Xóa bài học này?')) {
-                                try {
-                                  await deleteLesson(lesson.id);
-                                  showToast('Xóa bài học thành công!', 'success');
-                                } catch (err) {
-                                  const message = err instanceof Error ? err.message : 'Xóa bài học thất bại';
-                                  showToast(message, 'error');
-                                }
+                              const confirmed = await confirm({
+                                title: 'Xóa bài học',
+                                message: `Bạn có chắc chắn muốn xóa bài học "${lesson.title}"?`,
+                                confirmLabel: 'Xóa bài học',
+                                cancelLabel: 'Hủy',
+                                variant: 'danger',
+                              });
+                              if (!confirmed) return;
+                              try {
+                                await deleteLesson(lesson.id);
+                                showToast('Xóa bài học thành công!', 'success');
+                              } catch (err) {
+                                const message = err instanceof Error ? err.message : 'Xóa bài học thất bại';
+                                showToast(message, 'error');
                               }
                             }}
                             className="pressable p-2 rounded-lg hover:bg-red-50 text-red-500"

@@ -48,6 +48,10 @@ public class RbacFilter implements GlobalFilter, Ordered {
     }
 
     private List<String> requiredRoles(HttpMethod method, String path) {
+        if (path.equals("/api/v1/users/public-profiles") && method == HttpMethod.GET) {
+            return null;
+        }
+
         if (path.startsWith("/api/v1/users")) {
             return ADMIN;
         }
@@ -66,7 +70,7 @@ public class RbacFilter implements GlobalFilter, Ordered {
             return LEARNER;
         }
 
-        if (isCourseMutation(method, path) || isLessonMutation(method, path)) {
+        if (isCourseMutation(method, path) || isLessonMutation(method, path) || isChallengeManagement(method, path)) {
             return INSTRUCTOR_OR_ADMIN;
         }
 
@@ -85,6 +89,18 @@ public class RbacFilter implements GlobalFilter, Ordered {
 
     private boolean isLessonMutation(HttpMethod method, String path) {
         if (!(path.matches("^/api/v1/courses/[^/]+/lessons.*") || path.startsWith("/api/v1/lessons"))) {
+            return false;
+        }
+        return method == HttpMethod.POST || method == HttpMethod.PUT
+                || method == HttpMethod.DELETE || method == HttpMethod.PATCH;
+    }
+
+    private boolean isChallengeManagement(HttpMethod method, String path) {
+        boolean challengePath = path.startsWith("/api/v1/challenges");
+        if (!challengePath) {
+            return false;
+        }
+        if (path.matches("^/api/v1/challenges/[^/]+/attempts$")) {
             return false;
         }
         return method == HttpMethod.POST || method == HttpMethod.PUT

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, useRef } from 'react';
-import { Card, CardBody, Button, Badge } from '@/components/ui';
+import { Card, CardBody, Button, Badge, useConfirm } from '@/components/ui';
 import { useCourses, useEnrollment } from '@/hooks';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/Toast';
@@ -478,6 +478,7 @@ export default function CoursesPage() {
   const { enroll, unenroll, getEnrollmentCheck, getMyEnrollments } = useEnrollment();
   const { user } = useAuth();
   const { showToast } = useToast();
+  const confirm = useConfirm();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [enrollmentStatuses, setEnrollmentStatuses] = useState<Map<string, EnrollmentStatus>>(new Map());
@@ -635,15 +636,21 @@ export default function CoursesPage() {
       showToast('Bạn không có quyền xóa khoá học này!', 'warning');
       return;
     }
-    if (confirm('Bạn có chắc chắn muốn xóa khoá học này?')) {
-      try {
-        await deleteCourse(courseId);
-        showToast('Xóa khoá học thành công!', 'success');
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Xóa khoá học thất bại';
-        showToast(message, 'error');
-        console.error('Failed to delete course:', err);
-      }
+    const confirmed = await confirm({
+      title: 'Xóa khóa học',
+      message: 'Bạn có chắc chắn muốn xóa khóa học này?',
+      confirmLabel: 'Xóa khóa học',
+      cancelLabel: 'Hủy',
+      variant: 'danger',
+    });
+    if (!confirmed) return;
+    try {
+      await deleteCourse(courseId);
+      showToast('Xóa khoá học thành công!', 'success');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Xóa khoá học thất bại';
+      showToast(message, 'error');
+      console.error('Failed to delete course:', err);
     }
   };
 
@@ -676,8 +683,8 @@ export default function CoursesPage() {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-800">Khoá học</h1>
-          <p className="mt-1.5 text-slate-500">
+          <h1 className="text-2xl font-bold text-slate-800">Khoá học</h1>
+          <p className="mt-1 text-slate-500">
             {canCreateCourse
               ? 'Quản lý và khám phá các khoá học của bạn.'
               : 'Khám phá các khoá học để đăng ký học.'}
@@ -754,7 +761,7 @@ export default function CoursesPage() {
 
       {/* Search Bar - Modern Design */}
       <Card className="border-slate-200 shadow-sm">
-        <CardBody className="p-2">
+        <CardBody className="p-4">
           <form onSubmit={handleSearch} className="flex gap-2">
             {/* Search Input */}
             <div className="flex-1 relative">
@@ -764,7 +771,7 @@ export default function CoursesPage() {
                 placeholder="Tìm kiếm khoá học..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full h-12 pl-12 pr-4 rounded-xl border-0 bg-slate-50 text-slate-900 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-violet-500/20 focus:outline-none transition-all duration-200"
+                className="w-full pl-12 pr-4 py-3 rounded-xl border border-surface-200 bg-surface-50 text-surface-900 placeholder-surface-400 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 focus:outline-none transition-all duration-200"
               />
             </div>
 

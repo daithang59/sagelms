@@ -20,6 +20,12 @@ export interface User {
   createdAt: string;
 }
 
+export interface PublicUserProfile {
+  id: string;
+  email: string;
+  fullName: string | null;
+}
+
 export interface LoginRequest {
   email: string;
   password: string;
