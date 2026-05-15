@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Badge, Button, Card, CardBody, useConfirm } from '@/components/ui';
 import { useToast } from '@/components/Toast';
@@ -11,7 +11,22 @@ import type {
   ChallengeQuestionType,
   QuestionMediaType,
 } from '@/types/challenge';
-import { ArrowLeft, ChevronLeft, ChevronRight, FileText, Image as ImageIcon, ListChecks, Plus, Save, Trash2, Video } from 'lucide-react';
+import {
+  ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
+  Copy,
+  FileText,
+  GripVertical,
+  HelpCircle,
+  Image as ImageIcon,
+  ListChecks,
+  Plus,
+  Save,
+  Trash2,
+  Upload,
+  Video,
+} from 'lucide-react';
 
 interface ChoiceDraft {
   text: string;
@@ -35,6 +50,16 @@ interface PendingDraft {
   edge: 'before' | 'after';
 }
 
+interface ImportedQuestionJson {
+  type?: unknown;
+  text?: unknown;
+  prompt?: unknown;
+  points?: unknown;
+  options?: unknown;
+  choices?: unknown;
+  correctOptionIndex?: unknown;
+}
+
 const blankChoices = (): ChoiceDraft[] => [
   { text: '', isCorrect: true },
   { text: '', isCorrect: false },
@@ -50,12 +75,109 @@ const createBlankDraft = (): QuestionDraft => ({
   choices: blankChoices(),
 });
 
+const cloneDraft = (draft: QuestionDraft): QuestionDraft => ({
+  ...draft,
+  localId: crypto.randomUUID(),
+  id: undefined,
+  prompt: draft.prompt ? `${draft.prompt} (bản sao)` : draft.prompt,
+  choices: draft.choices.map((choice) => ({ ...choice })),
+});
+
 const normalizeQuestionPoints = (points: number | '') => {
   if (points === '' || !Number.isFinite(points) || points <= 0 || points >= 100) {
     return 1;
   }
   return points;
 };
+
+const normalizeImportPoints = (value: unknown) => {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0 || value >= 100) {
+    return 1;
+  }
+  return value;
+};
+
+const toChoiceText = (value: unknown) => {
+  if (typeof value === 'string') return value.trim();
+  if (value && typeof value === 'object' && 'text' in value && typeof value.text === 'string') {
+    return value.text.trim();
+  }
+  return '';
+};
+
+function parseImportedQuestions(input: unknown): { drafts: QuestionDraft[]; errors: string[] } {
+  if (!Array.isArray(input)) {
+    return { drafts: [], errors: ['File JSON phải là một mảng câu hỏi.'] };
+  }
+
+  const errors: string[] = [];
+  const drafts: QuestionDraft[] = [];
+
+  input.forEach((rawItem, index) => {
+    const item = rawItem as ImportedQuestionJson;
+    const rowLabel = `Câu ${index + 1}`;
+    if (!item || typeof item !== 'object') {
+      errors.push(`${rowLabel}: dữ liệu câu hỏi không hợp lệ.`);
+      return;
+    }
+
+    const type = item.type;
+    if (type !== 'MULTIPLE_CHOICE' && type !== 'ESSAY') {
+      errors.push(`${rowLabel}: type phải là MULTIPLE_CHOICE hoặc ESSAY.`);
+      return;
+    }
+
+    const prompt = typeof item.text === 'string'
+      ? item.text.trim()
+      : typeof item.prompt === 'string'
+        ? item.prompt.trim()
+        : '';
+    if (!prompt) {
+      errors.push(`${rowLabel}: thiếu text hoặc prompt.`);
+      return;
+    }
+
+    const draft: QuestionDraft = {
+      localId: crypto.randomUUID(),
+      type,
+      prompt,
+      mediaType: 'NONE',
+      mediaUrl: '',
+      points: normalizeImportPoints(item.points),
+      choices: blankChoices(),
+    };
+
+    if (type === 'MULTIPLE_CHOICE') {
+      const rawOptions = Array.isArray(item.options)
+        ? item.options
+        : Array.isArray(item.choices)
+          ? item.choices
+          : [];
+      const options = rawOptions.map(toChoiceText).filter(Boolean);
+      if (options.length < 2) {
+        errors.push(`${rowLabel}: câu trắc nghiệm cần ít nhất 2 đáp án trong options.`);
+        return;
+      }
+      if (
+        typeof item.correctOptionIndex !== 'number' ||
+        !Number.isInteger(item.correctOptionIndex) ||
+        item.correctOptionIndex < 0 ||
+        item.correctOptionIndex >= options.length
+      ) {
+        errors.push(`${rowLabel}: correctOptionIndex phải nằm trong khoảng 0 đến ${options.length - 1}.`);
+        return;
+      }
+      draft.choices = options.map((text, optionIndex) => ({
+        text,
+        isCorrect: optionIndex === item.correctOptionIndex,
+      }));
+    }
+
+    drafts.push(draft);
+  });
+
+  return { drafts, errors };
+}
 
 const toDraft = (question: ChallengeQuestion): QuestionDraft => ({
   localId: question.id,
@@ -116,6 +238,10 @@ export default function QuestionPage() {
   const [pendingDraft, setPendingDraft] = useState<PendingDraft | null>(null);
   const [persistedQuestionIds, setPersistedQuestionIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const [showImportGuide, setShowImportGuide] = useState(false);
+  const [pastedJson, setPastedJson] = useState('');
+  const [draggingLocalId, setDraggingLocalId] = useState<string | null>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
 
   const activeIndex = useMemo(
     () => drafts.findIndex((draft) => draft.localId === activeLocalId),
@@ -269,6 +395,93 @@ export default function QuestionPage() {
     createPendingQuestion('after', insertIndex);
   };
 
+  const duplicateActiveQuestion = () => {
+    if (!activeDraft || !activeDraft.prompt.trim()) {
+      showToast('Vui lòng nhập nội dung câu hỏi trước khi nhân bản.', 'warning');
+      return;
+    }
+    const duplicatedDraft = cloneDraft(activeDraft);
+    const insertIndex = activeIndex >= 0 ? activeIndex + 1 : drafts.length;
+    setDrafts((prev) => [
+      ...prev.slice(0, insertIndex),
+      duplicatedDraft,
+      ...prev.slice(insertIndex),
+    ]);
+    setPendingDraft(null);
+    setActiveLocalId(duplicatedDraft.localId);
+    showToast('Đã nhân bản câu hỏi.', 'success');
+  };
+
+  const moveDraft = (fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0 || fromIndex >= drafts.length || toIndex >= drafts.length) {
+      return;
+    }
+    setDrafts((prev) => {
+      const next = [...prev];
+      const [movedDraft] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, movedDraft);
+      return next;
+    });
+  };
+
+  const handleImportJson = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith('.json')) {
+      showToast('Vui lòng chọn file .json.', 'error');
+      return;
+    }
+
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text) as unknown;
+      const result = parseImportedQuestions(parsed);
+      if (result.errors.length > 0) {
+        showToast(result.errors.slice(0, 3).join(' '), 'error');
+        return;
+      }
+      if (result.drafts.length === 0) {
+        showToast('File JSON chưa có câu hỏi hợp lệ.', 'error');
+        return;
+      }
+      setDrafts((prev) => [...prev, ...result.drafts]);
+      setPendingDraft(null);
+      setActiveLocalId(result.drafts[0].localId);
+      showToast(`Đã import ${result.drafts.length} câu hỏi từ JSON.`, 'success');
+    } catch {
+      showToast('Không đọc được file JSON. Kiểm tra lại dấu phẩy, ngoặc vuông và ngoặc nhọn.', 'error');
+    }
+  };
+
+  const importQuestionsFromJsonText = (jsonText: string) => {
+    if (!jsonText.trim()) {
+      showToast('Vui lòng paste JSON câu hỏi trước khi import.', 'warning');
+      return false;
+    }
+
+    try {
+      const parsed = JSON.parse(jsonText) as unknown;
+      const result = parseImportedQuestions(parsed);
+      if (result.errors.length > 0) {
+        showToast(result.errors.slice(0, 3).join(' '), 'error');
+        return false;
+      }
+      if (result.drafts.length === 0) {
+        showToast('JSON chưa có câu hỏi hợp lệ.', 'error');
+        return false;
+      }
+      setDrafts((prev) => [...prev, ...result.drafts]);
+      setPendingDraft(null);
+      setActiveLocalId(result.drafts[0].localId);
+      showToast(`Đã import ${result.drafts.length} câu hỏi từ JSON.`, 'success');
+      return true;
+    } catch {
+      showToast('JSON không hợp lệ. Kiểm tra lại dấu phẩy, ngoặc vuông và ngoặc nhọn.', 'error');
+      return false;
+    }
+  };
+
   const removeDraft = async (draft: QuestionDraft) => {
     const confirmed = await confirm({
       title: 'Xóa câu hỏi',
@@ -415,6 +628,21 @@ export default function QuestionPage() {
           <p className="mt-1 text-slate-500">Tạo một tập câu hỏi gồm nhiều câu trắc nghiệm và tự luận cho thử thách.</p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row">
+          <input
+            ref={importInputRef}
+            type="file"
+            accept="application/json,.json"
+            className="hidden"
+            onChange={handleImportJson}
+          />
+          <Button type="button" variant="secondary" onClick={() => setShowImportGuide(true)} disabled={saving}>
+            <HelpCircle className="mr-2 h-4 w-4" />
+            Hướng dẫn JSON
+          </Button>
+          <Button type="button" variant="secondary" onClick={() => importInputRef.current?.click()} disabled={saving}>
+            <Upload className="mr-2 h-4 w-4" />
+            Import JSON
+          </Button>
           <Button type="button" variant="secondary" onClick={handleDeleteQuestionSet} disabled={saving}>
             <Trash2 className="mr-2 h-4 w-4" />
             Xóa tập câu hỏi
@@ -601,6 +829,10 @@ export default function QuestionPage() {
             )}
 
             <div className="flex flex-col gap-3 sm:flex-row">
+              <Button type="button" variant="secondary" className="flex-1 justify-center" onClick={duplicateActiveQuestion}>
+                <Copy className="mr-2 h-4 w-4" />
+                Nhân bản câu hỏi
+              </Button>
               <Button type="button" variant="secondary" className="flex-1 justify-center" onClick={() => goToAdjacentQuestion('before')}>
                 <ChevronLeft className="mr-2 h-4 w-4" />
                 Câu trước
@@ -647,6 +879,16 @@ export default function QuestionPage() {
                   key={draft.localId}
                   role="button"
                   tabIndex={0}
+                  draggable
+                  onDragStart={() => setDraggingLocalId(draft.localId)}
+                  onDragEnd={() => setDraggingLocalId(null)}
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    const fromIndex = drafts.findIndex((item) => item.localId === draggingLocalId);
+                    moveDraft(fromIndex, index);
+                    setDraggingLocalId(null);
+                  }}
                   onClick={() => setActiveLocalId(draft.localId)}
                   onKeyDown={(event) => {
                     if (event.key === 'Enter' || event.key === ' ') {
@@ -654,23 +896,50 @@ export default function QuestionPage() {
                       setActiveLocalId(draft.localId);
                     }
                   }}
-                  className={`rounded-xl border p-3 text-left transition hover:border-violet-200 hover:bg-violet-50/50 ${draft.localId === activeLocalId ? 'border-violet-300 bg-violet-50' : 'border-slate-100 bg-white'}`}
+                  className={`rounded-xl border p-3 text-left transition hover:border-violet-200 hover:bg-violet-50/50 ${draggingLocalId === draft.localId ? 'opacity-60 ring-2 ring-violet-200' : ''} ${draft.localId === activeLocalId ? 'border-violet-300 bg-violet-50' : 'border-slate-100 bg-white'}`}
                 >
                   <div className="mb-2 flex items-start justify-between gap-2">
-                    <div>
-                      <div className="text-sm font-semibold text-slate-800">Câu {index + 1}</div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                        <GripVertical className="h-4 w-4 text-slate-300" />
+                        Câu {index + 1}
+                      </div>
                       <p className="line-clamp-2 text-sm text-slate-500">{draft.prompt || 'Câu hỏi chưa có nội dung'}</p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        removeDraft(draft).catch((error) => showToast(error instanceof Error ? error.message : 'Xóa câu hỏi thất bại', 'error'));
-                      }}
-                      className="rounded-lg p-2 text-rose-500 hover:bg-rose-50"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <button
+                        type="button"
+                        disabled={index === 0}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          moveDraft(index, index - 1);
+                        }}
+                        className="rounded-lg px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        Lên
+                      </button>
+                      <button
+                        type="button"
+                        disabled={index === drafts.length - 1}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          moveDraft(index, index + 1);
+                        }}
+                        className="rounded-lg px-2 py-1 text-xs font-semibold text-slate-500 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        Xuống
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          removeDraft(draft).catch((error) => showToast(error instanceof Error ? error.message : 'Xóa câu hỏi thất bại', 'error'));
+                        }}
+                        className="rounded-lg p-2 text-rose-500 hover:bg-rose-50"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <Badge variant={draft.type === 'ESSAY' ? 'info' : 'brand'}>
@@ -685,6 +954,129 @@ export default function QuestionPage() {
           </Card>
         </div>
       </div>
+      {showImportGuide && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-950/50 backdrop-blur-sm" onClick={() => setShowImportGuide(false)} />
+          <div className="relative max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
+            <div className="flex items-start justify-between gap-4 border-b border-slate-200 p-6">
+              <div>
+                <h2 className="text-xl font-bold text-slate-900">Hướng dẫn import câu hỏi JSON</h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  File chỉ chứa danh sách câu hỏi. Tiêu đề, thời gian và trạng thái thử thách vẫn nhập trong form.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowImportGuide(false)}
+                className="rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+              >
+                <span className="sr-only">Đóng</span>
+                ×
+              </button>
+            </div>
+
+            <div className="space-y-5 p-6">
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="font-semibold text-slate-800">Trắc nghiệm</div>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Cần có type, text/prompt, points, options và correctOptionIndex. Index bắt đầu từ 0.
+                  </p>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="font-semibold text-slate-800">Tự luận</div>
+                  <p className="mt-1 text-sm text-slate-600">
+                    Chỉ cần type, text/prompt và points. Đáp án tự luận sẽ được giảng viên chấm sau.
+                  </p>
+                </div>
+              </div>
+
+              <pre className="overflow-x-auto rounded-xl bg-slate-950 p-4 text-sm leading-6 text-slate-100">
+{`[
+  {
+    "type": "MULTIPLE_CHOICE",
+    "text": "Hook nào dùng để quản lý state trong React?",
+    "points": 1,
+    "options": [
+      "useEffect",
+      "useState",
+      "useMemo",
+      "useRef"
+    ],
+    "correctOptionIndex": 1
+  },
+  {
+    "type": "ESSAY",
+    "text": "Giải thích sự khác nhau giữa props và state.",
+    "points": 3
+  }
+]`}
+              </pre>
+
+              <div>
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <label className="text-sm font-semibold text-slate-700">Paste JSON câu hỏi</label>
+                  <button
+                    type="button"
+                    onClick={() => setPastedJson('')}
+                    className="text-sm font-medium text-slate-500 transition hover:text-slate-800"
+                  >
+                    Xóa nội dung
+                  </button>
+                </div>
+                <textarea
+                  rows={10}
+                  value={pastedJson}
+                  onChange={(event) => setPastedJson(event.target.value)}
+                  placeholder="Paste mảng JSON câu hỏi vào đây..."
+                  className="w-full resize-y rounded-xl border border-slate-200 bg-white px-4 py-3 font-mono text-sm outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+                />
+                <div className="mt-3 flex justify-end">
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      const imported = importQuestionsFromJsonText(pastedJson);
+                      if (imported) {
+                        setPastedJson('');
+                        setShowImportGuide(false);
+                      }
+                    }}
+                  >
+                    <Upload className="mr-2 h-4 w-4" />
+                    Import từ nội dung paste
+                  </Button>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                Khi import thành công, hệ thống sẽ thêm các câu hỏi vào cuối danh sách hiện tại. Bạn vẫn có thể kéo thả, chỉnh sửa, nhân bản hoặc xóa từng câu trước khi lưu.
+              </div>
+
+              <div className="flex flex-col justify-between gap-3 border-t border-slate-200 pt-4 sm:flex-row sm:items-center">
+                <div>
+                  <div className="text-sm font-semibold text-slate-800">Hoặc import bằng file</div>
+                  <p className="text-sm text-slate-500">Chọn file .json từ máy nếu bạn đã chuẩn bị sẵn.</p>
+                </div>
+                <div className="flex justify-end gap-3">
+                <Button type="button" variant="secondary" onClick={() => setShowImportGuide(false)}>
+                  Đóng
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setShowImportGuide(false);
+                    importInputRef.current?.click();
+                  }}
+                >
+                  <Upload className="mr-2 h-4 w-4" />
+                  Chọn file JSON
+                </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
