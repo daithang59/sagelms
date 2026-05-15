@@ -58,7 +58,6 @@ class ChallengeServiceTest {
                 "Programming",
                 ChallengeStatus.DRAFT,
                 45,
-                new BigDecimal("60.00"),
                 2);
 
         when(challengeRepository.save(any(Challenge.class))).thenAnswer(invocation -> {
@@ -160,7 +159,6 @@ class ChallengeServiceTest {
         challenge.setTitle("Challenge");
         challenge.setInstructorId(instructorId);
         challenge.setStatus(ChallengeStatus.DRAFT);
-        challenge.setPassScore(new BigDecimal("50.00"));
         challenge.setMaxAttempts(1);
         return challenge;
     }

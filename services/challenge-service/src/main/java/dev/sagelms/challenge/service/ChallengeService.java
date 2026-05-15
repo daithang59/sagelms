@@ -447,7 +447,7 @@ public class ChallengeService {
                 : earnedPoints.multiply(BigDecimal.TEN).divide(totalPoints, 2, RoundingMode.HALF_UP);
         attempt.setScore(finalScore);
         attempt.setMaxScore(maxScore);
-        attempt.setPassed(isPassed(finalScore, maxScore, attempt.getChallenge().getPassScore()));
+        attempt.setPassed(null);
         attempt.setGradingStatus(GradingStatus.GRADED);
         attempt.setGradedAt(Instant.now());
         attempt.setGradedBy(graderId);
@@ -566,7 +566,6 @@ public class ChallengeService {
         challenge.setCategory(request.category());
         challenge.setStatus(request.status() != null ? request.status() : ChallengeStatus.DRAFT);
         challenge.setTimeLimitMinutes(request.timeLimitMinutes());
-        challenge.setPassScore(request.passScore() != null ? request.passScore() : new BigDecimal("50.00"));
         challenge.setMaxAttempts(request.maxAttempts() != null && request.maxAttempts() > 0 ? request.maxAttempts() : 1);
     }
 
@@ -713,14 +712,6 @@ public class ChallengeService {
     private ChallengeQuestionSet getOrCreateDefaultQuestionSet(Challenge challenge) {
         return questionSetRepository.findFirstByChallengeIdOrderBySortOrderAsc(challenge.getId())
                 .orElseGet(() -> createDefaultQuestionSet(challenge));
-    }
-
-    private boolean isPassed(BigDecimal score, BigDecimal maxScore, BigDecimal passScore) {
-        if (maxScore == null || maxScore.compareTo(BigDecimal.ZERO) == 0 || score == null) {
-            return false;
-        }
-        BigDecimal percent = score.multiply(new BigDecimal("100")).divide(maxScore, 2, RoundingMode.HALF_UP);
-        return percent.compareTo(passScore != null ? passScore : new BigDecimal("50.00")) >= 0;
     }
 
     private int normalizedMaxAttempts(Challenge challenge) {

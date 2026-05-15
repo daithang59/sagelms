@@ -12,7 +12,6 @@ export interface Challenge {
   status: ChallengeStatus;
   instructorId: string;
   timeLimitMinutes: number | null;
-  passScore: number;
   maxAttempts: number;
   questionCount: number;
   createdAt: string;
@@ -26,7 +25,6 @@ export interface ChallengeRequest {
   category?: string;
   status?: ChallengeStatus;
   timeLimitMinutes?: number | null;
-  passScore?: number;
   maxAttempts?: number;
 }
 

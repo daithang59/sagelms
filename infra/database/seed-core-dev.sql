@@ -1445,7 +1445,6 @@ INSERT INTO challenge.challenges (
     status,
     instructor_id,
     time_limit_minutes,
-    pass_score,
     max_attempts,
     created_at,
     updated_at
@@ -1459,7 +1458,6 @@ INSERT INTO challenge.challenges (
         'PUBLISHED',
         (SELECT id FROM auth.users WHERE email = 'frontend.instructor@sagelms.dev'),
         35,
-        60.00,
         1,
         NOW() - INTERVAL '14 days',
         NOW()
@@ -1473,7 +1471,6 @@ INSERT INTO challenge.challenges (
         'PUBLISHED',
         (SELECT id FROM auth.users WHERE email = 'data.instructor@sagelms.dev'),
         45,
-        70.00,
         1,
         NOW() - INTERVAL '12 days',
         NOW()
@@ -1487,7 +1484,6 @@ INSERT INTO challenge.challenges (
         'PUBLISHED',
         (SELECT id FROM auth.users WHERE email = 'devops.instructor@sagelms.dev'),
         50,
-        65.00,
         1,
         NOW() - INTERVAL '10 days',
         NOW()
@@ -1501,7 +1497,6 @@ INSERT INTO challenge.challenges (
         'PUBLISHED',
         (SELECT id FROM auth.users WHERE email = 'product.instructor@sagelms.dev'),
         40,
-        60.00,
         1,
         NOW() - INTERVAL '9 days',
         NOW()
@@ -1515,7 +1510,6 @@ INSERT INTO challenge.challenges (
         'PUBLISHED',
         (SELECT id FROM auth.users WHERE email = 'data.instructor@sagelms.dev'),
         30,
-        75.00,
         1,
         NOW() - INTERVAL '7 days',
         NOW()
@@ -1529,7 +1523,6 @@ INSERT INTO challenge.challenges (
         'DRAFT',
         (SELECT id FROM auth.users WHERE email = 'product.instructor@sagelms.dev'),
         25,
-        60.00,
         1,
         NOW() - INTERVAL '3 days',
         NOW()
@@ -1542,7 +1535,6 @@ ON CONFLICT (id) DO UPDATE SET
     status = EXCLUDED.status,
     instructor_id = EXCLUDED.instructor_id,
     time_limit_minutes = EXCLUDED.time_limit_minutes,
-    pass_score = EXCLUDED.pass_score,
     max_attempts = EXCLUDED.max_attempts,
     updated_at = NOW();
 

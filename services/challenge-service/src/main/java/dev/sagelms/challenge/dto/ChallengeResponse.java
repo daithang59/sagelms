@@ -3,7 +3,6 @@ package dev.sagelms.challenge.dto;
 import dev.sagelms.challenge.entity.Challenge;
 import dev.sagelms.challenge.entity.ChallengeStatus;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -16,7 +15,6 @@ public record ChallengeResponse(
         ChallengeStatus status,
         UUID instructorId,
         Integer timeLimitMinutes,
-        BigDecimal passScore,
         Integer maxAttempts,
         long questionCount,
         Instant createdAt,
@@ -32,7 +30,6 @@ public record ChallengeResponse(
                 challenge.getStatus(),
                 challenge.getInstructorId(),
                 challenge.getTimeLimitMinutes(),
-                challenge.getPassScore(),
                 challenge.getMaxAttempts(),
                 questionCount,
                 challenge.getCreatedAt(),

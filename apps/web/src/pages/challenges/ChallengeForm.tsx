@@ -50,7 +50,6 @@ function createInitialFormData(editChallenge?: Challenge | null) {
     category: editChallenge?.category || '',
     status: editChallenge?.status || 'DRAFT',
     timeLimitMinutes: editChallenge?.timeLimitMinutes ?? '',
-    passScore: editChallenge?.passScore ?? 50,
     maxAttempts: editChallenge?.maxAttempts ?? 1,
   };
 }
@@ -65,7 +64,6 @@ function ChallengeFormDialog({ onClose, onSuccess, editChallenge }: Omit<Challen
     const payload = {
       ...formData,
       timeLimitMinutes: formData.timeLimitMinutes === '' ? null : Number(formData.timeLimitMinutes),
-      passScore: Number(formData.passScore || 50),
       maxAttempts: Math.max(1, Number(formData.maxAttempts || 1)),
     };
     try {
@@ -181,7 +179,7 @@ function ChallengeFormDialog({ onClose, onSuccess, editChallenge }: Omit<Challen
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-2 block text-sm font-medium text-slate-700">Thời gian mặc định (phút)</label>
               <input
@@ -190,17 +188,6 @@ function ChallengeFormDialog({ onClose, onSuccess, editChallenge }: Omit<Challen
                 value={formData.timeLimitMinutes}
                 onChange={(event) => setFormData({ ...formData, timeLimitMinutes: event.target.value === '' ? '' : Number(event.target.value) })}
                 placeholder="Không giới hạn"
-                className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
-              />
-            </div>
-            <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">Điểm đạt (%)</label>
-              <input
-                type="number"
-                min={0}
-                max={100}
-                value={formData.passScore}
-                onChange={(event) => setFormData({ ...formData, passScore: Number(event.target.value) })}
                 className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none transition-all focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
               />
             </div>

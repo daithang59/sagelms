@@ -1,7 +1,6 @@
 package dev.sagelms.challenge.entity;
 
 import jakarta.persistence.*;
-import java.math.BigDecimal;
 import java.util.UUID;
 
 @Entity
@@ -30,9 +29,6 @@ public class Challenge extends BaseEntity {
     @Column(name = "time_limit_minutes")
     private Integer timeLimitMinutes;
 
-    @Column(name = "pass_score", precision = 5, scale = 2)
-    private BigDecimal passScore = new BigDecimal("50.00");
-
     @Column(name = "max_attempts")
     private Integer maxAttempts = 1;
 
@@ -50,8 +46,6 @@ public class Challenge extends BaseEntity {
     public void setInstructorId(UUID instructorId) { this.instructorId = instructorId; }
     public Integer getTimeLimitMinutes() { return timeLimitMinutes; }
     public void setTimeLimitMinutes(Integer timeLimitMinutes) { this.timeLimitMinutes = timeLimitMinutes; }
-    public BigDecimal getPassScore() { return passScore; }
-    public void setPassScore(BigDecimal passScore) { this.passScore = passScore; }
     public Integer getMaxAttempts() { return maxAttempts; }
     public void setMaxAttempts(Integer maxAttempts) { this.maxAttempts = maxAttempts; }
 }

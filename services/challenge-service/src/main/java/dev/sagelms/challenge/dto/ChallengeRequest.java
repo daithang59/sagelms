@@ -4,8 +4,6 @@ import dev.sagelms.challenge.entity.ChallengeStatus;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
-import java.math.BigDecimal;
-
 public record ChallengeRequest(
         @NotBlank @Size(max = 255) String title,
         @Size(max = 2000) String description,
@@ -13,6 +11,5 @@ public record ChallengeRequest(
         @Size(max = 120) String category,
         ChallengeStatus status,
         Integer timeLimitMinutes,
-        BigDecimal passScore,
         Integer maxAttempts
 ) {}
