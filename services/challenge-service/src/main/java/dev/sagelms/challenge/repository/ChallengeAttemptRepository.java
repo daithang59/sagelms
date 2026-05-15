@@ -10,7 +10,9 @@ import java.util.UUID;
 
 public interface ChallengeAttemptRepository extends JpaRepository<ChallengeAttempt, UUID> {
     long countByChallengeIdAndParticipantId(UUID challengeId, UUID participantId);
+    long countByQuestionSetIdAndParticipantId(UUID questionSetId, UUID participantId);
     long countByQuestionSetIdAndParticipantIdAndSubmittedAtIsNotNull(UUID questionSetId, UUID participantId);
+    Optional<ChallengeAttempt> findFirstByQuestionSetIdAndParticipantIdAndSubmittedAtIsNullOrderByStartedAtDesc(UUID questionSetId, UUID participantId);
     Optional<ChallengeAttempt> findFirstByQuestionSetIdAndParticipantIdAndSubmittedAtIsNotNullOrderBySubmittedAtDesc(UUID questionSetId, UUID participantId);
     List<ChallengeAttempt> findByQuestionSetIdAndSubmittedAtIsNotNull(UUID questionSetId);
     List<ChallengeAttempt> findByChallengeIdAndSubmittedAtIsNotNullOrderBySubmittedAtDesc(UUID challengeId);

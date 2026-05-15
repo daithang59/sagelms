@@ -23,6 +23,8 @@ class ChallengeServiceTest {
     @Mock
     private ChallengeRepository challengeRepository;
     @Mock
+    private ChallengeQuestionSetRepository questionSetRepository;
+    @Mock
     private ChallengeQuestionRepository questionRepository;
     @Mock
     private ChallengeChoiceRepository choiceRepository;
@@ -37,12 +39,14 @@ class ChallengeServiceTest {
     private UUID instructorId;
     private UUID participantId;
     private UUID challengeId;
+    private UUID questionSetId;
 
     @BeforeEach
     void setUp() {
         instructorId = UUID.randomUUID();
         participantId = UUID.randomUUID();
         challengeId = UUID.randomUUID();
+        questionSetId = UUID.randomUUID();
     }
 
     @Test
@@ -74,7 +78,8 @@ class ChallengeServiceTest {
     @Test
     void addQuestion_MultipleChoiceNeedsExactlyOneCorrectChoice() {
         Challenge challenge = challenge();
-        when(challengeRepository.findById(challengeId)).thenReturn(Optional.of(challenge));
+        ChallengeQuestionSet questionSet = questionSet(challenge);
+        when(questionSetRepository.findById(questionSetId)).thenReturn(Optional.of(questionSet));
 
         ChallengeQuestionRequest request = new ChallengeQuestionRequest(
                 "Question",
@@ -89,23 +94,26 @@ class ChallengeServiceTest {
                         new ChallengeChoiceRequest("B", true, 1)));
 
         assertThrows(ChallengeService.ValidationException.class,
-                () -> challengeService.addQuestion(challengeId, request, instructorId, "INSTRUCTOR"));
+                () -> challengeService.addQuestion(questionSetId, request, instructorId, "INSTRUCTOR"));
     }
 
     @Test
-    void submitAttempt_GradesMultipleChoiceAndStoresEssayMetadata() {
+    void submitAttempt_StoresAnswersAndWaitsForManualGrading() {
         Challenge challenge = challenge();
         challenge.setStatus(ChallengeStatus.PUBLISHED);
+        ChallengeQuestionSet questionSet = questionSet(challenge);
 
         ChallengeQuestion mcq = question(challenge, ChallengeQuestionType.MULTIPLE_CHOICE, "Pick Java");
         ChallengeQuestion essay = question(challenge, ChallengeQuestionType.ESSAY, "Explain code");
+        mcq.setQuestionSet(questionSet);
+        essay.setQuestionSet(questionSet);
         ChallengeChoice wrong = choice(mcq, "Python", false);
         ChallengeChoice correct = choice(mcq, "Java", true);
-        ChallengeAttempt attempt = attempt(challenge);
+        ChallengeAttempt attempt = attempt(challenge, questionSet);
         List<ChallengeAnswer> savedAnswers = new ArrayList<>();
 
         when(attemptRepository.findById(attempt.getId())).thenReturn(Optional.of(attempt));
-        when(questionRepository.findByChallengeIdOrderBySortOrderAsc(challengeId)).thenReturn(List.of(mcq, essay));
+        when(questionRepository.findByQuestionSetIdOrderBySortOrderAsc(questionSetId)).thenReturn(List.of(mcq, essay));
         when(choiceRepository.findById(correct.getId())).thenReturn(Optional.of(correct));
         when(choiceRepository.findByQuestionIdOrderBySortOrderAsc(mcq.getId())).thenReturn(List.of(wrong, correct));
         when(answerRepository.save(any(ChallengeAnswer.class))).thenAnswer(invocation -> {
@@ -123,12 +131,27 @@ class ChallengeServiceTest {
                         new SubmitChallengeAnswerRequest(essay.getId(), null, "My answer", "answer.zip", "application/zip", 1024L, "demo-local://answer.zip"))),
                 participantId);
 
-        assertEquals(0, new BigDecimal("1.00").compareTo(result.score()));
-        assertEquals(0, new BigDecimal("1.00").compareTo(result.maxScore()));
-        assertTrue(result.passed());
+        assertNull(result.score());
+        assertEquals(0, BigDecimal.TEN.compareTo(result.maxScore()));
+        assertNull(result.passed());
+        assertEquals(GradingStatus.PENDING_REVIEW, result.gradingStatus());
         assertEquals(2, result.answers().size());
         assertEquals("PENDING_REVIEW", result.answers().get(1).status());
         assertEquals("answer.zip", result.answers().get(1).fileName());
+    }
+
+    @Test
+    void startAttempt_BlocksWhenMaxAttemptsReached() {
+        Challenge challenge = challenge();
+        challenge.setStatus(ChallengeStatus.PUBLISHED);
+        ChallengeQuestionSet questionSet = questionSet(challenge);
+
+        when(questionSetRepository.findById(questionSetId)).thenReturn(Optional.of(questionSet));
+        when(attemptRepository.countByQuestionSetIdAndParticipantIdAndSubmittedAtIsNotNull(questionSetId, participantId))
+                .thenReturn(1L);
+
+        assertThrows(ChallengeService.ValidationException.class,
+                () -> challengeService.startAttempt(questionSetId, participantId, "student@sagelms.dev", "STUDENT"));
     }
 
     private Challenge challenge() {
@@ -153,6 +176,16 @@ class ChallengeServiceTest {
         return question;
     }
 
+    private ChallengeQuestionSet questionSet(Challenge challenge) {
+        ChallengeQuestionSet questionSet = new ChallengeQuestionSet();
+        questionSet.setId(questionSetId);
+        questionSet.setChallenge(challenge);
+        questionSet.setTitle("Default set");
+        questionSet.setTimeLimitMinutes(30);
+        questionSet.setSortOrder(0);
+        return questionSet;
+    }
+
     private ChallengeChoice choice(ChallengeQuestion question, String text, boolean correct) {
         ChallengeChoice choice = new ChallengeChoice();
         choice.setId(UUID.randomUUID());
@@ -162,10 +195,11 @@ class ChallengeServiceTest {
         return choice;
     }
 
-    private ChallengeAttempt attempt(Challenge challenge) {
+    private ChallengeAttempt attempt(Challenge challenge, ChallengeQuestionSet questionSet) {
         ChallengeAttempt attempt = new ChallengeAttempt();
         attempt.setId(UUID.randomUUID());
         attempt.setChallenge(challenge);
+        attempt.setQuestionSet(questionSet);
         attempt.setParticipantId(participantId);
         return attempt;
     }

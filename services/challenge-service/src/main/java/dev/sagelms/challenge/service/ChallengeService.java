@@ -136,6 +136,7 @@ public class ChallengeService {
             String roles) {
         ChallengeQuestionSet questionSet = findQuestionSet(questionSetId);
         requireCanManage(questionSet.getChallenge(), userId, roles);
+        requireNoSubmittedAttemptsForQuestionSet(questionSetId);
         applyQuestionSetRequest(questionSet, request);
         return toQuestionSetResponse(questionSetRepository.save(questionSet), userId);
     }
@@ -143,6 +144,7 @@ public class ChallengeService {
     public void deleteQuestionSet(UUID questionSetId, UUID userId, String roles) {
         ChallengeQuestionSet questionSet = findQuestionSet(questionSetId);
         requireCanManage(questionSet.getChallenge(), userId, roles);
+        requireNoSubmittedAttemptsForQuestionSet(questionSetId);
         questionSetRepository.delete(questionSet);
     }
 
@@ -156,7 +158,7 @@ public class ChallengeService {
     public ChallengeQuestionResponse addQuestion(UUID questionSetId, ChallengeQuestionRequest request, UUID userId, String roles) {
         ChallengeQuestionSet questionSet = findQuestionSet(questionSetId);
         requireCanManage(questionSet.getChallenge(), userId, roles);
-        deleteSubmittedAttemptsForQuestionSet(questionSet.getId());
+        requireNoSubmittedAttemptsForQuestionSet(questionSet.getId());
         ChallengeQuestion question = new ChallengeQuestion();
         question.setChallenge(questionSet.getChallenge());
         question.setQuestionSet(questionSet);
@@ -178,7 +180,7 @@ public class ChallengeService {
         requireCanManage(question.getChallenge(), userId, roles);
         UUID questionSetId = question.getQuestionSet() != null ? question.getQuestionSet().getId() : null;
         if (questionSetId != null) {
-            deleteSubmittedAttemptsForQuestionSet(questionSetId);
+            requireNoSubmittedAttemptsForQuestionSet(questionSetId);
         }
         applyQuestionRequest(question, request);
         ChallengeQuestion saved = questionRepository.save(question);
@@ -190,7 +192,7 @@ public class ChallengeService {
         ChallengeQuestion question = findQuestion(questionId);
         requireCanManage(question.getChallenge(), userId, roles);
         if (question.getQuestionSet() != null) {
-            deleteSubmittedAttemptsForQuestionSet(question.getQuestionSet().getId());
+            requireNoSubmittedAttemptsForQuestionSet(question.getQuestionSet().getId());
         }
         questionRepository.delete(question);
     }
@@ -203,6 +205,27 @@ public class ChallengeService {
         Challenge challenge = questionSet.getChallenge();
         if (challenge.getStatus() != ChallengeStatus.PUBLISHED && !canManage(challenge, participantId, roles)) {
             throw new ForbiddenException("Challenge is not open for participation.");
+        }
+        long submittedAttempts = attemptRepository.countByQuestionSetIdAndParticipantIdAndSubmittedAtIsNotNull(
+                questionSetId,
+                participantId);
+        int maxAttempts = normalizedMaxAttempts(challenge);
+        if (submittedAttempts >= maxAttempts) {
+            throw new ValidationException("You have already submitted this challenge attempt.");
+        }
+
+        Optional<ChallengeAttempt> existingAttempt = attemptRepository
+                .findFirstByQuestionSetIdAndParticipantIdAndSubmittedAtIsNullOrderByStartedAtDesc(questionSetId, participantId);
+        if (existingAttempt.isPresent()) {
+            ChallengeAttempt attempt = existingAttempt.get();
+            return new StartAttemptResponse(
+                    attempt.getId(),
+                    challenge.getId(),
+                    questionSet.getId(),
+                    participantId,
+                    attempt.getStartedAt(),
+                    questionSet.getTimeLimitMinutes(),
+                    getQuestionSetQuestions(questionSetId, false));
         }
 
         ChallengeAttempt attempt = new ChallengeAttempt();
@@ -240,6 +263,7 @@ public class ChallengeService {
         if (attempt.getSubmittedAt() != null) {
             throw new ValidationException("Attempt already submitted.");
         }
+        ensureAttemptWithinTimeLimit(attempt);
 
         Map<UUID, SubmitChallengeAnswerRequest> submitted = new HashMap<>();
         for (SubmitChallengeAnswerRequest answer : Optional.ofNullable(request.answers()).orElse(List.of())) {
@@ -282,7 +306,7 @@ public class ChallengeService {
         attempt.setSubmittedAt(Instant.now());
         attempt.setGradingStatus(GradingStatus.PENDING_REVIEW);
         attemptRepository.save(attempt);
-        return toAttemptResult(attempt, answerRepository.findByAttemptId(attemptId));
+        return toAttemptResult(attempt, answerRepository.findByAttemptId(attemptId), false);
     }
 
     @Transactional(readOnly = true)
@@ -292,7 +316,7 @@ public class ChallengeService {
         if (!attempt.getParticipantId().equals(participantId)) {
             throw new ForbiddenException("You can only view your own attempt result.");
         }
-        return toAttemptResult(attempt, answerRepository.findByAttemptId(attemptId));
+        return toAttemptResult(attempt, answerRepository.findByAttemptId(attemptId), attempt.getGradingStatus() == GradingStatus.GRADED);
     }
 
     @Transactional(readOnly = true)
@@ -384,7 +408,7 @@ public class ChallengeService {
         ChallengeAttempt attempt = attemptRepository.findById(attemptId)
                 .orElseThrow(() -> new NotFoundException("Attempt not found: " + attemptId));
         requireCanManage(attempt.getChallenge(), userId, roles);
-        return toAttemptResult(attempt, answerRepository.findByAttemptId(attemptId));
+        return toAttemptResult(attempt, answerRepository.findByAttemptId(attemptId), true);
     }
 
     public ChallengeAttemptResultResponse gradeAttempt(
@@ -428,7 +452,7 @@ public class ChallengeService {
         attempt.setGradedAt(Instant.now());
         attempt.setGradedBy(graderId);
         attemptRepository.save(attempt);
-        return toAttemptResult(attempt, answers);
+        return toAttemptResult(attempt, answers, true);
     }
 
     public void deleteAttempt(UUID attemptId, UUID userId, String roles) {
@@ -606,11 +630,9 @@ public class ChallengeService {
         }
     }
 
-    private void deleteSubmittedAttemptsForQuestionSet(UUID questionSetId) {
-        List<ChallengeAttempt> submittedAttempts = attemptRepository.findByQuestionSetIdAndSubmittedAtIsNotNull(questionSetId);
-        for (ChallengeAttempt attempt : submittedAttempts) {
-            answerRepository.deleteAll(answerRepository.findByAttemptId(attempt.getId()));
-            attemptRepository.delete(attempt);
+    private void requireNoSubmittedAttemptsForQuestionSet(UUID questionSetId) {
+        if (!attemptRepository.findByQuestionSetIdAndSubmittedAtIsNotNull(questionSetId).isEmpty()) {
+            throw new ValidationException("This question set already has submitted attempts and cannot be changed.");
         }
     }
 
@@ -629,7 +651,7 @@ public class ChallengeService {
         }
     }
 
-    private ChallengeAttemptResultResponse toAttemptResult(ChallengeAttempt attempt, List<ChallengeAnswer> answers) {
+    private ChallengeAttemptResultResponse toAttemptResult(ChallengeAttempt attempt, List<ChallengeAnswer> answers, boolean revealCorrect) {
         List<ChallengeAnswerResultResponse> answerResults = answers.stream()
                 .map(answer -> {
                     ChallengeQuestion question = answer.getQuestion();
@@ -648,12 +670,12 @@ public class ChallengeService {
                             question.getType(),
                             question.getPoints(),
                             choices.stream()
-                                    .map(choice -> ChallengeChoiceResponse.from(choice, true))
+                                    .map(choice -> ChallengeChoiceResponse.from(choice, revealCorrect))
                                     .toList(),
                             selected != null ? selected.getId() : null,
                             selected != null ? selected.getText() : null,
-                            correct != null ? correct.getId() : null,
-                            correct != null ? correct.getText() : null,
+                            revealCorrect && correct != null ? correct.getId() : null,
+                            revealCorrect && correct != null ? correct.getText() : null,
                             answer.getIsCorrect(),
                             answer.getTextAnswer(),
                             answer.getFileName(),
@@ -699,6 +721,25 @@ public class ChallengeService {
         }
         BigDecimal percent = score.multiply(new BigDecimal("100")).divide(maxScore, 2, RoundingMode.HALF_UP);
         return percent.compareTo(passScore != null ? passScore : new BigDecimal("50.00")) >= 0;
+    }
+
+    private int normalizedMaxAttempts(Challenge challenge) {
+        Integer maxAttempts = challenge.getMaxAttempts();
+        return maxAttempts != null && maxAttempts > 0 ? maxAttempts : 1;
+    }
+
+    private void ensureAttemptWithinTimeLimit(ChallengeAttempt attempt) {
+        ChallengeQuestionSet questionSet = attempt.getQuestionSet();
+        Integer timeLimitMinutes = questionSet != null ? questionSet.getTimeLimitMinutes() : null;
+        if (timeLimitMinutes == null || timeLimitMinutes <= 0 || attempt.getStartedAt() == null) {
+            return;
+        }
+        Instant deadlineWithGrace = attempt.getStartedAt()
+                .plus(Duration.ofMinutes(timeLimitMinutes))
+                .plus(Duration.ofSeconds(60));
+        if (Instant.now().isAfter(deadlineWithGrace)) {
+            throw new ValidationException("This attempt is past the allowed time limit.");
+        }
     }
 
     private BigDecimal nullToOne(BigDecimal value) {

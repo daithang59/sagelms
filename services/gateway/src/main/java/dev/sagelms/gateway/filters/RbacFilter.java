@@ -70,6 +70,10 @@ public class RbacFilter implements GlobalFilter, Ordered {
             return LEARNER;
         }
 
+        if (isChallengeReview(method, path)) {
+            return INSTRUCTOR_OR_ADMIN;
+        }
+
         if (isCourseMutation(method, path) || isLessonMutation(method, path) || isChallengeManagement(method, path)) {
             return INSTRUCTOR_OR_ADMIN;
         }
@@ -96,7 +100,7 @@ public class RbacFilter implements GlobalFilter, Ordered {
     }
 
     private boolean isChallengeManagement(HttpMethod method, String path) {
-        boolean challengePath = path.startsWith("/api/v1/challenges");
+        boolean challengePath = path.startsWith("/api/v1/challenges") || path.startsWith("/api/v1/question-sets");
         if (!challengePath) {
             return false;
         }
@@ -105,6 +109,16 @@ public class RbacFilter implements GlobalFilter, Ordered {
         }
         return method == HttpMethod.POST || method == HttpMethod.PUT
                 || method == HttpMethod.DELETE || method == HttpMethod.PATCH;
+    }
+
+    private boolean isChallengeReview(HttpMethod method, String path) {
+        if (path.matches("^/api/v1/challenge-attempts/[^/]+/review$") && method == HttpMethod.GET) {
+            return true;
+        }
+        if (path.matches("^/api/v1/challenge-attempts/[^/]+/grade$") && method == HttpMethod.PUT) {
+            return true;
+        }
+        return path.matches("^/api/v1/challenge-attempts/[^/]+$") && method == HttpMethod.DELETE;
     }
 
     private Mono<Void> forbidden(ServerWebExchange exchange) {
