@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Badge, Button, Card, CardBody, useConfirm } from '@/components/ui';
 import { useToast } from '@/components/Toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { useChallenges } from '@/hooks';
+import { useChallenges, useUserProfiles } from '@/hooks';
 import type { Challenge } from '@/types/challenge';
 import {
   ArrowRight,
@@ -15,6 +15,7 @@ import {
   Swords,
   Trash2,
   Trophy,
+  UserRound,
   Users,
 } from 'lucide-react';
 import ChallengeForm from './ChallengeForm';
@@ -45,11 +46,13 @@ function statusBadge(status: string) {
 function ChallengeCard({
   challenge,
   canManage,
+  creatorName,
   onEdit,
   onDelete,
 }: {
   challenge: Challenge;
   canManage: boolean;
+  creatorName: string;
   onEdit: (challenge: Challenge) => void;
   onDelete: (challenge: Challenge) => void;
 }) {
@@ -93,6 +96,14 @@ function ChallengeCard({
         <p className="min-h-[2.5rem] text-sm text-slate-500 line-clamp-2">
           {challenge.description || 'Thử thách chưa có mô tả.'}
         </p>
+        <div className="flex items-center gap-2 rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-600">
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-violet-100 text-violet-600">
+            <UserRound className="h-4 w-4" />
+          </div>
+          <span className="min-w-0 truncate">
+            Tạo bởi <span className="font-semibold text-slate-800">{creatorName}</span>
+          </span>
+        </div>
         <div className="flex items-center justify-between border-t border-slate-100 pt-2">
           <div className="flex items-center gap-4 text-sm text-slate-400">
             <div className="flex items-center gap-1.5">
@@ -116,12 +127,14 @@ function ChallengeCard({
 
 export default function ChallengesPage() {
   const { challenges, loading, error, fetchChallenges, deleteChallenge } = useChallenges();
+  const { fetchPublicUserProfiles } = useUserProfiles();
   const { user } = useAuth();
   const { showToast } = useToast();
   const confirm = useConfirm();
   const [searchQuery, setSearchQuery] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingChallenge, setEditingChallenge] = useState<Challenge | null>(null);
+  const [creatorNames, setCreatorNames] = useState<Record<string, string>>({});
   const hasFetched = useRef(false);
   const canCreateChallenge = user?.role === 'INSTRUCTOR' || user?.role === 'ADMIN';
 
@@ -133,6 +146,31 @@ export default function ChallengesPage() {
       });
     }
   }, [fetchChallenges]);
+
+  useEffect(() => {
+    const instructorIds = challenges.map((challenge) => challenge.instructorId).filter(Boolean);
+    if (instructorIds.length === 0) {
+      return;
+    }
+
+    let ignore = false;
+    fetchPublicUserProfiles(instructorIds)
+      .then((profiles) => {
+        if (ignore) return;
+        setCreatorNames(Object.fromEntries(
+          profiles.map((profile) => [profile.id, profile.fullName || profile.email]),
+        ));
+      })
+      .catch(() => {
+        if (!ignore) {
+          setCreatorNames({});
+        }
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [challenges, fetchPublicUserProfiles]);
 
   const handleSearch = (event: FormEvent) => {
     event.preventDefault();
@@ -220,6 +258,7 @@ export default function ChallengesPage() {
               key={challenge.id}
               challenge={challenge}
               canManage={user?.role === 'ADMIN' || challenge.instructorId === user?.id}
+              creatorName={creatorNames[challenge.instructorId] || 'Giảng viên'}
               onEdit={(item) => {
                 setEditingChallenge(item);
                 setIsFormOpen(true);

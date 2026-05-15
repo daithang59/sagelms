@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { Badge, Button, Card, CardBody } from '@/components/ui';
+import { Badge, Button, Card, CardBody, useConfirm } from '@/components/ui';
 import { useToast } from '@/components/Toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useChallengeAttempt, useChallenges, useUserProfiles } from '@/hooks';
 import type { Challenge, ChallengeLeaderboardEntry, ChallengeQuestionSet, ChallengeSubmissionSummary } from '@/types/challenge';
-import { ArrowLeft, BookOpen, Plus, Trophy, Users } from 'lucide-react';
+import { ArrowLeft, BookOpen, Plus, Trophy, UserRound, Users } from 'lucide-react';
 import ChallengeForm from './ChallengeForm';
 import ChallengeQuestionPage from './ChallengeQuestionPage';
 import ChallengeRankingPage from './ChallengeRankingPage';
@@ -46,6 +46,7 @@ export default function ChallengeDetailPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const { showToast } = useToast();
+  const confirm = useConfirm();
   const { fetchChallenge, loading } = useChallenges();
   const {
     startQuestionSetAttempt,
@@ -61,6 +62,7 @@ export default function ChallengeDetailPage() {
   const [myGradedSubmissions, setMyGradedSubmissions] = useState<ChallengeSubmissionSummary[]>([]);
   const [leaderboard, setLeaderboard] = useState<ChallengeLeaderboardEntry[]>([]);
   const [participantNames, setParticipantNames] = useState<Record<string, string>>({});
+  const [creatorName, setCreatorName] = useState('Giảng viên');
   const [showChallengeForm, setShowChallengeForm] = useState(false);
 
   const userId = user?.id;
@@ -138,6 +140,29 @@ export default function ChallengeDetailPage() {
   }, [id, fetchChallenge, fetchLeaderboard, fetchMyGradedSubmissions, fetchSubmissions, showToast, userId, userRole]);
 
   useEffect(() => {
+    if (!challenge?.instructorId) {
+      return;
+    }
+
+    let ignore = false;
+    fetchPublicUserProfiles([challenge.instructorId])
+      .then((profiles) => {
+        if (ignore) return;
+        const profile = profiles[0];
+        setCreatorName(profile?.fullName || profile?.email || 'Giảng viên');
+      })
+      .catch(() => {
+        if (!ignore) {
+          setCreatorName('Giảng viên');
+        }
+      });
+
+    return () => {
+      ignore = true;
+    };
+  }, [challenge?.instructorId, fetchPublicUserProfiles]);
+
+  useEffect(() => {
     if (!participantIdKey) {
       return;
     }
@@ -185,6 +210,23 @@ export default function ChallengeDetailPage() {
   }, [currentTab, fetchMyGradedSubmissions, id, showToast, userId]);
 
   const handleStartSet = async (questionSet: ChallengeQuestionSet) => {
+    const maxAttempts = Math.max(1, challenge?.maxAttempts || 1);
+    if (questionSet.attemptCount >= maxAttempts) {
+      showToast('Bạn đã nộp bài cho phần này và không còn lượt làm lại.', 'warning');
+      return;
+    }
+
+    const confirmed = await confirm({
+      title: questionSet.timeLimitMinutes ? 'Bắt đầu bài làm có giới hạn thời gian' : 'Bắt đầu bài làm',
+      message: questionSet.timeLimitMinutes
+        ? `Bạn có ${questionSet.timeLimitMinutes} phút để hoàn thành phần này. Sau khi bắt đầu, hệ thống sẽ tính giờ.`
+        : 'Sau khi bắt đầu, hệ thống sẽ tạo một lượt làm bài cho phần này.',
+      confirmLabel: questionSet.completed ? 'Làm lại' : 'Bắt đầu',
+      cancelLabel: 'Hủy',
+      variant: 'default',
+    });
+    if (!confirmed) return;
+
     try {
       const attempt = await startQuestionSetAttempt(questionSet.id);
       navigate(`/challenges/${challenge?.id}/take?attemptId=${attempt.id}&questionSetId=${questionSet.id}&startedAt=${encodeURIComponent(attempt.startedAt)}`);
@@ -237,6 +279,12 @@ export default function ChallengeDetailPage() {
             {challenge.category && <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white">{challenge.category}</span>}
           </div>
           <h1 className="text-3xl font-bold text-white">{challenge.title}</h1>
+          <div className="mt-3 flex items-center gap-2 text-sm font-medium text-white/90">
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm">
+              <UserRound className="h-4 w-4" />
+            </span>
+            <span>Tạo bởi {creatorName}</span>
+          </div>
         </div>
       </div>
 
@@ -269,6 +317,15 @@ export default function ChallengeDetailPage() {
             <Card>
               <CardBody>
                 <h2 className="mb-2 text-lg font-bold text-slate-800">Mô tả thử thách</h2>
+                <div className="mb-4 flex items-center gap-3 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-600">
+                    <UserRound className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold uppercase text-slate-400">Người tạo</div>
+                    <div className="font-semibold text-slate-800">{creatorName}</div>
+                  </div>
+                </div>
                 <p className="leading-relaxed text-slate-600">{challenge.description || 'Thử thách chưa có mô tả.'}</p>
               </CardBody>
             </Card>
