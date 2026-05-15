@@ -5,6 +5,7 @@ This folder contains local development seed data for the core SageLMS services:
 - `auth-service` -> `auth`
 - `course-service` -> `course`
 - `content-service` -> `content`
+- `challenge-service` -> `challenge`
 
 The seed is intended for manual testing through the web app and gateway.
 
@@ -16,8 +17,15 @@ The core seed currently inserts or updates:
 - 28 courses
 - 25 enrollments
 - 63 lessons
+- 6 challenges
+- 9 challenge question sets
+- 20 challenge questions
+- 33 challenge choices
+- 8 challenge attempts
+- 19 challenge answers
 
 It includes published, draft, and archived courses; active, dropped, and completed enrollments; and lesson content across `TEXT`, `VIDEO`, `PDF`, and `LINK`.
+Challenge data includes both `MULTIPLE_CHOICE` and `ESSAY` questions, graded attempts, pending-review attempts, and sample file metadata for essay answers.
 
 ## Prerequisite
 
@@ -28,18 +36,29 @@ cd infra/docker
 docker compose --profile app up -d --build postgres auth-service course-service content-service gateway
 ```
 
+If you also want challenge seed data, start `challenge-service` once before importing the seed so Flyway creates the `challenge` schema and tables:
+
+```powershell
+docker compose --profile app up -d --build postgres auth-service course-service content-service challenge-service gateway
+```
+
 ## Import Seed Data
 
 From the repository root:
 
 ```powershell
+docker compose -f infra/docker/docker-compose.yml cp infra/database/seed-core-dev.sql postgres:/tmp/seed-core-dev.sql
 docker compose -f infra/docker/docker-compose.yml exec -T postgres `
-  psql -U sagelms -d sagelms -f - < infra/database/seed-core-dev.sql
+  psql -U sagelms -d sagelms -f /tmp/seed-core-dev.sql
 ```
 
-PowerShell does not support Unix-style input redirection in this form. If you are running from PowerShell, use:
+Avoid importing this seed with `Get-Content ... | docker compose exec ... psql -f -` on Windows PowerShell. PowerShell can corrupt Vietnamese UTF-8 text before it reaches `psql`, resulting in values like `Ki???m tra`. Copying the SQL file into the Postgres container first preserves the original UTF-8 bytes.
+
+If you still want to pipe from PowerShell, set the output encoding first:
 
 ```powershell
+$OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 Get-Content infra/database/seed-core-dev.sql | docker compose -f infra/docker/docker-compose.yml exec -T postgres `
   psql -U sagelms -d sagelms -f -
 ```
@@ -49,15 +68,9 @@ If you changed `POSTGRES_USER` or `POSTGRES_DB`, replace `sagelms` in the comman
 ## Verify
 
 ```powershell
+docker compose -f infra/docker/docker-compose.yml cp infra/database/verify-core-dev.sql postgres:/tmp/verify-core-dev.sql
 docker compose -f infra/docker/docker-compose.yml exec -T postgres `
-  psql -U sagelms -d sagelms -f - < infra/database/verify-core-dev.sql
-```
-
-PowerShell version:
-
-```powershell
-Get-Content infra/database/verify-core-dev.sql | docker compose -f infra/docker/docker-compose.yml exec -T postgres `
-  psql -U sagelms -d sagelms -f -
+  psql -U sagelms -d sagelms -f /tmp/verify-core-dev.sql
 ```
 
 ## Test Accounts
@@ -82,4 +95,5 @@ Get-Content infra/database/verify-core-dev.sql | docker compose -f infra/docker/
 - The seed is idempotent. Running it multiple times updates the same dev records.
 - It does not truncate or delete existing data.
 - Course/content relations use stable UUIDs for courses and lessons.
+- Challenge relations use stable UUIDs for challenges, question sets, questions, choices, attempts, and answers.
 - User relations are resolved by email, so the seed still works if `auth-service` already created demo users with different UUIDs.

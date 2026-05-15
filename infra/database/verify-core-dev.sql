@@ -72,6 +72,42 @@ SELECT 'seed_lesson_rows' AS check_name,
 FROM content.lessons
 WHERE id::text LIKE '50000000-0000-0000-0000-0000000000%';
 
+SELECT 'seed_challenge_rows' AS check_name,
+       COUNT(*) AS actual_count,
+       6 AS expected_count
+FROM challenge.challenges
+WHERE id::text LIKE '70000000-0000-0000-0000-0000000000%';
+
+SELECT 'seed_challenge_question_sets' AS check_name,
+       COUNT(*) AS actual_count,
+       9 AS expected_count
+FROM challenge.challenge_question_sets
+WHERE id::text LIKE '71000000-0000-0000-0000-0000000000%';
+
+SELECT 'seed_challenge_questions' AS check_name,
+       COUNT(*) AS actual_count,
+       20 AS expected_count
+FROM challenge.challenge_questions
+WHERE id::text LIKE '72000000-0000-0000-0000-0000000000%';
+
+SELECT 'seed_challenge_choices' AS check_name,
+       COUNT(*) AS actual_count,
+       33 AS expected_count
+FROM challenge.challenge_choices
+WHERE id::text LIKE '73000000-0000-0000-0000-0000000000%';
+
+SELECT 'seed_challenge_attempts' AS check_name,
+       COUNT(*) AS actual_count,
+       8 AS expected_count
+FROM challenge.challenge_attempts
+WHERE id::text LIKE '74000000-0000-0000-0000-0000000000%';
+
+SELECT 'seed_challenge_answers' AS check_name,
+       COUNT(*) AS actual_count,
+       19 AS expected_count
+FROM challenge.challenge_answers
+WHERE id::text LIKE '75000000-0000-0000-0000-0000000000%';
+
 SELECT u.email AS instructor_email, c.category, c.status, COUNT(*) AS course_count
 FROM course.courses c
 JOIN auth.users u ON u.id = c.instructor_id
@@ -197,6 +233,47 @@ WHERE l.course_id IN (
 )
 AND (c.id IS NULL OR u.id IS NULL);
 
+SELECT 'challenges_missing_instructor' AS check_name, COUNT(*) AS row_count
+FROM challenge.challenges c
+LEFT JOIN auth.users u ON u.id = c.instructor_id
+WHERE c.id::text LIKE '70000000-0000-0000-0000-0000000000%'
+AND u.id IS NULL;
+
+SELECT 'challenge_sets_missing_relationship' AS check_name, COUNT(*) AS row_count
+FROM challenge.challenge_question_sets qs
+LEFT JOIN challenge.challenges c ON c.id = qs.challenge_id
+WHERE qs.id::text LIKE '71000000-0000-0000-0000-0000000000%'
+AND c.id IS NULL;
+
+SELECT 'challenge_questions_missing_relationship' AS check_name, COUNT(*) AS row_count
+FROM challenge.challenge_questions q
+LEFT JOIN challenge.challenges c ON c.id = q.challenge_id
+LEFT JOIN challenge.challenge_question_sets qs ON qs.id = q.question_set_id
+WHERE q.id::text LIKE '72000000-0000-0000-0000-0000000000%'
+AND (c.id IS NULL OR qs.id IS NULL);
+
+SELECT 'challenge_choices_missing_question' AS check_name, COUNT(*) AS row_count
+FROM challenge.challenge_choices ch
+LEFT JOIN challenge.challenge_questions q ON q.id = ch.question_id
+WHERE ch.id::text LIKE '73000000-0000-0000-0000-0000000000%'
+AND q.id IS NULL;
+
+SELECT 'challenge_attempts_missing_relationship' AS check_name, COUNT(*) AS row_count
+FROM challenge.challenge_attempts a
+LEFT JOIN challenge.challenges c ON c.id = a.challenge_id
+LEFT JOIN challenge.challenge_question_sets qs ON qs.id = a.question_set_id
+LEFT JOIN auth.users u ON u.id = a.participant_id
+WHERE a.id::text LIKE '74000000-0000-0000-0000-0000000000%'
+AND (c.id IS NULL OR qs.id IS NULL OR u.id IS NULL);
+
+SELECT 'challenge_answers_missing_relationship' AS check_name, COUNT(*) AS row_count
+FROM challenge.challenge_answers a
+LEFT JOIN challenge.challenge_attempts ca ON ca.id = a.attempt_id
+LEFT JOIN challenge.challenge_questions q ON q.id = a.question_id
+LEFT JOIN challenge.challenge_choices ch ON ch.id = a.choice_id
+WHERE a.id::text LIKE '75000000-0000-0000-0000-0000000000%'
+AND (ca.id IS NULL OR q.id IS NULL OR (a.choice_id IS NOT NULL AND ch.id IS NULL));
+
 SELECT e.status, u.email AS student_email, c.title AS course_title
 FROM course.enrollments e
 JOIN auth.users u ON u.id = e.student_id
@@ -207,3 +284,41 @@ SELECT c.title AS course_title, l.sort_order, l.title AS lesson_title, l.type, l
 FROM content.lessons l
 JOIN course.courses c ON c.id = l.course_id
 ORDER BY c.title, l.sort_order;
+
+SELECT ch.status,
+       ch.category,
+       u.email AS instructor_email,
+       COUNT(DISTINCT qs.id) AS question_sets,
+       COUNT(DISTINCT q.id) AS questions,
+       COUNT(DISTINCT a.id) AS attempts
+FROM challenge.challenges ch
+JOIN auth.users u ON u.id = ch.instructor_id
+LEFT JOIN challenge.challenge_question_sets qs ON qs.challenge_id = ch.id
+LEFT JOIN challenge.challenge_questions q ON q.challenge_id = ch.id
+LEFT JOIN challenge.challenge_attempts a ON a.challenge_id = ch.id
+WHERE ch.id::text LIKE '70000000-0000-0000-0000-0000000000%'
+GROUP BY ch.status, ch.category, u.email
+ORDER BY ch.status, ch.category, u.email;
+
+SELECT ch.title AS challenge_title,
+       qs.title AS question_set_title,
+       q.sort_order,
+       q.title AS question_title,
+       q.type,
+       q.points
+FROM challenge.challenge_questions q
+JOIN challenge.challenge_question_sets qs ON qs.id = q.question_set_id
+JOIN challenge.challenges ch ON ch.id = q.challenge_id
+WHERE q.id::text LIKE '72000000-0000-0000-0000-0000000000%'
+ORDER BY ch.title, qs.sort_order, q.sort_order;
+
+SELECT ch.title AS challenge_title,
+       a.participant_email,
+       a.grading_status,
+       a.score,
+       a.max_score,
+       a.passed
+FROM challenge.challenge_attempts a
+JOIN challenge.challenges ch ON ch.id = a.challenge_id
+WHERE a.id::text LIKE '74000000-0000-0000-0000-0000000000%'
+ORDER BY ch.title, a.participant_email;

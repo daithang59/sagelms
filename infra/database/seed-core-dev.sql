@@ -5,6 +5,7 @@
 --                    -> auth.notifications, auth.notification_preferences
 --   - course-service  -> course.courses, course.enrollments
 --   - content-service -> content.lessons
+--   - challenge-service -> challenge.challenges, question sets, questions, choices, attempts, answers
 --
 -- Run this after the services have applied Flyway migrations.
 -- Default login credentials are listed near the bottom of this file.
@@ -15,6 +16,7 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 CREATE SCHEMA IF NOT EXISTS auth;
 CREATE SCHEMA IF NOT EXISTS course;
 CREATE SCHEMA IF NOT EXISTS content;
+CREATE SCHEMA IF NOT EXISTS challenge;
 
 DO $$
 BEGIN
@@ -26,6 +28,12 @@ BEGIN
     END IF;
     IF to_regclass('content.lessons') IS NULL THEN
         RAISE EXCEPTION 'Missing table content.lessons. Start content-service once so Flyway can run migrations first.';
+    END IF;
+    IF to_regclass('challenge.challenges') IS NULL THEN
+        RAISE EXCEPTION 'Missing table challenge.challenges. Start challenge-service once so Flyway can run migrations first.';
+    END IF;
+    IF to_regclass('challenge.challenge_question_sets') IS NULL THEN
+        RAISE EXCEPTION 'Missing table challenge.challenge_question_sets. Run challenge-service migration V2 first.';
     END IF;
     IF NOT EXISTS (
         SELECT 1
@@ -1007,7 +1015,7 @@ VALUES
         NOW() - INTERVAL '79 days',
         NOW()
     )
-ON CONFLICT (course_id, sort_order) DO UPDATE SET
+ON CONFLICT (course_id, sort_order) WHERE is_deleted = FALSE DO UPDATE SET
     course_id = EXCLUDED.course_id,
     instructor_id = EXCLUDED.instructor_id,
     title = EXCLUDED.title,
@@ -1017,6 +1025,7 @@ ON CONFLICT (course_id, sort_order) DO UPDATE SET
     sort_order = EXCLUDED.sort_order,
     duration_minutes = EXCLUDED.duration_minutes,
     is_published = EXCLUDED.is_published,
+    is_deleted = FALSE,
     updated_at = NOW();
 
 -- ---------------------------------------------------------------------------
@@ -1280,7 +1289,7 @@ VALUES
     ('50000000-0000-0000-0000-000000000061', '30000000-0000-0000-0000-000000000027', (SELECT id FROM auth.users WHERE email = 'product.instructor@sagelms.dev'), 'Growth experiment brief', 'PDF', 'https://example.com/sagelms/growth-experiment-brief.pdf', NULL, 2, 9, TRUE, NOW() - INTERVAL '9 days', NOW()),
     ('50000000-0000-0000-0000-000000000062', '30000000-0000-0000-0000-000000000028', (SELECT id FROM auth.users WHERE email = 'product.instructor@sagelms.dev'), 'Automation inventory', 'TEXT', NULL, 'Archived lesson for mapping repetitive operations work into automation opportunities.', 1, 13, TRUE, NOW() - INTERVAL '44 days', NOW()),
     ('50000000-0000-0000-0000-000000000063', '30000000-0000-0000-0000-000000000028', (SELECT id FROM auth.users WHERE email = 'product.instructor@sagelms.dev'), 'Approval workflow reference', 'LINK', 'https://zapier.com/blog/approval-workflow/', NULL, 2, 7, TRUE, NOW() - INTERVAL '43 days', NOW())
-ON CONFLICT (course_id, sort_order) DO UPDATE SET
+ON CONFLICT (course_id, sort_order) WHERE is_deleted = FALSE DO UPDATE SET
     course_id = EXCLUDED.course_id,
     instructor_id = EXCLUDED.instructor_id,
     title = EXCLUDED.title,
@@ -1290,6 +1299,7 @@ ON CONFLICT (course_id, sort_order) DO UPDATE SET
     sort_order = EXCLUDED.sort_order,
     duration_minutes = EXCLUDED.duration_minutes,
     is_published = EXCLUDED.is_published,
+    is_deleted = FALSE,
     updated_at = NOW();
 
 UPDATE course.courses
@@ -1421,6 +1431,316 @@ ON CONFLICT (id) DO UPDATE SET
     target_url = EXCLUDED.target_url,
     is_read = EXCLUDED.is_read,
     updated_at = NOW();
+
+-- ---------------------------------------------------------------------------
+-- Challenge service demo data
+-- ---------------------------------------------------------------------------
+
+INSERT INTO challenge.challenges (
+    id,
+    title,
+    description,
+    thumbnail_url,
+    category,
+    status,
+    instructor_id,
+    time_limit_minutes,
+    pass_score,
+    max_attempts,
+    created_at,
+    updated_at
+) VALUES
+    (
+        '70000000-0000-0000-0000-000000000001',
+        'React Fundamentals Challenge',
+        'Kiểm tra kiến thức React: component, state, props, hook và cách xử lý render.',
+        'https://images.unsplash.com/photo-1633356122544-f134324a6cee',
+        'Web Development',
+        'PUBLISHED',
+        (SELECT id FROM auth.users WHERE email = 'frontend.instructor@sagelms.dev'),
+        35,
+        60.00,
+        1,
+        NOW() - INTERVAL '14 days',
+        NOW()
+    ),
+    (
+        '70000000-0000-0000-0000-000000000002',
+        'SQL Analytics Sprint',
+        'Thử thách phân tích dữ liệu bằng SQL: join, aggregate, cohort và truy vấn báo cáo.',
+        'https://images.unsplash.com/photo-1544383835-bda2bc66a55d',
+        'Database',
+        'PUBLISHED',
+        (SELECT id FROM auth.users WHERE email = 'data.instructor@sagelms.dev'),
+        45,
+        70.00,
+        1,
+        NOW() - INTERVAL '12 days',
+        NOW()
+    ),
+    (
+        '70000000-0000-0000-0000-000000000003',
+        'DevOps Incident Response Drill',
+        'Bài luyện xử lý sự cố: đọc tín hiệu hệ thống, xác định tác động, rollback và viết incident note.',
+        'https://images.unsplash.com/photo-1558494949-ef010cbdcc31',
+        'DevOps',
+        'PUBLISHED',
+        (SELECT id FROM auth.users WHERE email = 'devops.instructor@sagelms.dev'),
+        50,
+        65.00,
+        1,
+        NOW() - INTERVAL '10 days',
+        NOW()
+    ),
+    (
+        '70000000-0000-0000-0000-000000000004',
+        'Product Discovery Case Study',
+        'Tự luận và trắc nghiệm về phỏng vấn người dùng, cơ hội sản phẩm và ưu tiên MVP.',
+        'https://images.unsplash.com/photo-1552664730-d307ca884978',
+        'Product',
+        'PUBLISHED',
+        (SELECT id FROM auth.users WHERE email = 'product.instructor@sagelms.dev'),
+        40,
+        60.00,
+        1,
+        NOW() - INTERVAL '9 days',
+        NOW()
+    ),
+    (
+        '70000000-0000-0000-0000-000000000005',
+        'AI Tutor Prompt Review',
+        'Đánh giá prompt, guardrail, rubric và chất lượng phản hồi của AI tutor.',
+        'https://images.unsplash.com/photo-1677442136019-21780ecad995',
+        'AI',
+        'PUBLISHED',
+        (SELECT id FROM auth.users WHERE email = 'data.instructor@sagelms.dev'),
+        30,
+        75.00,
+        1,
+        NOW() - INTERVAL '7 days',
+        NOW()
+    ),
+    (
+        '70000000-0000-0000-0000-000000000006',
+        'Learning UX Draft Challenge',
+        'Bản nháp thử thách nội bộ cho thiết kế trải nghiệm học tập.',
+        NULL,
+        'Education',
+        'DRAFT',
+        (SELECT id FROM auth.users WHERE email = 'product.instructor@sagelms.dev'),
+        25,
+        60.00,
+        1,
+        NOW() - INTERVAL '3 days',
+        NOW()
+    )
+ON CONFLICT (id) DO UPDATE SET
+    title = EXCLUDED.title,
+    description = EXCLUDED.description,
+    thumbnail_url = EXCLUDED.thumbnail_url,
+    category = EXCLUDED.category,
+    status = EXCLUDED.status,
+    instructor_id = EXCLUDED.instructor_id,
+    time_limit_minutes = EXCLUDED.time_limit_minutes,
+    pass_score = EXCLUDED.pass_score,
+    max_attempts = EXCLUDED.max_attempts,
+    updated_at = NOW();
+
+INSERT INTO challenge.challenge_question_sets (
+    id,
+    challenge_id,
+    title,
+    time_limit_minutes,
+    sort_order,
+    created_at,
+    updated_at
+) VALUES
+    ('71000000-0000-0000-0000-000000000001', '70000000-0000-0000-0000-000000000001', 'React Core Concepts', 18, 0, NOW() - INTERVAL '14 days', NOW()),
+    ('71000000-0000-0000-0000-000000000002', '70000000-0000-0000-0000-000000000001', 'React Debugging Scenario', 17, 1, NOW() - INTERVAL '14 days', NOW()),
+    ('71000000-0000-0000-0000-000000000003', '70000000-0000-0000-0000-000000000002', 'SQL Query Basics', 20, 0, NOW() - INTERVAL '12 days', NOW()),
+    ('71000000-0000-0000-0000-000000000004', '70000000-0000-0000-0000-000000000002', 'Analytics Case Essay', 25, 1, NOW() - INTERVAL '12 days', NOW()),
+    ('71000000-0000-0000-0000-000000000005', '70000000-0000-0000-0000-000000000003', 'Incident Triage', 25, 0, NOW() - INTERVAL '10 days', NOW()),
+    ('71000000-0000-0000-0000-000000000006', '70000000-0000-0000-0000-000000000004', 'Discovery and Prioritization', 40, 0, NOW() - INTERVAL '9 days', NOW()),
+    ('71000000-0000-0000-0000-000000000007', '70000000-0000-0000-0000-000000000005', 'Prompt Quality Review', 30, 0, NOW() - INTERVAL '7 days', NOW()),
+    ('71000000-0000-0000-0000-000000000008', '70000000-0000-0000-0000-000000000006', 'Learning UX Draft Set', 25, 0, NOW() - INTERVAL '3 days', NOW()),
+    ('71000000-0000-0000-0000-000000000009', '70000000-0000-0000-0000-000000000003', 'Postmortem Writing', 25, 1, NOW() - INTERVAL '9 days', NOW())
+ON CONFLICT (id) DO UPDATE SET
+    challenge_id = EXCLUDED.challenge_id,
+    title = EXCLUDED.title,
+    time_limit_minutes = EXCLUDED.time_limit_minutes,
+    sort_order = EXCLUDED.sort_order,
+    updated_at = NOW();
+
+INSERT INTO challenge.challenge_questions (
+    id,
+    challenge_id,
+    question_set_id,
+    title,
+    prompt,
+    type,
+    media_type,
+    media_url,
+    points,
+    sort_order,
+    created_at,
+    updated_at
+) VALUES
+    ('72000000-0000-0000-0000-000000000001', '70000000-0000-0000-0000-000000000001', '71000000-0000-0000-0000-000000000001', 'State update', 'Trong React, cách nào là đúng để cập nhật state dựa trên giá trị trước đó?', 'MULTIPLE_CHOICE', 'NONE', NULL, 1.00, 0, NOW() - INTERVAL '14 days', NOW()),
+    ('72000000-0000-0000-0000-000000000002', '70000000-0000-0000-0000-000000000001', '71000000-0000-0000-0000-000000000001', 'Effect dependency', 'Dependency array của useEffect dùng để làm gì?', 'MULTIPLE_CHOICE', 'NONE', NULL, 1.00, 1, NOW() - INTERVAL '14 days', NOW()),
+    ('72000000-0000-0000-0000-000000000003', '70000000-0000-0000-0000-000000000001', '71000000-0000-0000-0000-000000000001', 'Component boundary', 'Giải thích khi nào nên tách một component React thành component nhỏ hơn.', 'ESSAY', 'NONE', NULL, 2.00, 2, NOW() - INTERVAL '14 days', NOW()),
+    ('72000000-0000-0000-0000-000000000004', '70000000-0000-0000-0000-000000000001', '71000000-0000-0000-0000-000000000002', 'Render loop', 'Một component bị render liên tục sau khi gọi setState trong useEffect. Bạn sẽ debug theo các bước nào?', 'ESSAY', 'NONE', NULL, 3.00, 0, NOW() - INTERVAL '13 days', NOW()),
+    ('72000000-0000-0000-0000-000000000005', '70000000-0000-0000-0000-000000000001', '71000000-0000-0000-0000-000000000002', 'Memo usage', 'React.memo phù hợp nhất trong trường hợp nào?', 'MULTIPLE_CHOICE', 'NONE', NULL, 1.00, 1, NOW() - INTERVAL '13 days', NOW()),
+    ('72000000-0000-0000-0000-000000000006', '70000000-0000-0000-0000-000000000002', '71000000-0000-0000-0000-000000000003', 'SQL join', 'Loại JOIN nào giữ tất cả dòng từ bảng bên trái?', 'MULTIPLE_CHOICE', 'NONE', NULL, 1.00, 0, NOW() - INTERVAL '12 days', NOW()),
+    ('72000000-0000-0000-0000-000000000007', '70000000-0000-0000-0000-000000000002', '71000000-0000-0000-0000-000000000003', 'Aggregation', 'Hàm SQL nào thường dùng để đếm số dòng?', 'MULTIPLE_CHOICE', 'NONE', NULL, 1.00, 1, NOW() - INTERVAL '12 days', NOW()),
+    ('72000000-0000-0000-0000-000000000008', '70000000-0000-0000-0000-000000000002', '71000000-0000-0000-0000-000000000003', 'Window function', 'Nêu một ví dụ sử dụng window function trong báo cáo vận hành.', 'ESSAY', 'NONE', NULL, 2.00, 2, NOW() - INTERVAL '12 days', NOW()),
+    ('72000000-0000-0000-0000-000000000009', '70000000-0000-0000-0000-000000000002', '71000000-0000-0000-0000-000000000004', 'Cohort analysis', 'Thiết kế truy vấn cohort retention cho học viên theo tuần ghi danh. Hãy mô tả bảng đầu vào và output kỳ vọng.', 'ESSAY', 'NONE', NULL, 4.00, 0, NOW() - INTERVAL '11 days', NOW()),
+    ('72000000-0000-0000-0000-000000000010', '70000000-0000-0000-0000-000000000003', '71000000-0000-0000-0000-000000000005', 'First response', 'Khi production error tăng đột biến, bước đầu tiên nên là gì?', 'MULTIPLE_CHOICE', 'NONE', NULL, 1.00, 0, NOW() - INTERVAL '10 days', NOW()),
+    ('72000000-0000-0000-0000-000000000011', '70000000-0000-0000-0000-000000000003', '71000000-0000-0000-0000-000000000005', 'Rollback decision', 'Nêu tiêu chí quyết định rollback một release.', 'ESSAY', 'NONE', NULL, 3.00, 1, NOW() - INTERVAL '10 days', NOW()),
+    ('72000000-0000-0000-0000-000000000012', '70000000-0000-0000-0000-000000000003', '71000000-0000-0000-0000-000000000009', 'Postmortem content', 'Postmortem tốt nên có nội dung nào?', 'MULTIPLE_CHOICE', 'NONE', NULL, 1.00, 0, NOW() - INTERVAL '9 days', NOW()),
+    ('72000000-0000-0000-0000-000000000013', '70000000-0000-0000-0000-000000000003', '71000000-0000-0000-0000-000000000009', 'Action items', 'Viết 3 action item sau sự cố gateway timeout, có owner và tiêu chí hoàn thành.', 'ESSAY', 'NONE', NULL, 3.00, 1, NOW() - INTERVAL '9 days', NOW()),
+    ('72000000-0000-0000-0000-000000000014', '70000000-0000-0000-0000-000000000004', '71000000-0000-0000-0000-000000000006', 'Interview goal', 'Mục tiêu chính của discovery interview là gì?', 'MULTIPLE_CHOICE', 'NONE', NULL, 1.00, 0, NOW() - INTERVAL '9 days', NOW()),
+    ('72000000-0000-0000-0000-000000000015', '70000000-0000-0000-0000-000000000004', '71000000-0000-0000-0000-000000000006', 'MVP priority', 'Bạn có 5 vấn đề người dùng. Hãy mô tả cách ưu tiên cho MVP đầu tiên.', 'ESSAY', 'NONE', NULL, 3.00, 1, NOW() - INTERVAL '9 days', NOW()),
+    ('72000000-0000-0000-0000-000000000016', '70000000-0000-0000-0000-000000000004', '71000000-0000-0000-0000-000000000006', 'Opportunity sizing', 'Impact/Effort matrix dùng để làm gì?', 'MULTIPLE_CHOICE', 'NONE', NULL, 1.00, 2, NOW() - INTERVAL '9 days', NOW()),
+    ('72000000-0000-0000-0000-000000000017', '70000000-0000-0000-0000-000000000005', '71000000-0000-0000-0000-000000000007', 'Prompt guardrail', 'Guardrail trong prompt AI tutor có tác dụng gì?', 'MULTIPLE_CHOICE', 'NONE', NULL, 1.00, 0, NOW() - INTERVAL '7 days', NOW()),
+    ('72000000-0000-0000-0000-000000000018', '70000000-0000-0000-0000-000000000005', '71000000-0000-0000-0000-000000000007', 'Rubric design', 'Thiết kế rubric 3 tiêu chí để đánh giá câu trả lời của AI tutor.', 'ESSAY', 'NONE', NULL, 3.00, 1, NOW() - INTERVAL '7 days', NOW()),
+    ('72000000-0000-0000-0000-000000000019', '70000000-0000-0000-0000-000000000005', '71000000-0000-0000-0000-000000000007', 'Evaluation sample', 'Một bộ evaluation tốt nên có gì?', 'MULTIPLE_CHOICE', 'NONE', NULL, 1.00, 2, NOW() - INTERVAL '7 days', NOW()),
+    ('72000000-0000-0000-0000-000000000020', '70000000-0000-0000-0000-000000000006', '71000000-0000-0000-0000-000000000008', 'Learner motivation', 'Nêu 2 tín hiệu cho thấy học viên đang mất động lực trong khóa học.', 'ESSAY', 'NONE', NULL, 2.00, 0, NOW() - INTERVAL '3 days', NOW())
+ON CONFLICT (id) DO UPDATE SET
+    challenge_id = EXCLUDED.challenge_id,
+    question_set_id = EXCLUDED.question_set_id,
+    title = EXCLUDED.title,
+    prompt = EXCLUDED.prompt,
+    type = EXCLUDED.type,
+    media_type = EXCLUDED.media_type,
+    media_url = EXCLUDED.media_url,
+    points = EXCLUDED.points,
+    sort_order = EXCLUDED.sort_order,
+    updated_at = NOW();
+
+INSERT INTO challenge.challenge_choices (
+    id,
+    question_id,
+    text,
+    is_correct,
+    sort_order
+) VALUES
+    ('73000000-0000-0000-0000-000000000001', '72000000-0000-0000-0000-000000000001', 'setCount(count + 1) trong mọi trường hợp', FALSE, 0),
+    ('73000000-0000-0000-0000-000000000002', '72000000-0000-0000-0000-000000000001', 'setCount((current) => current + 1)', TRUE, 1),
+    ('73000000-0000-0000-0000-000000000003', '72000000-0000-0000-0000-000000000001', 'Gán trực tiếp count = count + 1', FALSE, 2),
+    ('73000000-0000-0000-0000-000000000004', '72000000-0000-0000-0000-000000000002', 'Kiểm soát khi effect chạy lại theo dữ liệu phụ thuộc', TRUE, 0),
+    ('73000000-0000-0000-0000-000000000005', '72000000-0000-0000-0000-000000000002', 'Tự động cache component', FALSE, 1),
+    ('73000000-0000-0000-0000-000000000006', '72000000-0000-0000-0000-000000000002', 'Thay thế hoàn toàn useState', FALSE, 2),
+    ('73000000-0000-0000-0000-000000000007', '72000000-0000-0000-0000-000000000005', 'Component nhận props ổn định và render tốn chi phí', TRUE, 0),
+    ('73000000-0000-0000-0000-000000000008', '72000000-0000-0000-0000-000000000005', 'Mọi component đều nên bọc memo', FALSE, 1),
+    ('73000000-0000-0000-0000-000000000009', '72000000-0000-0000-0000-000000000005', 'Chỉ dùng cho form input controlled', FALSE, 2),
+    ('73000000-0000-0000-0000-000000000010', '72000000-0000-0000-0000-000000000006', 'INNER JOIN', FALSE, 0),
+    ('73000000-0000-0000-0000-000000000011', '72000000-0000-0000-0000-000000000006', 'LEFT JOIN', TRUE, 1),
+    ('73000000-0000-0000-0000-000000000012', '72000000-0000-0000-0000-000000000006', 'CROSS JOIN', FALSE, 2),
+    ('73000000-0000-0000-0000-000000000013', '72000000-0000-0000-0000-000000000007', 'COUNT(*)', TRUE, 0),
+    ('73000000-0000-0000-0000-000000000014', '72000000-0000-0000-0000-000000000007', 'AVG(*)', FALSE, 1),
+    ('73000000-0000-0000-0000-000000000015', '72000000-0000-0000-0000-000000000007', 'GROUP(*)', FALSE, 2),
+    ('73000000-0000-0000-0000-000000000016', '72000000-0000-0000-0000-000000000010', 'Tắt toàn bộ hệ thống ngay lập tức', FALSE, 0),
+    ('73000000-0000-0000-0000-000000000017', '72000000-0000-0000-0000-000000000010', 'Xác nhận phạm vi ảnh hưởng và bảo vệ người dùng', TRUE, 1),
+    ('73000000-0000-0000-0000-000000000018', '72000000-0000-0000-0000-000000000010', 'Viết postmortem trước khi xử lý', FALSE, 2),
+    ('73000000-0000-0000-0000-000000000019', '72000000-0000-0000-0000-000000000012', 'Timeline, impact, root cause, action items', TRUE, 0),
+    ('73000000-0000-0000-0000-000000000020', '72000000-0000-0000-0000-000000000012', 'Chỉ liệt kê ai gây lỗi', FALSE, 1),
+    ('73000000-0000-0000-0000-000000000021', '72000000-0000-0000-0000-000000000012', 'Chỉ ghi log raw', FALSE, 2),
+    ('73000000-0000-0000-0000-000000000022', '72000000-0000-0000-0000-000000000014', 'Xác thực giả định và hiểu vấn đề người dùng', TRUE, 0),
+    ('73000000-0000-0000-0000-000000000023', '72000000-0000-0000-0000-000000000014', 'Bán sản phẩm ngay trong buổi phỏng vấn', FALSE, 1),
+    ('73000000-0000-0000-0000-000000000024', '72000000-0000-0000-0000-000000000014', 'Ép người dùng chọn feature team thích', FALSE, 2),
+    ('73000000-0000-0000-0000-000000000025', '72000000-0000-0000-0000-000000000016', 'So sánh tác động và công sức để ưu tiên', TRUE, 0),
+    ('73000000-0000-0000-0000-000000000026', '72000000-0000-0000-0000-000000000016', 'Tự động tính giá bán', FALSE, 1),
+    ('73000000-0000-0000-0000-000000000027', '72000000-0000-0000-0000-000000000016', 'Thay thế toàn bộ roadmap', FALSE, 2),
+    ('73000000-0000-0000-0000-000000000028', '72000000-0000-0000-0000-000000000017', 'Giới hạn hành vi, phạm vi và tiêu chí trả lời an toàn', TRUE, 0),
+    ('73000000-0000-0000-0000-000000000029', '72000000-0000-0000-0000-000000000017', 'Làm model trả lời dài hơn', FALSE, 1),
+    ('73000000-0000-0000-0000-000000000030', '72000000-0000-0000-0000-000000000017', 'Tăng số token mặc định', FALSE, 2),
+    ('73000000-0000-0000-0000-000000000031', '72000000-0000-0000-0000-000000000019', 'Case đa dạng, expected behavior, rubric và dữ liệu edge case', TRUE, 0),
+    ('73000000-0000-0000-0000-000000000032', '72000000-0000-0000-0000-000000000019', 'Chỉ một câu hỏi dễ', FALSE, 1),
+    ('73000000-0000-0000-0000-000000000033', '72000000-0000-0000-0000-000000000019', 'Không cần tiêu chí đánh giá', FALSE, 2)
+ON CONFLICT (id) DO UPDATE SET
+    question_id = EXCLUDED.question_id,
+    text = EXCLUDED.text,
+    is_correct = EXCLUDED.is_correct,
+    sort_order = EXCLUDED.sort_order;
+
+INSERT INTO challenge.challenge_attempts (
+    id,
+    challenge_id,
+    question_set_id,
+    participant_id,
+    participant_email,
+    score,
+    max_score,
+    passed,
+    grading_status,
+    graded_at,
+    graded_by,
+    started_at,
+    submitted_at
+) VALUES
+    ('74000000-0000-0000-0000-000000000001', '70000000-0000-0000-0000-000000000001', '71000000-0000-0000-0000-000000000001', (SELECT id FROM auth.users WHERE email = 'student@sagelms.dev'), 'student@sagelms.dev', 4.00, 4.00, TRUE, 'GRADED', NOW() - INTERVAL '6 days', (SELECT id FROM auth.users WHERE email = 'frontend.instructor@sagelms.dev'), NOW() - INTERVAL '6 days 1 hour', NOW() - INTERVAL '6 days'),
+    ('74000000-0000-0000-0000-000000000002', '70000000-0000-0000-0000-000000000001', '71000000-0000-0000-0000-000000000002', (SELECT id FROM auth.users WHERE email = 'student2@sagelms.dev'), 'student2@sagelms.dev', NULL, 4.00, NULL, 'PENDING_REVIEW', NULL, NULL, NOW() - INTERVAL '2 days 2 hours', NOW() - INTERVAL '2 days'),
+    ('74000000-0000-0000-0000-000000000003', '70000000-0000-0000-0000-000000000002', '71000000-0000-0000-0000-000000000003', (SELECT id FROM auth.users WHERE email = 'student3@sagelms.dev'), 'student3@sagelms.dev', 2.00, 4.00, FALSE, 'GRADED', NOW() - INTERVAL '4 days', (SELECT id FROM auth.users WHERE email = 'data.instructor@sagelms.dev'), NOW() - INTERVAL '4 days 1 hour', NOW() - INTERVAL '4 days'),
+    ('74000000-0000-0000-0000-000000000004', '70000000-0000-0000-0000-000000000002', '71000000-0000-0000-0000-000000000004', (SELECT id FROM auth.users WHERE email = 'student4@sagelms.dev'), 'student4@sagelms.dev', NULL, 4.00, NULL, 'PENDING_REVIEW', NULL, NULL, NOW() - INTERVAL '1 day 3 hours', NOW() - INTERVAL '1 day'),
+    ('74000000-0000-0000-0000-000000000005', '70000000-0000-0000-0000-000000000003', '71000000-0000-0000-0000-000000000005', (SELECT id FROM auth.users WHERE email = 'student@sagelms.dev'), 'student@sagelms.dev', 3.00, 4.00, TRUE, 'GRADED', NOW() - INTERVAL '3 days', (SELECT id FROM auth.users WHERE email = 'devops.instructor@sagelms.dev'), NOW() - INTERVAL '3 days 1 hour', NOW() - INTERVAL '3 days'),
+    ('74000000-0000-0000-0000-000000000006', '70000000-0000-0000-0000-000000000004', '71000000-0000-0000-0000-000000000006', (SELECT id FROM auth.users WHERE email = 'student2@sagelms.dev'), 'student2@sagelms.dev', 4.00, 5.00, TRUE, 'GRADED', NOW() - INTERVAL '2 days', (SELECT id FROM auth.users WHERE email = 'product.instructor@sagelms.dev'), NOW() - INTERVAL '2 days 1 hour', NOW() - INTERVAL '2 days'),
+    ('74000000-0000-0000-0000-000000000007', '70000000-0000-0000-0000-000000000005', '71000000-0000-0000-0000-000000000007', (SELECT id FROM auth.users WHERE email = 'student3@sagelms.dev'), 'student3@sagelms.dev', NULL, 5.00, NULL, 'PENDING_REVIEW', NULL, NULL, NOW() - INTERVAL '8 hours', NOW() - INTERVAL '7 hours'),
+    ('74000000-0000-0000-0000-000000000008', '70000000-0000-0000-0000-000000000003', '71000000-0000-0000-0000-000000000009', (SELECT id FROM auth.users WHERE email = 'student4@sagelms.dev'), 'student4@sagelms.dev', 3.00, 4.00, TRUE, 'GRADED', NOW() - INTERVAL '1 day', (SELECT id FROM auth.users WHERE email = 'devops.instructor@sagelms.dev'), NOW() - INTERVAL '1 day 1 hour', NOW() - INTERVAL '1 day')
+ON CONFLICT (id) DO UPDATE SET
+    challenge_id = EXCLUDED.challenge_id,
+    question_set_id = EXCLUDED.question_set_id,
+    participant_id = EXCLUDED.participant_id,
+    participant_email = EXCLUDED.participant_email,
+    score = EXCLUDED.score,
+    max_score = EXCLUDED.max_score,
+    passed = EXCLUDED.passed,
+    grading_status = EXCLUDED.grading_status,
+    graded_at = EXCLUDED.graded_at,
+    graded_by = EXCLUDED.graded_by,
+    started_at = EXCLUDED.started_at,
+    submitted_at = EXCLUDED.submitted_at;
+
+INSERT INTO challenge.challenge_answers (
+    id,
+    attempt_id,
+    question_id,
+    choice_id,
+    text_answer,
+    file_name,
+    file_type,
+    file_size,
+    file_url,
+    is_correct
+) VALUES
+    ('75000000-0000-0000-0000-000000000001', '74000000-0000-0000-0000-000000000001', '72000000-0000-0000-0000-000000000001', '73000000-0000-0000-0000-000000000002', NULL, NULL, NULL, NULL, NULL, TRUE),
+    ('75000000-0000-0000-0000-000000000002', '74000000-0000-0000-0000-000000000001', '72000000-0000-0000-0000-000000000002', '73000000-0000-0000-0000-000000000004', NULL, NULL, NULL, NULL, NULL, TRUE),
+    ('75000000-0000-0000-0000-000000000003', '74000000-0000-0000-0000-000000000001', '72000000-0000-0000-0000-000000000003', NULL, 'Tách component khi phần UI có trách nhiệm riêng, được tái sử dụng, hoặc component cha quá dài và khó kiểm thử.', NULL, NULL, NULL, NULL, TRUE),
+    ('75000000-0000-0000-0000-000000000004', '74000000-0000-0000-0000-000000000002', '72000000-0000-0000-0000-000000000004', NULL, 'Kiểm tra dependency array, tìm setState chạy mỗi render, dùng React DevTools profiler và tách side effect khỏi render path.', 'react-debug-notes.md', 'text/markdown', 2048, 'demo-local://answers/react-debug-notes.md', NULL),
+    ('75000000-0000-0000-0000-000000000005', '74000000-0000-0000-0000-000000000002', '72000000-0000-0000-0000-000000000005', '73000000-0000-0000-0000-000000000007', NULL, NULL, NULL, NULL, NULL, TRUE),
+    ('75000000-0000-0000-0000-000000000006', '74000000-0000-0000-0000-000000000003', '72000000-0000-0000-0000-000000000006', '73000000-0000-0000-0000-000000000011', NULL, NULL, NULL, NULL, NULL, TRUE),
+    ('75000000-0000-0000-0000-000000000007', '74000000-0000-0000-0000-000000000003', '72000000-0000-0000-0000-000000000007', '73000000-0000-0000-0000-000000000014', NULL, NULL, NULL, NULL, NULL, FALSE),
+    ('75000000-0000-0000-0000-000000000008', '74000000-0000-0000-0000-000000000003', '72000000-0000-0000-0000-000000000008', NULL, 'Dùng ROW_NUMBER hoặc SUM() OVER(PARTITION BY learner_id ORDER BY week) để tính thứ tự tuần học.', NULL, NULL, NULL, NULL, FALSE),
+    ('75000000-0000-0000-0000-000000000009', '74000000-0000-0000-0000-000000000004', '72000000-0000-0000-0000-000000000009', NULL, 'Cần bảng enrollments, lesson_events và calendar tuần. Output gồm cohort_week, active_week, retained_learners và retention_rate.', 'cohort-query.sql', 'text/plain', 3072, 'demo-local://answers/cohort-query.sql', NULL),
+    ('75000000-0000-0000-0000-000000000010', '74000000-0000-0000-0000-000000000005', '72000000-0000-0000-0000-000000000010', '73000000-0000-0000-0000-000000000017', NULL, NULL, NULL, NULL, NULL, TRUE),
+    ('75000000-0000-0000-0000-000000000011', '74000000-0000-0000-0000-000000000005', '72000000-0000-0000-0000-000000000011', NULL, 'Rollback khi lỗi ảnh hưởng người dùng thật, không thể hotfix nhanh, có bản trước ổn định và dữ liệu không bị rủi ro khi quay lại.', NULL, NULL, NULL, NULL, TRUE),
+    ('75000000-0000-0000-0000-000000000012', '74000000-0000-0000-0000-000000000006', '72000000-0000-0000-0000-000000000014', '73000000-0000-0000-0000-000000000022', NULL, NULL, NULL, NULL, NULL, TRUE),
+    ('75000000-0000-0000-0000-000000000013', '74000000-0000-0000-0000-000000000006', '72000000-0000-0000-0000-000000000015', NULL, 'Ưu tiên theo mức đau, tần suất, khả năng tạo learning loop, effort thấp và có thể validate trong 1-2 tuần.', NULL, NULL, NULL, NULL, TRUE),
+    ('75000000-0000-0000-0000-000000000014', '74000000-0000-0000-0000-000000000006', '72000000-0000-0000-0000-000000000016', '73000000-0000-0000-0000-000000000025', NULL, NULL, NULL, NULL, NULL, TRUE),
+    ('75000000-0000-0000-0000-000000000015', '74000000-0000-0000-0000-000000000007', '72000000-0000-0000-0000-000000000017', '73000000-0000-0000-0000-000000000028', NULL, NULL, NULL, NULL, NULL, TRUE),
+    ('75000000-0000-0000-0000-000000000016', '74000000-0000-0000-0000-000000000007', '72000000-0000-0000-0000-000000000018', NULL, 'Rubric: đúng nội dung khóa học, đưa phản hồi từng bước, từ chối nội dung ngoài phạm vi hoặc không an toàn.', 'ai-rubric.md', 'text/markdown', 1900, 'demo-local://answers/ai-rubric.md', NULL),
+    ('75000000-0000-0000-0000-000000000017', '74000000-0000-0000-0000-000000000007', '72000000-0000-0000-0000-000000000019', '73000000-0000-0000-0000-000000000031', NULL, NULL, NULL, NULL, NULL, TRUE),
+    ('75000000-0000-0000-0000-000000000018', '74000000-0000-0000-0000-000000000008', '72000000-0000-0000-0000-000000000012', '73000000-0000-0000-0000-000000000019', NULL, NULL, NULL, NULL, NULL, TRUE),
+    ('75000000-0000-0000-0000-000000000019', '74000000-0000-0000-0000-000000000008', '72000000-0000-0000-0000-000000000013', NULL, '1. Owner gateway: thêm timeout dashboard. 2. Owner backend: runbook rollback. 3. Owner QA: smoke test route quan trọng.', NULL, NULL, NULL, NULL, TRUE)
+ON CONFLICT (id) DO UPDATE SET
+    attempt_id = EXCLUDED.attempt_id,
+    question_id = EXCLUDED.question_id,
+    choice_id = EXCLUDED.choice_id,
+    text_answer = EXCLUDED.text_answer,
+    file_name = EXCLUDED.file_name,
+    file_type = EXCLUDED.file_type,
+    file_size = EXCLUDED.file_size,
+    file_url = EXCLUDED.file_url,
+    is_correct = EXCLUDED.is_correct;
 
 COMMIT;
 
