@@ -84,16 +84,16 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
         ${isCollapsed ? 'w-20' : 'w-64'}
       `}
     >
-      <div className="h-20 flex items-center gap-3 px-4 border-b border-slate-100">
-        <div className="w-10 h-10 rounded-xl bg-gradient-brand flex items-center justify-center shadow-lg shadow-violet-500/20">
+      <div className="h-16 flex items-center gap-3 px-4 border-b border-slate-100">
+        <div className="w-10 h-10 rounded-xl bg-violet-600 flex items-center justify-center shadow-sm">
           <GraduationCap className="w-6 h-6 text-white" />
         </div>
         {!isCollapsed && (
           <div className="flex flex-col">
-            <span className="text-lg font-bold bg-gradient-brand bg-clip-text text-transparent">
+            <span className="text-lg font-bold text-violet-700">
               SageLMS
             </span>
-            <span className="text-xs text-slate-400">Learning Platform</span>
+            <span className="text-xs font-medium text-slate-400">Learning Platform</span>
           </div>
         )}
       </div>

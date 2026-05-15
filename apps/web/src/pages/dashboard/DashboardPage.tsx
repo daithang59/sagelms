@@ -614,39 +614,28 @@ export default function DashboardPage() {
   }, [user]);
 
   return (
-    <div className="space-y-6 animate-in">
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-violet-600 via-indigo-600 to-sky-500 p-8 text-white shadow-xl shadow-indigo-500/20">
-        {/* Abstract background shapes */}
-        <div className="absolute -right-20 -top-20 h-72 w-72 animate-blob rounded-full bg-white/20 blur-3xl mix-blend-overlay" />
-        <div className="absolute -bottom-32 -left-10 h-72 w-72 animate-blob rounded-full bg-cyan-400/30 blur-3xl mix-blend-overlay" style={{ animationDelay: '2s' }} />
-        <div className="absolute left-1/3 top-10 h-48 w-48 animate-blob rounded-full bg-fuchsia-400/30 blur-3xl mix-blend-overlay" style={{ animationDelay: '4s' }} />
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iMiIvPjwvZz48L2c+PC9zdmc+')] opacity-30" />
-
-        <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-          <div className="max-w-3xl rounded-3xl bg-white/10 p-6 backdrop-blur-md ring-1 ring-white/20 shadow-2xl sm:p-8">
-            <div className="mb-4 flex items-center gap-2 animate-float" style={{ animationDelay: '0ms' }}>
-              <span className="inline-flex items-center justify-center rounded-lg bg-white/20 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-white backdrop-blur-md ring-1 ring-white/30 shadow-sm">
-                {roleLabel(user?.role)}
-              </span>
-            </div>
-            <h1 className="flex items-center gap-3 text-3xl font-extrabold text-white sm:text-4xl animate-float" style={{ animationDelay: '200ms' }}>
-              Xin chào, {user?.fullName || 'bạn'}! <Sparkles className="h-8 w-8 text-yellow-300 drop-shadow-md" />
-            </h1>
-            <p className="mt-3 text-base text-indigo-50 sm:text-lg animate-float" style={{ animationDelay: '400ms' }}>
-              {user?.role === 'ADMIN' && 'Theo dõi người dùng, hồ sơ giảng viên và chất lượng nội dung trong hệ thống.'}
-              {user?.role === 'INSTRUCTOR' && 'Quản lý khóa học của bạn, theo dõi học viên và hoàn thiện nội dung giảng dạy.'}
-              {user?.role === 'STUDENT' && 'Tiếp tục các khóa đang học và tìm thêm nội dung phù hợp với bạn.'}
-            </p>
+    <div className="space-y-6 animate-fade-up">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="mb-2 flex items-center gap-2">
+            <Badge variant="brand">{roleLabel(user?.role)}</Badge>
           </div>
-          <Link
-            to="/courses"
-            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-6 py-4 text-sm font-bold text-indigo-600 shadow-xl shadow-black/10 transition-all hover:-translate-y-1 hover:bg-slate-50 hover:shadow-2xl active:translate-y-0 animate-float"
-            style={{ animationDelay: '600ms' }}
-          >
-            Mở khóa học
-            <ArrowRight className="h-5 w-5" />
-          </Link>
+          <h1 className="flex items-center gap-2 text-2xl font-bold text-slate-900">
+            Xin chào, {user?.fullName || 'bạn'}! <Sparkles className="h-5 w-5 text-amber-400" />
+          </h1>
+          <p className="mt-1 text-sm text-slate-500">
+            {user?.role === 'ADMIN' && 'Theo dõi người dùng, hồ sơ giảng viên và chất lượng nội dung trong hệ thống.'}
+            {user?.role === 'INSTRUCTOR' && 'Quản lý khóa học của bạn, theo dõi học viên và hoàn thiện nội dung giảng dạy.'}
+            {user?.role === 'STUDENT' && 'Tiếp tục các khóa đang học và tìm thêm nội dung phù hợp với bạn.'}
+          </p>
         </div>
+        <Link
+          to="/courses"
+          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-700 active:scale-95"
+        >
+          Mở khóa học
+          <ArrowRight className="h-4 w-4" />
+        </Link>
       </div>
 
       {state.loading && (

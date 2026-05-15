@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Button } from '@/components/ui';
+import { AnimatedPopup, Button } from '@/components/ui';
 import { useCourses } from '@/hooks';
 import { useToast } from '@/components/Toast';
 import { X, Image as ImageIcon } from 'lucide-react';
@@ -125,15 +125,16 @@ export default function CourseForm({ isOpen, onClose, onSuccess, editCourse, pub
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-
-      <div className="relative m-4 max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
+    <AnimatedPopup
+      isOpen={isOpen}
+      onClose={onClose}
+      zIndexClassName="z-[100]"
+      labelledBy="course-form-title"
+      panelClassName="m-4 max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl shadow-slate-950/20"
+    >
         <div className="flex items-center justify-between border-b border-slate-200 p-6">
-          <h2 className="text-xl font-bold text-slate-800">
+          <h2 id="course-form-title" className="text-xl font-bold text-slate-800">
             {editCourse ? 'Chỉnh sửa khóa học' : 'Tạo khóa học mới'}
           </h2>
           <button
@@ -279,7 +280,6 @@ export default function CourseForm({ isOpen, onClose, onSuccess, editCourse, pub
             </Button>
           </div>
         </form>
-      </div>
-    </div>
+    </AnimatedPopup>
   );
 }

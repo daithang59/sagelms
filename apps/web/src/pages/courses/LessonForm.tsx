@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
-import { Button } from '@/components/ui';
+import { AnimatedPopup, Button } from '@/components/ui';
 import { useLessons } from '@/hooks';
 import { useToast } from '@/components/Toast';
 import apiClient from '@/lib/axios';
@@ -157,15 +157,16 @@ export default function LessonForm({ isOpen, onClose, courseId, onSuccess, editL
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-
-      <div className="relative m-4 flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+    <AnimatedPopup
+      isOpen={isOpen}
+      onClose={onClose}
+      zIndexClassName="z-[100]"
+      labelledBy="lesson-form-title"
+      panelClassName="m-4 flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl shadow-slate-950/20"
+    >
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white p-6">
-          <h2 className="text-xl font-bold text-slate-800">
+          <h2 id="lesson-form-title" className="text-xl font-bold text-slate-800">
             {editLesson ? 'Chỉnh sửa bài học' : 'Thêm bài học mới'}
           </h2>
           <button type="button" onClick={onClose} className="rounded-xl p-2 transition-colors hover:bg-slate-100" aria-label="Đóng">
@@ -359,8 +360,7 @@ export default function LessonForm({ isOpen, onClose, courseId, onSuccess, editL
             </Button>
           </div>
         </form>
-      </div>
-    </div>
+    </AnimatedPopup>
   );
 }
 

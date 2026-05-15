@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Button } from '@/components/ui';
+import { AnimatedPopup, Button } from '@/components/ui';
 import { useChallenges } from '@/hooks';
 import { useToast } from '@/components/Toast';
 import { Image as ImageIcon, X } from 'lucide-react';
@@ -30,15 +30,21 @@ const statusOptions: Array<{ value: ChallengeStatus; label: string }> = [
 ];
 
 export default function ChallengeForm({ isOpen, onClose, onSuccess, editChallenge }: ChallengeFormProps) {
-  if (!isOpen) return null;
-
   return (
-    <ChallengeFormDialog
-      key={editChallenge?.id ?? 'new-challenge'}
+    <AnimatedPopup
+      isOpen={isOpen}
       onClose={onClose}
-      onSuccess={onSuccess}
-      editChallenge={editChallenge}
-    />
+      zIndexClassName="z-[100]"
+      labelledBy="challenge-form-title"
+      panelClassName="m-4 max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl shadow-slate-950/20"
+    >
+      <ChallengeFormDialog
+        key={editChallenge?.id ?? 'new-challenge'}
+        onClose={onClose}
+        onSuccess={onSuccess}
+        editChallenge={editChallenge}
+      />
+    </AnimatedPopup>
   );
 }
 
@@ -82,11 +88,9 @@ function ChallengeFormDialog({ onClose, onSuccess, editChallenge }: Omit<Challen
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative m-4 max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
+    <>
         <div className="flex items-center justify-between border-b border-slate-200 p-6">
-          <h2 className="text-xl font-bold text-slate-800">
+          <h2 id="challenge-form-title" className="text-xl font-bold text-slate-800">
             {editChallenge ? 'Chỉnh sửa thử thách' : 'Tạo thử thách mới'}
           </h2>
           <button onClick={onClose} className="rounded-xl p-2 transition-colors hover:bg-slate-100">
@@ -210,7 +214,6 @@ function ChallengeFormDialog({ onClose, onSuccess, editChallenge }: Omit<Challen
             </Button>
           </div>
         </form>
-      </div>
-    </div>
+    </>
   );
 }

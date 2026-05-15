@@ -10,7 +10,6 @@ import {
   Search,
   Filter,
   Users,
-  Clock,
   GraduationCap,
   ArrowRight,
   Layers,
@@ -48,22 +47,6 @@ const categoryOptions = [
   'Business',
   'Marketing',
 ];
-
-// ============================================================================
-// Premium Course Card Component
-// ============================================================================
-interface CourseCardProps {
-  course: Course;
-  enrollmentStatus: EnrollmentStatus | null;
-  onEnroll: () => void;
-  getStatusBadge: (status: string) => React.ReactNode;
-  canCreateCourse: boolean;
-  currentUserId?: string;
-  currentUserRole?: string;
-  onEdit: (course: Course) => void;
-  onDelete: (courseId: string, instructorId: string) => void;
-  onInstructorClick: (course: Course) => void;
-}
 
 function InstructorProfileModal({
   course,
@@ -158,6 +141,22 @@ function InstructorProfileModal({
   );
 }
 
+// ============================================================================
+// Premium Course Card Component
+// ============================================================================
+interface CourseCardProps {
+  course: Course;
+  enrollmentStatus: EnrollmentStatus | null;
+  onEnroll: () => void;
+  getStatusBadge: (status: string) => React.ReactNode;
+  canCreateCourse: boolean;
+  currentUserId?: string;
+  currentUserRole?: string;
+  onEdit: (course: Course) => void;
+  onDelete: (courseId: string, instructorId: string) => void;
+  onInstructorClick: (course: Course) => void;
+}
+
 function CourseCard({
   course,
   enrollmentStatus,
@@ -188,46 +187,42 @@ function CourseCard({
   const gradientIndex = course.title.charCodeAt(0) % gradients.length;
 
   return (
-    <div className="interactive-surface group relative bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 border border-slate-100 overflow-hidden">
+    <div className="group relative overflow-hidden rounded-[1.5rem] border border-slate-100 bg-white shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] transition-all duration-500 hover:-translate-y-2 hover:shadow-[0_20px_40px_-10px_rgba(0,0,0,0.08)] hover:border-slate-200">
       {/* Cover Area - Fixed height with consistent gradient */}
-      <div className={`relative h-40 bg-gradient-to-br ${gradients[gradientIndex]} flex items-center justify-center overflow-hidden`}>
+      <div className={`relative h-48 bg-gradient-to-br ${gradients[gradientIndex]} flex items-center justify-center overflow-hidden`}>
         {/* Decorative pattern */}
-        <div className="absolute inset-0 opacity-10">
+        <div className="absolute inset-0 opacity-[0.03]">
           <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iMiIvPjwvZz48L2c+PC9zdmc+')]"></div>
         </div>
 
         {/* Thumbnail or Icon */}
-        <div className="relative z-10">
+        <div className="absolute inset-0">
           {course.thumbnailUrl ? (
             <img
               src={course.thumbnailUrl}
               alt={course.title}
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
             />
           ) : (
-            <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-              <BookOpen className="w-8 h-8 text-white" />
+            <div className="w-full h-full flex items-center justify-center">
+              <div className="w-20 h-20 rounded-[1.5rem] bg-white/20 backdrop-blur-md flex items-center justify-center shadow-inner transition-transform duration-700 group-hover:scale-110 group-hover:-rotate-3">
+                <BookOpen className="w-10 h-10 text-white drop-shadow-md" />
+              </div>
             </div>
           )}
         </div>
 
+        {/* Soft dark overlay on hover */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
+
         {/* Status Badge */}
-        <div className="absolute top-3 right-3 z-20">
+        <div className="absolute top-4 right-4 z-20 transition-transform duration-500 group-hover:-translate-y-1">
           {getStatusBadge(course.status)}
         </div>
 
-        {/* Category Tag */}
-        {course.category && (
-          <div className="absolute bottom-3 left-3 z-20">
-            <span className="px-3 py-1.5 rounded-full text-xs font-semibold bg-white/20 backdrop-blur-md text-white border border-white/20">
-              {course.category}
-            </span>
-          </div>
-        )}
-
         {course.enrollmentPolicy === 'APPROVAL_REQUIRED' && (
-          <div className="absolute bottom-3 right-3 z-20">
-            <span className="rounded-full bg-amber-100 px-3 py-1.5 text-xs font-semibold text-amber-700">
+          <div className="absolute bottom-4 right-4 z-20">
+            <span className="rounded-full bg-amber-100 px-3 py-1.5 text-xs font-semibold text-amber-700 shadow-lg shadow-black/10">
               Cần duyệt
             </span>
           </div>
@@ -235,122 +230,130 @@ function CourseCard({
 
         {/* Owner Actions */}
         {(isOwner || currentUserRole === 'ADMIN') && (
-          <div className="absolute top-3 left-3 z-20 flex gap-2">
+          <div className="absolute top-4 left-4 z-20 flex gap-2 opacity-0 transition-all duration-500 -translate-y-2 group-hover:opacity-100 group-hover:translate-y-0">
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 onEdit(course);
               }}
-              className="pressable p-2 rounded-lg bg-white/20 backdrop-blur-md hover:bg-white/30 transition-colors"
+              className="pressable rounded-xl bg-white/90 p-2.5 text-slate-700 shadow-sm backdrop-blur-md transition-colors hover:text-violet-600 hover:bg-white"
             >
-              <Edit className="w-4 h-4 text-white" />
+              <Edit className="w-4 h-4" />
             </button>
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 onDelete(course.id, course.instructorId);
               }}
-              className="pressable p-2 rounded-lg bg-white/20 backdrop-blur-md hover:bg-red-500/80 transition-colors"
+              className="pressable rounded-xl bg-white/90 p-2.5 text-slate-700 shadow-sm backdrop-blur-md transition-colors hover:text-rose-600 hover:bg-white"
             >
-              <Trash2 className="w-4 h-4 text-white" />
+              <Trash2 className="w-4 h-4" />
             </button>
           </div>
         )}
       </div>
 
-      {/* Content Area */}
-      <CardBody className="p-5 space-y-4">
-        {/* Title */}
-        <h3 className="font-bold text-slate-800 text-lg leading-tight line-clamp-2 min-h-[3.5rem]">
+      <div className="relative p-6 bg-white flex flex-col min-h-[220px]">
+        {/* Category Tag */}
+        {course.category && (
+          <div className="absolute -top-4 left-6 z-30 transition-transform duration-500 group-hover:-translate-y-1">
+            <span className="rounded-full bg-slate-800 px-4 py-1.5 text-xs font-bold text-white shadow-lg shadow-black/10 ring-1 ring-white/10">
+              {course.category}
+            </span>
+          </div>
+        )}
+
+        <h3 className="mt-2 text-xl font-bold leading-tight text-slate-900 mb-2 line-clamp-2 transition-colors duration-300 group-hover:text-violet-700">
           {course.title}
         </h3>
 
-        {/* Description */}
-        <p className="text-slate-500 text-sm line-clamp-2 min-h-[2.5rem]">
-          {course.description}
+        <p className="text-sm leading-6 text-slate-500 line-clamp-2">
+          {course.description || 'Khóa học chưa có mô tả.'}
         </p>
 
-        <button
-          type="button"
-          onClick={() => onInstructorClick(course)}
-          className="pressable inline-flex max-w-full items-center gap-2 text-sm font-medium text-violet-600 hover:text-violet-700"
-        >
-          <UserRound className="h-4 w-4 shrink-0" />
-          <span className="truncate">{course.instructorFullName || 'Xem giảng viên'}</span>
-        </button>
-
-        {/* Meta Info */}
-        <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-          <div className="flex items-center gap-4 text-sm text-slate-400">
-            <div className="flex items-center gap-1.5">
-              <Users className="w-4 h-4" />
-              <span className="font-medium">{course.enrollmentCount}</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Clock className="w-4 h-4" />
-              <span>{new Date(course.updatedAt).toLocaleDateString('vi-VN', { day: 'numeric', month: 'short' })}</span>
-            </div>
-          </div>
+        {/* Hidden Content that reveals on hover */}
+        <div className="grid grid-rows-[0fr] opacity-0 transition-all duration-500 ease-out group-hover:grid-rows-[1fr] group-hover:opacity-100 group-hover:mt-4">
+           <div className="overflow-hidden space-y-4">
+              <div className="flex items-center justify-between text-sm text-slate-500 border-b border-slate-100 pb-3">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onInstructorClick(course);
+                  }}
+                  className="flex items-center gap-2 group/author cursor-pointer"
+                >
+                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-slate-600 group-hover/author:bg-violet-100 group-hover/author:text-violet-600 transition-colors">
+                    <UserRound className="h-3 w-3" />
+                  </div>
+                  <span className="truncate max-w-[120px] group-hover/author:text-violet-600 transition-colors">{course.instructorFullName || 'Giảng viên SageLMS'}</span>
+                </button>
+                {course.enrollmentCount !== undefined && (
+                  <span className="flex items-center gap-1 font-medium">
+                    <Users className="h-3 w-3" />
+                    {course.enrollmentCount}
+                  </span>
+                )}
+             </div>
+             
+             {/* Action Buttons inside hover area */}
+             <div>
+                {isPending ? (
+                  <Button
+                    variant="secondary"
+                    className="w-full justify-center"
+                    onClick={() => navigate(`/courses/${course.id}`)}
+                  >
+                    <span className="truncate">Chờ giảng viên duyệt</span>
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                ) : isEnrolled ? (
+                  <div className="flex gap-2">
+                    <Button
+                      variant="secondary"
+                      className="flex-1 justify-center"
+                      disabled
+                    >
+                      <GraduationCap className="w-4 h-4 mr-2" />
+                      <span className="truncate">Đã ghi danh</span>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="flex-1 justify-center hover:bg-violet-600 hover:text-white"
+                      onClick={() => navigate(`/courses/${course.id}`)}
+                    >
+                      <span className="truncate">Học ngay</span>
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </Button>
+                  </div>
+                ) : isOwner || (currentUserId && currentUserRole === 'ADMIN') ? (
+                  <Button
+                    variant="outline"
+                    className="w-full justify-center hover:bg-violet-600 hover:text-white"
+                    onClick={() => navigate(`/courses/${course.id}`)}
+                  >
+                    <span className="truncate">Quản lý</span>
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                ) : canEnrollAsLearner ? (
+                  <Button className="w-full justify-center shadow-sm shadow-violet-500/20 hover:shadow-violet-500/40" onClick={onEnroll}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    {course.enrollmentPolicy === 'APPROVAL_REQUIRED' ? 'Gửi yêu cầu học' : 'Đăng ký học'}
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    className="w-full justify-center hover:bg-violet-600 hover:text-white"
+                    onClick={() => navigate(`/courses/${course.id}`)}
+                  >
+                    <span className="truncate">Chi tiết</span>
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                )}
+             </div>
+           </div>
         </div>
-
-        {/* Action Buttons */}
-        <div className="pt-2">
-          {isPending ? (
-            <Button
-              variant="secondary"
-              className="w-full justify-center"
-              onClick={() => navigate(`/courses/${course.id}`)}
-            >
-              <span className="truncate">Chờ giảng viên duyệt</span>
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </Button>
-          ) : isEnrolled ? (
-            <div className="flex gap-2">
-              <Button
-                variant="secondary"
-                className="flex-1 justify-center"
-                disabled
-              >
-                <GraduationCap className="w-4 h-4 mr-2" />
-                <span className="truncate">Đã ghi danh</span>
-              </Button>
-              <Button
-                variant="outline"
-                className="flex-1 justify-center"
-                onClick={() => navigate(`/courses/${course.id}`)}
-              >
-                <span className="truncate">Học ngay</span>
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
-            </div>
-          ) : isOwner || (currentUserId && currentUserRole === 'ADMIN') ? (
-            // Owner or Admin - show "Quản lý" button (no enrollment needed)
-            <Button
-              variant="outline"
-              className="w-full justify-center"
-              onClick={() => navigate(`/courses/${course.id}`)}
-            >
-              <span className="truncate">Quản lý</span>
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </Button>
-          ) : canEnrollAsLearner ? (
-            <Button className="w-full justify-center" onClick={onEnroll}>
-              <Plus className="w-4 h-4 mr-2" />
-              {course.enrollmentPolicy === 'APPROVAL_REQUIRED' ? 'Gửi yêu cầu học' : 'Đăng ký học'}
-            </Button>
-          ) : (
-            // Instructor (non-owner) - show "Chi tiết" button only
-            <Button
-              variant="outline"
-              className="w-full justify-center"
-              onClick={() => navigate(`/courses/${course.id}`)}
-            >
-              <span className="truncate">Chi tiết</span>
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </Button>
-          )}
-        </div>
-      </CardBody>
+      </div>
     </div>
   );
 }
@@ -686,9 +689,9 @@ export default function CoursesPage() {
   return (
     <div className="space-y-8">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Khoá học</h1>
+          <h1 className="text-2xl font-bold text-slate-800">Khóa học</h1>
           <p className="mt-1 text-slate-500">
             {canCreateCourse
               ? 'Quản lý và khám phá các khoá học của bạn.'
@@ -698,7 +701,7 @@ export default function CoursesPage() {
 
         {canCreateCourse && (
           <Button
-            className="gap-2 shadow-lg shadow-violet-500/25"
+            className="gap-2 shadow-sm"
             onClick={() => {
               setEditingCourse(null);
               setIsFormOpen(true);
@@ -710,57 +713,60 @@ export default function CoursesPage() {
         )}
       </div>
 
-      {isInstructor && (
-        <div className="inline-flex rounded-xl bg-white p-1 shadow-sm ring-1 ring-slate-200">
-          <button
-            type="button"
-            onClick={() => setCourseScope('teaching')}
-            className={`pressable rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-200 ${
-              courseScope === 'teaching'
-                ? 'bg-violet-50 text-violet-700 ring-1 ring-violet-200'
-                : 'text-slate-600 hover:bg-slate-50'
-            }`}
-          >
-            Khóa của tôi
-          </button>
-          <button
-            type="button"
-            onClick={() => setCourseScope('explore')}
-            className={`pressable rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-200 ${
-              courseScope === 'explore'
-                ? 'bg-violet-50 text-violet-700 ring-1 ring-violet-200'
-                : 'text-slate-600 hover:bg-slate-50'
-            }`}
-          >
-            Khám phá khóa học
-          </button>
-        </div>
-      )}
-
-      {isStudent && (
-        <div className="inline-flex rounded-xl bg-white p-1 shadow-sm ring-1 ring-slate-200">
-          <button
-            type="button"
-            onClick={() => setStudentTab('explore')}
-            className={`pressable rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-200 ${
-              studentTab === 'explore'
-                ? 'bg-violet-50 text-violet-700 ring-1 ring-violet-200'
-                : 'text-slate-600 hover:bg-slate-50'
-            }`}
-          >
-            Khám phá khóa học
-          </button>
-          <button
-            type="button"
-            onClick={() => setStudentTab('enrolled')}
-            className={`pressable rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-200 ${
-              studentTab === 'enrolled'
-                ? 'bg-violet-50 text-violet-700 ring-1 ring-violet-200'
-                : 'text-slate-600 hover:bg-slate-50'
-            }`}
-          >
-            Khóa đã ghi danh
-          </button>
+      {/* Tabs */}
+      {(isInstructor || isStudent) && (
+        <div className="inline-flex rounded-xl bg-slate-100 p-1 shadow-inner">
+          {isInstructor ? (
+            <>
+              <button
+                type="button"
+                onClick={() => setCourseScope('teaching')}
+                className={`pressable rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-200 ${
+                  courseScope === 'teaching'
+                    ? 'bg-white text-slate-900 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+                }`}
+              >
+                Khóa của tôi
+              </button>
+              <button
+                type="button"
+                onClick={() => setCourseScope('explore')}
+                className={`pressable rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-200 ${
+                  courseScope === 'explore'
+                    ? 'bg-white text-slate-900 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+                }`}
+              >
+                Khám phá khóa học
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => setStudentTab('explore')}
+                className={`pressable rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-200 ${
+                  studentTab === 'explore'
+                    ? 'bg-white text-slate-900 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+                }`}
+              >
+                Khám phá khóa học
+              </button>
+              <button
+                type="button"
+                onClick={() => setStudentTab('enrolled')}
+                className={`pressable rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-200 ${
+                  studentTab === 'enrolled'
+                    ? 'bg-white text-slate-900 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+                }`}
+              >
+                Khóa đã ghi danh
+              </button>
+            </>
+          )}
         </div>
       )}
 
@@ -791,14 +797,14 @@ export default function CoursesPage() {
             </Button>
           </form>
           {!isStudentEnrolledTab && (
-          <div className="mt-2 flex gap-2 overflow-x-auto px-1 pb-1">
+          <div className="filter-scrollbar -mx-4 mt-4 flex gap-2.5 overflow-x-auto px-4 pb-3 pt-1">
             <button
               type="button"
               onClick={() => handleCategoryChange('')}
-              className={`shrink-0 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+              className={`pressable shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
                 selectedCategory === ''
-                  ? 'bg-violet-600 text-white'
-                  : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                  ? 'bg-slate-800 text-white shadow-sm ring-1 ring-slate-800'
+                  : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50 hover:text-slate-900'
               }`}
             >
               Tất cả lĩnh vực
@@ -808,10 +814,10 @@ export default function CoursesPage() {
                 key={category}
                 type="button"
                 onClick={() => handleCategoryChange(category)}
-                className={`shrink-0 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                className={`pressable shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
                   selectedCategory === category
-                    ? 'bg-violet-600 text-white'
-                    : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                    ? 'bg-slate-800 text-white shadow-sm ring-1 ring-slate-800'
+                    : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50 hover:text-slate-900'
                 }`}
               >
                 {category}
@@ -916,7 +922,7 @@ export default function CoursesPage() {
             </p>
             {canCreateCourse && (
               <Button
-                className="gap-2 shadow-lg shadow-violet-500/25"
+                className="gap-2 shadow-sm"
                 onClick={() => {
                   setEditingCourse(null);
                   setIsFormOpen(true);

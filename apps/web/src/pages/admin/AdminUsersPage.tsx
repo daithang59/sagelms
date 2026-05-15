@@ -246,7 +246,7 @@ export default function AdminUsersPage() {
                   users.map((item, index) => (
                     <tr
                       key={item.id}
-                      className="align-top opacity-0 animate-fade-up"
+                      className="align-top opacity-0 animate-fade-up hover:bg-slate-50/80 transition-colors"
                       style={{ animationDelay: `${Math.min(index * 40, 400)}ms` }}
                     >
                       <td className="px-5 py-4">

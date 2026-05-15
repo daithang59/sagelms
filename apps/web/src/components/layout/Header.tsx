@@ -102,9 +102,9 @@ export default function Header() {
   };
 
   return (
-    <header className="fixed top-0 right-0 left-0 h-20 bg-white/80 backdrop-blur-lg border-b border-surface-200 flex items-center justify-between px-8 z-50">
+    <header className="fixed top-0 right-0 left-0 h-16 bg-white border-b border-slate-100 flex items-center justify-between px-6 z-50">
       <div className="flex items-center gap-2">
-        <h2 className="text-lg font-semibold text-surface-800">SageLMS</h2>
+        <h2 className="text-lg font-bold text-slate-800">SageLMS</h2>
       </div>
 
       <div ref={headerActionsRef} className="flex items-center gap-4">

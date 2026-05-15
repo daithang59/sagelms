@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Badge, Button, Card, CardBody, useConfirm } from '@/components/ui';
+import { AnimatedPopup, Badge, Button, Card, CardBody, useConfirm } from '@/components/ui';
 import { useToast } from '@/components/Toast';
 import { useChallenges } from '@/hooks';
 import type {
@@ -954,10 +954,12 @@ export default function QuestionPage() {
           </Card>
         </div>
       </div>
-      {showImportGuide && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-950/50 backdrop-blur-sm" onClick={() => setShowImportGuide(false)} />
-          <div className="relative max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
+      <AnimatedPopup
+        isOpen={showImportGuide}
+        onClose={() => setShowImportGuide(false)}
+        zIndexClassName="z-[100]"
+        panelClassName="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white shadow-2xl shadow-slate-950/20"
+      >
             <div className="flex items-start justify-between gap-4 border-b border-slate-200 p-6">
               <div>
                 <h2 className="text-xl font-bold text-slate-900">Hướng dẫn import câu hỏi JSON</h2>
@@ -1074,9 +1076,7 @@ export default function QuestionPage() {
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+      </AnimatedPopup>
     </div>
   );
 }
