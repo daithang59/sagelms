@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { Badge, Button, Card, CardBody } from '@/components/ui';
 import type { Challenge, ChallengeQuestionSet } from '@/types/challenge';
-import { CheckCircle2, Edit, FileText, PlayCircle, Plus, RotateCcw, Swords } from 'lucide-react';
+import { CheckCircle2, Edit, Eye, FileText, PlayCircle, Plus, Swords } from 'lucide-react';
 
 interface ChallengeQuestionPageProps {
   challenge: Challenge;
@@ -40,16 +40,7 @@ export default function ChallengeQuestionPage({
             {questionSets.map((questionSet, index) => (
               <div
                 key={questionSet.id}
-                role="button"
-                tabIndex={0}
-                onClick={() => onStartQuestionSet(questionSet)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    onStartQuestionSet(questionSet);
-                  }
-                }}
-                className="flex cursor-pointer flex-col gap-4 rounded-xl border border-slate-100 p-4 text-left transition hover:border-violet-200 hover:bg-violet-50/30 md:flex-row md:items-center"
+                className="flex flex-col gap-4 rounded-xl border border-slate-100 p-4 text-left transition hover:border-violet-200 hover:bg-violet-50/30 md:flex-row md:items-center"
               >
                 <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-violet-100 text-violet-600">
                   <FileText className="h-5 w-5" />
@@ -82,16 +73,30 @@ export default function ChallengeQuestionPage({
                     Quản lý
                   </Button>
                 ) : (
-                  <Button
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onStartQuestionSet(questionSet);
-                    }}
-                    isLoading={attemptLoading}
-                  >
-                    {questionSet.completed ? <RotateCcw className="mr-2 h-4 w-4" /> : <PlayCircle className="mr-2 h-4 w-4" />}
-                    {questionSet.completed ? 'Làm lại' : 'Làm bài'}
-                  </Button>
+                  questionSet.attemptCount < Math.max(1, challenge.maxAttempts || 1) ? (
+                    <Button
+                      onClick={() => onStartQuestionSet(questionSet)}
+                      isLoading={attemptLoading}
+                    >
+                      <PlayCircle className="mr-2 h-4 w-4" />
+                      {questionSet.completed
+                        ? `Làm lại (${questionSet.attemptCount}/${Math.max(1, challenge.maxAttempts || 1)})`
+                        : 'Làm bài'}
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="secondary"
+                      onClick={() => {
+                        if (questionSet.latestSubmittedAttemptId) {
+                          navigate(`/challenges/${challenge.id}/result/${questionSet.latestSubmittedAttemptId}`);
+                        }
+                      }}
+                      disabled={!questionSet.latestSubmittedAttemptId}
+                    >
+                      <Eye className="mr-2 h-4 w-4" />
+                      Đã nộp bài
+                    </Button>
+                  )
                 )}
               </div>
             ))}

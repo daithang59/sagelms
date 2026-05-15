@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
-import { Badge, Card, CardBody } from '@/components/ui';
+import { useMemo, useState } from 'react';
+import { Badge, Button, Card, CardBody } from '@/components/ui';
 import type { ChallengeSubmissionSummary } from '@/types/challenge';
 import { FileText } from 'lucide-react';
 
@@ -22,23 +23,34 @@ function formatSubmittedAt(submittedAt: string | null) {
 
 export default function ChallengeSubmitPage({ challengeId, submissions, participantNames }: ChallengeSubmitPageProps) {
   const navigate = useNavigate();
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'PENDING_REVIEW' | 'GRADED'>('ALL');
+  const filteredSubmissions = useMemo(() => (
+    statusFilter === 'ALL'
+      ? submissions
+      : submissions.filter((submission) => submission.gradingStatus === statusFilter)
+  ), [statusFilter, submissions]);
 
   return (
     <Card>
       <CardBody className="space-y-4">
-        <div className="border-b border-slate-100 pb-4">
+        <div className="flex flex-col gap-3 border-b border-slate-100 pb-4 md:flex-row md:items-center md:justify-between">
           <h2 className="text-lg font-bold text-slate-800">
-            Danh sách nộp bài <span className="ml-2 text-sm font-normal text-slate-500">({submissions.length} bài nộp)</span>
+            Danh sách nộp bài <span className="ml-2 text-sm font-normal text-slate-500">({filteredSubmissions.length}/{submissions.length} bài nộp)</span>
           </h2>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant={statusFilter === 'ALL' ? 'primary' : 'secondary'} onClick={() => setStatusFilter('ALL')}>Tất cả</Button>
+            <Button size="sm" variant={statusFilter === 'PENDING_REVIEW' ? 'primary' : 'secondary'} onClick={() => setStatusFilter('PENDING_REVIEW')}>Chờ chấm</Button>
+            <Button size="sm" variant={statusFilter === 'GRADED' ? 'primary' : 'secondary'} onClick={() => setStatusFilter('GRADED')}>Đã chấm</Button>
+          </div>
         </div>
-        {submissions.length === 0 ? (
+        {filteredSubmissions.length === 0 ? (
           <div className="p-12 text-center">
             <FileText className="mx-auto mb-4 h-12 w-12 text-slate-300" />
             <p className="text-slate-500">Chưa có bài nộp nào.</p>
           </div>
         ) : (
           <div className="space-y-3">
-            {submissions.map((submission) => (
+            {filteredSubmissions.map((submission) => (
               <button
                 key={submission.attemptId}
                 type="button"

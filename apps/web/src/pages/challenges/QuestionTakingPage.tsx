@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { Badge, Button, Card, CardBody } from '@/components/ui';
+import { Badge, Button, Card, CardBody, useConfirm } from '@/components/ui';
 import { useToast } from '@/components/Toast';
 import { useChallengeAttempt, useChallenges } from '@/hooks';
 import type { ChallengeQuestion, ChallengeQuestionSet, SubmitChallengeAnswerRequest } from '@/types/challenge';
@@ -10,6 +10,18 @@ interface DraftAnswer {
   choiceId?: string;
   textAnswer?: string;
   file?: File;
+}
+
+function readSavedAnswers(attemptId: string) {
+  const storageKey = `sagelms.challengeAttempt.${attemptId}.answers`;
+  const saved = window.localStorage.getItem(storageKey);
+  if (!saved) return null;
+  try {
+    return JSON.parse(saved) as Record<string, DraftAnswer>;
+  } catch {
+    window.localStorage.removeItem(storageKey);
+    return null;
+  }
 }
 
 function formatRemainingTime(totalSeconds: number) {
@@ -27,6 +39,7 @@ export default function QuestionTakingPage() {
   const requestedStartedAt = searchParams.get('startedAt') || '';
   const navigate = useNavigate();
   const { showToast } = useToast();
+  const confirm = useConfirm();
   const { fetchQuestionSet } = useChallenges();
   const { startQuestionSetAttempt, submitAttempt, loading } = useChallengeAttempt();
   const [questionSet, setQuestionSet] = useState<ChallengeQuestionSet | null>(null);
@@ -37,10 +50,25 @@ export default function QuestionTakingPage() {
   const [answers, setAnswers] = useState<Record<string, DraftAnswer>>({});
   const answersRef = useRef(answers);
   const hasSubmittedRef = useRef(false);
+  const draftStorageKey = attemptId ? `sagelms.challengeAttempt.${attemptId}.answers` : '';
 
   useEffect(() => {
     answersRef.current = answers;
   }, [answers]);
+
+  useEffect(() => {
+    if (!draftStorageKey) return;
+    const serializableAnswers = Object.fromEntries(
+      Object.entries(answers).map(([questionId, answer]) => [
+        questionId,
+        {
+          choiceId: answer.choiceId,
+          textAnswer: answer.textAnswer,
+        },
+      ]),
+    );
+    window.localStorage.setItem(draftStorageKey, JSON.stringify(serializableAnswers));
+  }, [answers, draftStorageKey]);
 
   useEffect(() => {
     if (!id || !requestedQuestionSetId) {
@@ -56,12 +84,20 @@ export default function QuestionTakingPage() {
         if (requestedAttemptId) {
           setAttemptId(requestedAttemptId);
           setStartedAt(requestedStartedAt || new Date().toISOString());
+          const savedAnswers = readSavedAnswers(requestedAttemptId);
+          if (savedAnswers) {
+            setAnswers(savedAnswers);
+          }
           return;
         }
         const attempt = await startQuestionSetAttempt(requestedQuestionSetId);
         if (!ignore) {
           setAttemptId(attempt.id);
           setStartedAt(attempt.startedAt);
+          const savedAnswers = readSavedAnswers(attempt.id);
+          if (savedAnswers) {
+            setAnswers(savedAnswers);
+          }
         }
       })
       .catch((error) => showToast(error instanceof Error ? error.message : 'Không thể mở tập câu hỏi', 'error'));
@@ -71,11 +107,30 @@ export default function QuestionTakingPage() {
     };
   }, [fetchQuestionSet, id, requestedAttemptId, requestedQuestionSetId, requestedStartedAt, showToast, startQuestionSetAttempt]);
 
-  const submit = useCallback(async (options?: { timeExpired?: boolean }) => {
+  const submit = useCallback(async (options?: { timeExpired?: boolean; confirmBeforeSubmit?: boolean }) => {
     if (!attemptId || !id) return;
     if (hasSubmittedRef.current) return;
-    hasSubmittedRef.current = true;
     const currentAnswers = answersRef.current;
+    if (options?.confirmBeforeSubmit) {
+      const unansweredCount = questions.filter((question) => {
+        const answer = currentAnswers[question.id] || {};
+        if (question.type === 'MULTIPLE_CHOICE') {
+          return !answer.choiceId;
+        }
+        return !answer.textAnswer?.trim() && !answer.file;
+      }).length;
+      const confirmed = await confirm({
+        title: 'Nộp bài thử thách',
+        message: unansweredCount > 0
+          ? `Bạn còn ${unansweredCount} câu chưa trả lời. Bạn vẫn muốn nộp bài?`
+          : 'Bạn có chắc chắn muốn nộp bài? Sau khi nộp, bạn không thể sửa câu trả lời.',
+        confirmLabel: 'Nộp bài',
+        cancelLabel: 'Xem lại',
+        variant: 'default',
+      });
+      if (!confirmed) return;
+    }
+    hasSubmittedRef.current = true;
     const payload: SubmitChallengeAnswerRequest[] = questions.map((question) => {
       const answer = currentAnswers[question.id] || {};
       return {
@@ -90,6 +145,9 @@ export default function QuestionTakingPage() {
     });
     try {
       await submitAttempt(attemptId, payload);
+      if (draftStorageKey) {
+        window.localStorage.removeItem(draftStorageKey);
+      }
       showToast(
         options?.timeExpired
           ? 'Đã hết thời gian. Hệ thống đã tự động nộp bài.'
@@ -101,7 +159,7 @@ export default function QuestionTakingPage() {
       hasSubmittedRef.current = false;
       showToast(error instanceof Error ? error.message : 'Nộp bài thất bại', 'error');
     }
-  }, [attemptId, id, navigate, questions, showToast, submitAttempt]);
+  }, [attemptId, confirm, draftStorageKey, id, navigate, questions, showToast, submitAttempt]);
 
   useEffect(() => {
     if (!questionSet?.timeLimitMinutes || !startedAt || !attemptId) {
@@ -246,7 +304,7 @@ export default function QuestionTakingPage() {
           <RotateCcw className="mr-2 h-4 w-4" />
           Xóa tất cả câu trả lời
         </Button>
-        <Button onClick={() => submit()} isLoading={loading} className="gap-2 shadow-lg shadow-violet-500/25">
+        <Button onClick={() => submit({ confirmBeforeSubmit: true })} isLoading={loading} className="gap-2 shadow-lg shadow-violet-500/25">
           <Send className="h-4 w-4" />
           Nộp bài
         </Button>

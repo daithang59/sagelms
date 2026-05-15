@@ -4,7 +4,7 @@ import { Badge, Card, CardBody } from '@/components/ui';
 import { useToast } from '@/components/Toast';
 import { useChallengeAttempt } from '@/hooks';
 import type { ChallengeAttemptResult } from '@/types/challenge';
-import { ArrowLeft, CheckCircle2, XCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Clock, XCircle } from 'lucide-react';
 
 function formatDuration(startedAt: string, submittedAt: string | null) {
   if (!submittedAt) return 'Chưa nộp';
@@ -19,6 +19,15 @@ function formatDuration(startedAt: string, submittedAt: string | null) {
 }
 
 function answerBadge(isCorrect: boolean | null) {
+  if (isCorrect === null) {
+    return (
+      <Badge variant="warning">
+        <Clock className="mr-1 h-3 w-3" />
+        Chờ chấm
+      </Badge>
+    );
+  }
+
   if (isCorrect) {
     return (
       <Badge variant="success">
@@ -78,6 +87,7 @@ export default function QuestionResultPage() {
     0,
   );
   const score = result.score ?? (totalPoints > 0 ? (earnedPoints / totalPoints) * 10 : 0);
+  const hasScore = result.score !== null;
   const durationLabel = formatDuration(result.startedAt, result.submittedAt);
 
   return (
@@ -97,10 +107,12 @@ export default function QuestionResultPage() {
             )}
           </div>
           <div className="rounded-xl bg-violet-50 px-4 py-3 text-sm font-semibold text-violet-700">
-            {Number(score).toFixed(2)}/10 điểm
-            <div className="mt-1 text-xs font-medium text-violet-500">
-              {earnedPoints}/{totalPoints} điểm câu hỏi
-            </div>
+            {hasScore ? `${Number(score).toFixed(2)}/10 điểm` : 'Chờ giảng viên chấm'}
+            {hasScore && (
+              <div className="mt-1 text-xs font-medium text-violet-500">
+                {earnedPoints}/{totalPoints} điểm câu hỏi
+              </div>
+            )}
           </div>
         </CardBody>
       </Card>
