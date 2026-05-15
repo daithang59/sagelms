@@ -17,9 +17,9 @@ import {
 type RegisterMode = 'student' | 'instructor';
 
 const inputClasses =
-  'block w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 placeholder-gray-400 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-violet-500';
+  'block w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none transition focus:border-violet-400 focus:ring-2 focus:ring-violet-100 placeholder-slate-400 text-slate-900';
 const inputWithIconClasses =
-  'block w-full rounded-lg border border-gray-300 py-3 pl-12 pr-4 text-gray-900 placeholder-gray-400 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-violet-500';
+  'block w-full rounded-xl border border-slate-200 bg-white py-3 pl-11 pr-4 text-sm outline-none transition focus:border-violet-400 focus:ring-2 focus:ring-violet-100 placeholder-slate-400 text-slate-900';
 
 export default function RegisterPage() {
   const { register, applyInstructor } = useAuth();
@@ -97,22 +97,22 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="w-full">
+    <div className="w-full animate-fade-up">
       <MobileLogo />
 
       <div className="mb-8 text-center">
-        <h2 className="mb-2 text-3xl font-bold text-gray-900">Tạo tài khoản</h2>
-        <p className="text-gray-500">
-          Học viên có thể vào học ngay. Giáo viên cần admin phê duyệt hồ sơ.
+        <h2 className="mb-2 text-3xl font-bold text-slate-900">Tạo tài khoản</h2>
+        <p className="text-slate-500">
+          Học viên có thể vào học ngay. Giáo viên cần phê duyệt.
         </p>
       </div>
 
-      <div className="mb-6 grid grid-cols-2 gap-2 rounded-xl bg-slate-100 p-1">
+      <div className="mb-6 grid grid-cols-2 gap-2 rounded-xl bg-slate-100 p-1 shadow-inner">
         <button
           type="button"
           onClick={() => setMode('student')}
-          className={`flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
-            mode === 'student' ? 'bg-white text-violet-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+          className={`flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold transition ${
+            mode === 'student' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'
           }`}
         >
           <GraduationCap className="h-4 w-4" />
@@ -121,8 +121,8 @@ export default function RegisterPage() {
         <button
           type="button"
           onClick={() => setMode('instructor')}
-          className={`flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
-            mode === 'instructor' ? 'bg-white text-violet-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+          className={`flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold transition ${
+            mode === 'instructor' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-900'
           }`}
         >
           <BriefcaseBusiness className="h-4 w-4" />
@@ -132,7 +132,7 @@ export default function RegisterPage() {
 
       <form onSubmit={handleSubmit} className="space-y-5">
         {error && (
-          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-600">
+          <div className="rounded-xl border border-rose-100 bg-rose-50 p-4 text-sm text-rose-600">
             {error}
           </div>
         )}
@@ -249,18 +249,18 @@ export default function RegisterPage() {
           />
         </Field>
 
-        <div className="rounded-lg border border-violet-100 bg-violet-50 px-4 py-3 text-sm text-violet-700">
+        <div className="rounded-xl border border-violet-100 bg-violet-50 px-4 py-3 text-sm text-violet-700">
           {mode === 'student'
             ? 'Tài khoản học viên sẽ được tạo và đăng nhập ngay.'
             : 'Tài khoản giáo viên chỉ đăng nhập được sau khi admin phê duyệt hồ sơ.'}
         </div>
 
-        <Button type="submit" className="w-full py-3.5 text-base font-medium" isLoading={isLoading}>
+        <Button type="submit" className="w-full py-3.5 text-base font-medium shadow-[0_8px_20px_-6px_rgba(124,58,237,0.5)] transition-shadow hover:shadow-[0_10px_24px_-6px_rgba(124,58,237,0.6)]" isLoading={isLoading}>
           {mode === 'student' ? 'Đăng ký học viên' : 'Gửi hồ sơ giáo viên'}
         </Button>
       </form>
 
-      <p className="mb-12 mt-8 text-center text-sm text-gray-500 lg:mb-16">
+      <p className="mb-12 mt-8 text-center text-sm text-slate-500 lg:mb-16">
         Đã có tài khoản?{' '}
         <Link to="/login" className="font-semibold text-violet-600 transition-colors hover:text-violet-700">
           Đăng nhập
@@ -272,11 +272,11 @@ export default function RegisterPage() {
 
 function MobileLogo() {
   return (
-    <div className="mb-8 flex items-center justify-center gap-3 lg:hidden">
-      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-brand shadow-lg">
+    <div className="mb-8 flex flex-col items-center justify-center gap-3 lg:hidden">
+      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-violet-600 shadow-sm">
         <GraduationCap className="h-6 w-6 text-white" />
       </div>
-      <span className="bg-gradient-brand bg-clip-text text-2xl font-bold text-transparent">
+      <span className="text-2xl font-bold text-violet-700">
         SageLMS
       </span>
     </div>
@@ -285,21 +285,21 @@ function MobileLogo() {
 
 function InstructorApplicationSubmitted({ email }: { email: string }) {
   return (
-    <div className="w-full">
+    <div className="w-full animate-fade-up">
       <MobileLogo />
 
       <div className="text-center">
-        <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-3xl bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100">
+        <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-3xl bg-emerald-50 text-emerald-600 border border-emerald-100">
           <CheckCircle2 className="h-10 w-10" />
         </div>
-        <h2 className="text-3xl font-bold text-gray-900">Hồ sơ đã được gửi</h2>
-        <p className="mt-3 text-gray-500">
-          Chúng tôi đã nhận hồ sơ giáo viên của <span className="font-medium text-gray-700">{email}</span>.
+        <h2 className="text-3xl font-bold text-slate-900">Hồ sơ đã được gửi</h2>
+        <p className="mt-3 text-slate-500">
+          Chúng tôi đã nhận hồ sơ giáo viên của <span className="font-medium text-slate-700">{email}</span>.
           Tài khoản sẽ đăng nhập được sau khi admin phê duyệt.
         </p>
       </div>
 
-      <div className="mt-8 space-y-4 rounded-2xl border border-slate-200 bg-slate-50 p-5">
+      <div className="mt-8 space-y-4 rounded-2xl border border-slate-200 bg-white shadow-sm p-5">
         <Step
           icon={<MailCheck className="h-5 w-5" />}
           title="Hồ sơ đang chờ duyệt"
@@ -319,7 +319,7 @@ function InstructorApplicationSubmitted({ email }: { email: string }) {
 
       <Link
         to="/login"
-        className="mt-8 inline-flex w-full items-center justify-center rounded-xl bg-gradient-brand px-5 py-3.5 text-base font-medium text-white shadow-lg shadow-violet-500/25 transition hover:shadow-xl hover:shadow-violet-500/30"
+        className="mt-8 inline-flex w-full items-center justify-center rounded-xl bg-violet-600 px-5 py-3 text-base font-semibold text-white shadow-sm transition hover:bg-violet-700 active:scale-95"
       >
         Về trang đăng nhập
       </Link>
@@ -329,8 +329,8 @@ function InstructorApplicationSubmitted({ email }: { email: string }) {
 
 function Step({ icon, title, description }: { icon: ReactNode; title: string; description: string }) {
   return (
-    <div className="flex gap-3">
-      <div className="mt-0.5 flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-white text-violet-600 ring-1 ring-slate-200">
+    <div className="flex gap-4">
+      <div className="mt-0.5 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-slate-50 text-violet-600 border border-slate-100">
         {icon}
       </div>
       <div>
@@ -344,11 +344,11 @@ function Step({ icon, title, description }: { icon: ReactNode; title: string; de
 function Field({ id, label, icon, children }: { id: string; label: string; icon?: ReactNode; children: ReactNode }) {
   return (
     <div className="block space-y-2">
-      <label htmlFor={id} className="block text-sm font-medium text-gray-700">
+      <label htmlFor={id} className="block text-sm font-medium text-slate-700">
         {label}
       </label>
       <span className="relative block">
-        {icon && <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-gray-400">{icon}</span>}
+        {icon && <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400">{icon}</span>}
         {children}
       </span>
     </div>
@@ -374,7 +374,7 @@ function TextArea({
 }) {
   return (
     <div className="block space-y-2">
-      <label htmlFor={id} className="block text-sm font-medium text-gray-700">
+      <label htmlFor={id} className="block text-sm font-medium text-slate-700">
         {label}
       </label>
       <textarea
@@ -385,7 +385,7 @@ function TextArea({
         minLength={minLength}
         rows={4}
         placeholder={placeholder}
-        className="block w-full resize-none rounded-lg border border-gray-300 px-4 py-3 text-gray-900 placeholder-gray-400 transition-colors focus:border-transparent focus:outline-none focus:ring-2 focus:ring-violet-500"
+        className="block w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-violet-400 focus:ring-2 focus:ring-violet-100 placeholder-slate-400 text-slate-900"
       />
     </div>
   );
