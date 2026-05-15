@@ -1,5 +1,6 @@
 export { default as Badge } from './Badge';
 export { default as Button } from './Button';
+export { default as AnimatedPopup } from './AnimatedPopup';
 export { Card, CardBody, CardHeader } from './Card';
 export { default as Input } from './Input';
 export { PageLoading, Skeleton, Spinner } from './Loading';

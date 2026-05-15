@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useCallback, useEffect } from 'react';
+import AnimatedPopup from './AnimatedPopup';
 
 interface ModalProps {
   isOpen: boolean;
@@ -16,39 +16,16 @@ const sizeClasses = {
 };
 
 export default function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalProps) {
-  const handleEscape = useCallback(
-    (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    },
-    [onClose],
-  );
-
-  useEffect(() => {
-    if (isOpen) {
-      document.addEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'hidden';
-    }
-    return () => {
-      document.removeEventListener('keydown', handleEscape);
-      document.body.style.overflow = '';
-    };
-  }, [isOpen, handleEscape]);
-
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-in fade-in"
-        onClick={onClose}
-      />
-
-      {/* Modal */}
-      <div className={`relative w-full ${sizeClasses[size]} bg-white rounded-xl shadow-xl`}>
+    <AnimatedPopup
+      isOpen={isOpen}
+      onClose={onClose}
+      labelledBy={title ? 'modal-title' : undefined}
+      panelClassName={`w-full ${sizeClasses[size]} bg-white rounded-xl shadow-xl shadow-slate-950/15`}
+    >
         {title && (
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-            <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+            <h3 id="modal-title" className="text-lg font-semibold text-gray-900">{title}</h3>
             <button
               onClick={onClose}
               className="p-1 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
@@ -60,7 +37,6 @@ export default function Modal({ isOpen, onClose, title, children, size = 'md' }:
           </div>
         )}
         <div className="px-6 py-4">{children}</div>
-      </div>
-    </div>
+    </AnimatedPopup>
   );
 }
