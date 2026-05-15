@@ -160,7 +160,7 @@ function ChallengeCard({
         )}
       </div>
 
-      <div className="relative p-6 bg-white flex flex-col min-h-[140px]">
+      <div className="relative p-6 bg-white flex flex-col min-h-[220px]">
         {challenge.category && (
           <div className="absolute -top-4 left-6 z-30 transition-transform duration-500 group-hover:-translate-y-1">
             <span className="rounded-full bg-slate-800 px-4 py-1.5 text-xs font-bold text-white shadow-lg shadow-black/10 ring-1 ring-white/10">
@@ -169,9 +169,13 @@ function ChallengeCard({
           </div>
         )}
         
-        <h3 className="mt-2 text-xl font-bold leading-tight text-slate-900 line-clamp-2 transition-colors duration-300 group-hover:text-violet-700 flex-1">
+        <h3 className="mt-2 text-xl font-bold leading-tight text-slate-900 line-clamp-2 transition-colors duration-300 group-hover:text-violet-700">
           {challenge.title}
         </h3>
+
+        <p className="mt-2 text-sm leading-6 text-slate-500 line-clamp-2">
+          {challenge.description || 'Thử thách chưa có mô tả.'}
+        </p>
 
         <div className="grid grid-rows-[0fr] opacity-0 transition-all duration-500 ease-out group-hover:grid-rows-[1fr] group-hover:opacity-100 group-hover:mt-4">
            <div className="overflow-hidden space-y-4">
@@ -190,9 +194,6 @@ function ChallengeCard({
                   <span className="truncate group-hover/author:text-violet-600 transition-colors">{creatorName}</span>
                 </button>
              </div>
-             <p className="text-sm text-slate-500 line-clamp-2">
-               {challenge.description || 'Thử thách chưa có mô tả.'}
-             </p>
              <Button className="w-full shadow-sm shadow-violet-500/20 hover:shadow-violet-500/40" onClick={() => navigate(`/challenges/${challenge.id}`)}>
                {canManage ? 'Quản lý' : 'Xem chi tiết'}
              </Button>
