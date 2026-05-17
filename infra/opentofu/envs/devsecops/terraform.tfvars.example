@@ -1,0 +1,32 @@
+project_id     = "sagelms"
+project_number = "384858175117"
+region         = "asia-southeast1"
+zones          = ["asia-southeast1-a", "asia-southeast1-b", "asia-southeast1-c"]
+environment    = "devsecops"
+name_prefix    = "sagelms-devsecops"
+
+enable_cloud_sql      = true
+enable_managed_redis  = true
+redis_auth_enabled    = true
+cloud_sql_pitr_enabled = false
+
+# Keep this true for shared/demo environments. Temporarily set false only when
+# intentionally destroying the Cloud SQL instance.
+cloud_sql_deletion_protection = true
+
+# Replace with fixed admin/self-hosted-runner/bastion IPs before applying GKE.
+master_authorized_networks = [
+  {
+    cidr_block   = "REPLACE_WITH_YOUR_PUBLIC_IP/32"
+    display_name = "leader-workstation"
+  }
+]
+
+github_owner      = "REPLACE_WITH_GITHUB_OWNER"
+github_repository = "sagelms"
+deploy_branch     = "main"
+wif_pool_id       = "sagelms-devsecops-github-pool"
+wif_provider_id   = "github"
+
+eso_ksa_namespace = "platform-system"
+eso_ksa_name      = "external-secrets"
