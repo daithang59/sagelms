@@ -1,59 +1,51 @@
 # SageLMS OpenTofu Infrastructure
 
-This directory provisions the SageLMS shared DevSecOps foundation on GCP.
+Thư mục này chứa toàn bộ IaC bằng OpenTofu để dựng nền GCP/GKE cho môi trường DevSecOps của SageLMS.
 
-## Structure
+## Cấu trúc
 
 ```text
-bootstrap/          # One-time local-state bootstrap for remote state
-envs/devsecops/     # Main GCP/GKE environment
-modules/            # Reusable OpenTofu modules
-outputs.md          # Handoff values after apply
+bootstrap/          # Bootstrap remote state và IaC service account
+envs/               # Các môi trường triển khai
+envs/devsecops/     # Môi trường cloud chính của đồ án
+modules/            # Module OpenTofu tái sử dụng
+outputs.md          # File handoff giá trị sau khi apply
 ```
 
-## Prerequisites
+## Luồng triển khai
+
+1. Chạy `bootstrap/` trước để tạo GCS remote state bucket và IaC service account.
+2. Chạy `envs/devsecops/` để tạo project services, VPC, GKE, IAM/WIF, Secret Manager, Cloud SQL, Redis và storage buckets.
+3. Cập nhật `outputs.md` sau khi apply thành công để bàn giao cho các thành viên khác.
+
+## Công cụ cần có
 
 - OpenTofu `>= 1.6.0`
 - Google Cloud SDK
 - `kubectl`
 - Checkov
-- Permission on project `sagelms` to create IAM, networking, GKE, Cloud SQL, Redis, Secret Manager, and GCS resources
+- Quyền GCP đủ để tạo IAM, network, GKE, Cloud SQL, Redis, Secret Manager và GCS trong project `sagelms`
 
-## Bootstrap Remote State
+## Lệnh kiểm tra chung
+
+```bash
+tofu fmt -recursive infra/opentofu
+checkov -d infra/opentofu
+```
+
+Chạy `tofu validate` trong từng stack cụ thể:
 
 ```bash
 cd infra/opentofu/bootstrap
-cp terraform.tfvars.example terraform.tfvars
-tofu init
-tofu fmt -recursive
 tofu validate
-tofu plan
-tofu apply
+
+cd ../envs/devsecops
+tofu validate
 ```
 
-The bootstrap stack creates:
+## Lưu ý bảo mật
 
-- GCS bucket `sagelms-devsecops-tofu-state`
-- IaC service account `sagelms-devsecops-iac-sa`
-- Project IAM roles needed for later OpenTofu applies
-
-## Provision DevSecOps Environment
-
-```bash
-cd infra/opentofu/envs/devsecops
-cp terraform.tfvars.example terraform.tfvars
-tofu init
-tofu fmt -recursive
-tofu validate
-tofu plan
-tofu apply
-```
-
-Apply in phases by reviewing the plan carefully. Do not apply if the plan contains unexpected destroys.
-
-## Security Notes
-
-- Do not commit `terraform.tfvars`, `*.tfvars`, `*.tfplan`, state files, or local secret scratch files.
-- OpenTofu creates Secret Manager metadata only; secret values must be added outside OpenTofu.
-- Cloud SQL user passwords must not be generated through OpenTofu unless a documented exception is accepted.
-- Redis AUTH is enabled by default; the generated AUTH string is sensitive and must be handled as a secret.
+- Không commit `terraform.tfvars`, `*.tfvars`, `*.tfplan`, state files hoặc file local chứa secret.
+- OpenTofu chỉ tạo Secret Manager metadata; secret value thật phải nhập ngoài OpenTofu.
+- Cloud SQL user/password không được tạo bằng OpenTofu nếu không chấp nhận việc password đi vào state.
+- Redis AUTH string là sensitive; hạn chế quyền đọc remote state bucket.
