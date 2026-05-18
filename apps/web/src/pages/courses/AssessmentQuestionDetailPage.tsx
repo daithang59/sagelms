@@ -2,15 +2,15 @@ import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AnimatedPopup, Badge, Button, Card, CardBody, useConfirm } from '@/components/ui';
 import { useToast } from '@/components/Toast';
-import { useChallenges } from '@/hooks';
+import { useAssessments } from '@/hooks';
 import type {
-  Challenge,
-  ChallengeQuestion,
-  ChallengeQuestionRequest,
-  ChallengeQuestionSet,
-  ChallengeQuestionType,
+  Assessment,
+  AssessmentQuestion,
+  AssessmentQuestionRequest,
+  AssessmentQuestionSet,
+  AssessmentQuestionType,
   QuestionMediaType,
-} from '@/types/challenge';
+} from '@/types/assessment';
 import {
   ArrowLeft,
   ChevronLeft,
@@ -35,7 +35,7 @@ interface ChoiceDraft {
 interface QuestionDraft {
   localId: string;
   id?: string;
-  type: ChallengeQuestionType;
+  type: AssessmentQuestionType;
   prompt: string;
   mediaType: QuestionMediaType;
   mediaUrl: string;
@@ -170,7 +170,7 @@ function parseImportedQuestions(input: unknown): { drafts: QuestionDraft[]; erro
   return { drafts, errors };
 }
 
-const toDraft = (question: ChallengeQuestion): QuestionDraft => ({
+const toDraft = (question: AssessmentQuestion): QuestionDraft => ({
   localId: question.id,
   id: question.id,
   type: question.type,
@@ -205,12 +205,12 @@ function getYouTubeEmbedUrl(url: string) {
 }
 
 export default function QuestionPage() {
-  const { id, questionSetId, questionId } = useParams<{ id: string; questionSetId?: string; questionId?: string }>();
+  const { courseId, id, questionSetId, questionId } = useParams<{ courseId: string; id: string; questionSetId?: string; questionId?: string }>();
   const navigate = useNavigate();
   const { showToast } = useToast();
   const confirm = useConfirm();
   const {
-    fetchChallenge,
+    fetchAssessment,
     fetchQuestionSet,
     createQuestionSet,
     updateQuestionSet,
@@ -218,12 +218,13 @@ export default function QuestionPage() {
     addQuestionToSet,
     updateQuestion,
     deleteQuestion,
-  } = useChallenges();
+  } = useAssessments();
 
-  const [challenge, setChallenge] = useState<Challenge | null>(null);
-  const [questionSet, setQuestionSet] = useState<ChallengeQuestionSet | null>(null);
+  const [Assessment, setAssessment] = useState<Assessment | null>(null);
+  const [questionSet, setQuestionSet] = useState<AssessmentQuestionSet | null>(null);
   const [setTitle, setSetTitle] = useState('');
   const [setTimeLimit, setSetTimeLimit] = useState<number | ''>('');
+  const [setMaxAttempts, setSetMaxAttempts] = useState<number | ''>('');
   const [drafts, setDrafts] = useState<QuestionDraft[]>([]);
   const [activeLocalId, setActiveLocalId] = useState('');
   const [pendingDraft, setPendingDraft] = useState<PendingDraft | null>(null);
@@ -248,18 +249,19 @@ export default function QuestionPage() {
   const youtubeEmbedUrl = activeDraft?.mediaType === 'VIDEO' ? getYouTubeEmbedUrl(mediaUrl) : '';
 
   useEffect(() => {
-    if (!id) return;
+    if (!courseId || !id) return;
     let ignore = false;
 
-    fetchChallenge(id)
+    fetchAssessment(courseId, id)
       .then(async (detail) => {
         if (ignore) return;
-        setChallenge(detail.challenge);
+        setAssessment(detail.assessment);
 
         if (!questionSetId || questionSetId === 'new') {
           setQuestionSet(null);
           setSetTitle('');
           setSetTimeLimit('');
+          setSetMaxAttempts('');
           const blank = createBlankDraft();
           setDrafts([]);
           setActiveLocalId(blank.localId);
@@ -279,6 +281,7 @@ export default function QuestionPage() {
         setQuestionSet(setDetail.questionSet);
         setSetTitle(setDetail.questionSet.title);
         setSetTimeLimit(setDetail.questionSet.timeLimitMinutes ?? '');
+        setSetMaxAttempts(setDetail.questionSet.maxAttempts ?? '');
         setDrafts(loadedDrafts);
         setActiveLocalId(targetDraft.localId);
         setPendingDraft(loadedDrafts.length > 0 ? null : { draft: targetDraft, insertIndex: 0, edge: 'after' });
@@ -293,7 +296,7 @@ export default function QuestionPage() {
     return () => {
       ignore = true;
     };
-  }, [fetchChallenge, fetchQuestionSet, id, questionId, questionSetId, showToast]);
+  }, [courseId, fetchAssessment, fetchQuestionSet, id, questionId, questionSetId, showToast]);
 
   const patchActiveDraft = (patch: Partial<QuestionDraft>) => {
     if (!activeDraft) return;
@@ -503,7 +506,7 @@ export default function QuestionPage() {
     return filledDrafts;
   };
 
-  const toQuestionPayload = (draft: QuestionDraft, sortOrder: number): ChallengeQuestionRequest => ({
+  const toQuestionPayload = (draft: QuestionDraft, sortOrder: number): AssessmentQuestionRequest => ({
   prompt: draft.prompt.trim(),
   type: draft.type,
   mediaType: draft.mediaType,
@@ -526,6 +529,7 @@ export default function QuestionPage() {
       const setPayload = {
         title: setTitle.trim(),
         timeLimitMinutes: setTimeLimit === '' ? null : Number(setTimeLimit),
+        maxAttempts: setMaxAttempts === '' ? null : Number(setMaxAttempts),
         sortOrder: questionSet?.sortOrder ?? 0,
       };
       const savedSet = questionSet
@@ -535,21 +539,21 @@ export default function QuestionPage() {
       const currentQuestionIds = new Set(validDrafts.flatMap((draft) => (draft.id ? [draft.id] : [])));
       const deletedQuestionIds = persistedQuestionIds.filter((questionId) => !currentQuestionIds.has(questionId));
       for (const questionId of deletedQuestionIds) {
-        await deleteQuestion(savedSet.challengeId, questionId);
+        await deleteQuestion(savedSet.assessmentId, questionId);
       }
 
       for (let index = 0; index < validDrafts.length; index++) {
         const draft = validDrafts[index];
         const payload = toQuestionPayload(draft, index);
         if (draft.id) {
-          await updateQuestion(savedSet.challengeId, draft.id, payload);
+          await updateQuestion(savedSet.assessmentId, draft.id, payload);
         } else {
           await addQuestionToSet(savedSet.id, payload);
         }
       }
 
       showToast('Đã lưu tập câu hỏi.', 'success');
-      navigate(`/challenges/${id}`);
+      navigate(`/courses/${courseId}?assessmentTab=questions`);
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Lưu tập câu hỏi thất bại', 'error');
     } finally {
@@ -573,7 +577,7 @@ export default function QuestionPage() {
         await deleteQuestionSet(id, questionSet.id);
       }
       showToast('Đã xóa tập câu hỏi.', 'success');
-      navigate(`/challenges/${id}`);
+      navigate(`/courses/${courseId}?assessmentTab=questions`);
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Xóa tập câu hỏi thất bại', 'error');
     } finally {
@@ -581,7 +585,7 @@ export default function QuestionPage() {
     }
   };
 
-  if (!challenge || !activeDraft) {
+  if (!Assessment || !activeDraft) {
     return (
       <div className="flex min-h-[400px] items-center justify-center">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-violet-500 border-t-transparent" />
@@ -591,7 +595,7 @@ export default function QuestionPage() {
 
   return (
     <div className="space-y-8">
-      <button onClick={() => navigate(`/challenges/${challenge.id}`)} className="flex items-center gap-2 text-slate-600 transition-colors hover:text-slate-900">
+      <button onClick={() => navigate(`/courses/${courseId}?assessmentTab=questions`)} className="flex items-center gap-2 text-slate-600 transition-colors hover:text-slate-900">
         <ArrowLeft className="h-5 w-5" />
         Quay lại chi tiết thử thách
       </button>
@@ -599,7 +603,7 @@ export default function QuestionPage() {
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Soạn tập câu hỏi</h1>
-          <p className="mt-1 text-slate-500">Tạo một tập câu hỏi gồm nhiều câu trắc nghiệm và tự luận cho thử thách.</p>
+          <p className="mt-1 text-slate-500">Tạo một tập câu hỏi gồm nhiều câu trắc nghiệm và tự luận cho bài kiểm tra.</p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row">
           <input
@@ -611,25 +615,25 @@ export default function QuestionPage() {
           />
           <Button type="button" variant="secondary" onClick={() => setShowImportGuide(true)} disabled={saving}>
             <HelpCircle className="mr-2 h-4 w-4" />
-            Hướng dẫn JSON
+            Hướng dẫn
           </Button>
           <Button type="button" variant="secondary" onClick={() => importInputRef.current?.click()} disabled={saving}>
             <Upload className="mr-2 h-4 w-4" />
-            Import JSON
+            Import
           </Button>
           <Button type="button" variant="secondary" onClick={handleDeleteQuestionSet} disabled={saving}>
             <Trash2 className="mr-2 h-4 w-4" />
-            Xóa tập câu hỏi
+            Xóa
           </Button>
           <Button type="button" onClick={handleSaveQuestionSet} isLoading={saving}>
             <Save className="mr-2 h-4 w-4" />
-            Lưu tập câu hỏi
+            Lưu
           </Button>
         </div>
       </div>
 
       <Card>
-        <CardBody className="grid gap-4 md:grid-cols-[1fr_220px] md:items-end">
+        <CardBody className="grid gap-4 md:grid-cols-[1fr_200px_200px] md:items-end">
           <div>
             <label className="mb-2 block text-sm font-medium text-slate-700">Tiêu đề tập câu hỏi</label>
             <input
@@ -640,12 +644,24 @@ export default function QuestionPage() {
             />
           </div>
           <div>
-            <label className="mb-2 block text-sm font-medium text-slate-700">Thời gian (phút)</label>
+            <label className="mb-2 block text-sm font-medium text-slate-700">Thời gian</label>
             <input
               type="number"
               min={0}
               value={setTimeLimit}
+              placeholder="0 phút"
               onChange={(event) => setSetTimeLimit(event.target.value === '' ? '' : Number(event.target.value))}
+              className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
+            />
+          </div>
+          <div>
+            <label className="mb-2 block text-sm font-medium text-slate-700">Số lượt làm lại</label>
+            <input
+              type="number"
+              min={0}
+              value={setMaxAttempts}
+              onChange={(event) => setSetMaxAttempts(event.target.value === '' ? '' : Number(event.target.value))}
+              placeholder="0 lần"
               className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
             />
           </div>
@@ -868,13 +884,10 @@ export default function QuestionPage() {
                   }}
                   className={`rounded-xl border p-3 text-left transition hover:border-violet-200 hover:bg-violet-50/50 ${draggingLocalId === draft.localId ? 'opacity-60 ring-2 ring-violet-200' : ''} ${draft.localId === activeLocalId ? 'border-violet-300 bg-violet-50' : 'border-slate-100 bg-white'}`}
                 >
-                  <div className="mb-2 flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-                        <GripVertical className="h-4 w-4 text-slate-300" />
-                        Câu {index + 1}
-                      </div>
-                      <p className="line-clamp-2 text-sm text-slate-500">{draft.prompt || 'Câu hỏi chưa có nội dung'}</p>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                      <GripVertical className="h-4 w-4 text-slate-300" />
+                      Câu {index + 1}
                     </div>
                     <div className="flex shrink-0 items-center gap-1">
                       <button
@@ -911,6 +924,9 @@ export default function QuestionPage() {
                       </button>
                     </div>
                   </div>
+                  <p className="my-2 ml-1 text-sm text-slate-500 line-clamp-2 break-words">
+                    {draft.prompt || 'Câu hỏi chưa có nội dung'}
+                  </p>
                   <div className="flex flex-wrap gap-2">
                     <Badge variant={draft.type === 'ESSAY' ? 'info' : 'brand'}>
                       {draft.type === 'ESSAY' ? 'Tự luận' : 'Trắc nghiệm'}
@@ -934,7 +950,7 @@ export default function QuestionPage() {
               <div>
                 <h2 className="text-xl font-bold text-slate-900">Hướng dẫn import câu hỏi JSON</h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  File chỉ chứa danh sách câu hỏi. Tiêu đề, thời gian và trạng thái thử thách vẫn nhập trong form.
+                  File chỉ chứa danh sách câu hỏi. Tiêu đề, thời gian và trạng thái bài kiểm tra vẫn nhập trong form.
                 </p>
               </div>
               <button
@@ -1050,3 +1066,5 @@ export default function QuestionPage() {
     </div>
   );
 }
+
+

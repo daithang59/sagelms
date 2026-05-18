@@ -45,13 +45,13 @@ const navigation = [
     roles: ['ADMIN'],
   },
   {
-    name: 'Quản trị khóa',
+    name: 'Quản lý khóa học',
     path: '/admin/courses',
     icon: BookOpen,
     roles: ['ADMIN'],
   },
   {
-    name: 'Duyệt giáo viên',
+    name: 'Duyệt giảng viên',
     path: '/admin/instructors',
     icon: Users,
     roles: ['ADMIN'],
@@ -156,3 +156,4 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
     </aside>
   );
 }
+

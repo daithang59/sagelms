@@ -3,4 +3,6 @@ export { useLessons } from './useLessons';
 export { useEnrollment } from './useEnrollment';
 export { useChallenges } from './useChallenges';
 export { useChallengeAttempt } from './useChallengeAttempt';
+export { useAssessments } from './useAssessments';
+export { useAssessmentAttempt } from './useAssessmentAttempt';
 export { useUserProfiles } from './useUserProfiles';

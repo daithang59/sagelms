@@ -1,7 +1,7 @@
-import { useEffect, useState, type CSSProperties, type FormEvent } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState, type CSSProperties, type FormEvent } from 'react';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Card, CardBody, Button, Badge, useConfirm } from '@/components/ui';
-import { useCourses, useLessons, useEnrollment } from '@/hooks';
+import { useAssessmentAttempt, useCourses, useLessons, useEnrollment, useAssessments, useUserProfiles } from '@/hooks';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/components/Toast';
 import {
@@ -24,11 +24,30 @@ import {
   X,
   UserX,
   UserCheck,
+  Edit,
 } from 'lucide-react';
 import type { Course, Enrollment, EnrollmentStatus } from '@/types/course';
 import LessonForm from './LessonForm';
 import CourseForm from './CourseForm';
+import AssessmentGradebookPage from './AssessmentGradebookPage';
+import AssessmentResultListPage from './AssessmentResultListPage';
+import AssessmentSubmitPage from './AssessmentSubmitPage';
 import { AnimatePresence, motion } from 'framer-motion';
+import type { Assessment, AssessmentQuestionSet, AssessmentSubmissionSummary } from '@/types/assessment';
+
+type CourseAssessmentTab = 'questions' | 'submissions' | 'results' | 'gradebook';
+
+interface CourseAssessmentDetail {
+  assessment: Assessment;
+  questionSets: AssessmentQuestionSet[];
+}
+
+function visibleAssessmentQuestionSets(questionSets: AssessmentQuestionSet[]) {
+  return questionSets.filter((questionSet) => !(
+    questionSet.questionCount === 0
+    && questionSet.title.trim().toLowerCase() === 'tap cau hoi mac dinh'
+  ));
+}
 
 function getEnrollmentStatusLabel(status: string) {
   if (status === 'PENDING') return 'Chờ duyệt';
@@ -381,9 +400,18 @@ function InstructorProfileModal({
 export default function CourseDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const { fetchCourse, loading: courseLoading, error: courseError } = useCourses();
   const { lessons, loading: lessonsLoading, fetchLessonsByCourse, fetchLessonsForManagement, deleteLesson, publishLesson } = useLessons();
+  const { fetchAssessments, fetchAssessment, createAssessment } = useAssessments();
+  const {
+    startQuestionSetAttempt,
+    fetchCourseSubmissions,
+    fetchMyCourseResults,
+    loading: assessmentAttemptLoading,
+  } = useAssessmentAttempt();
+  const { fetchPublicUserProfiles } = useUserProfiles();
   const {
     enroll,
     unenroll,
@@ -406,6 +434,11 @@ export default function CourseDetailPage() {
   const [showInstructorProfile, setShowInstructorProfile] = useState(false);
   const [droppingEnrollment, setDroppingEnrollment] = useState<Enrollment | null>(null);
   const [showUnenrollConfirm, setShowUnenrollConfirm] = useState(false);
+  const [assessmentDetails, setAssessmentDetails] = useState<CourseAssessmentDetail[]>([]);
+  const [assessmentSubmissions, setAssessmentSubmissions] = useState<AssessmentSubmissionSummary[]>([]);
+  const [myAssessmentResults, setMyAssessmentResults] = useState<AssessmentSubmissionSummary[]>([]);
+  const [participantNames, setParticipantNames] = useState<Record<string, string>>({});
+  const [creatingAssessment, setCreatingAssessment] = useState(false);
 
   const canCreateCourse = user?.role === 'INSTRUCTOR' || user?.role === 'ADMIN';
   const isOwner = canCreateCourse && course?.instructorId === user?.id;
@@ -414,6 +447,40 @@ export default function CourseDetailPage() {
   const canEnroll = (user?.role === 'STUDENT' || user?.role === 'INSTRUCTOR') && !isOwner && !isAdmin;
   const isEnrolled = enrollmentStatus === 'ACTIVE' || enrollmentStatus === 'COMPLETED';
   const isPendingApproval = enrollmentStatus === 'PENDING';
+  const rawAssessmentTab = searchParams.get('assessmentTab');
+  const assessmentTab: CourseAssessmentTab = rawAssessmentTab === 'submissions' && canManageCourse
+    ? 'submissions'
+    : rawAssessmentTab === 'gradebook' && canManageCourse
+      ? 'gradebook'
+      : rawAssessmentTab === 'results' && !canManageCourse
+        ? 'results'
+        : 'questions';
+
+  const assessmentQuestionSets = useMemo(() => (
+    assessmentDetails.flatMap((detail) =>
+      detail.questionSets.map((questionSet) => ({
+        assessment: detail.assessment,
+        questionSet,
+      })),
+    )
+  ), [assessmentDetails]);
+
+  const latestAssessmentSubmissions = useMemo(() => {
+    const grouped = new Map<string, AssessmentSubmissionSummary>();
+    assessmentSubmissions.forEach((submission) => {
+      const key = `${submission.participantId}:${submission.questionSetId}`;
+      const existing = grouped.get(key);
+      if (!existing || (submission.submittedAt || '') > (existing.submittedAt || '')) {
+        grouped.set(key, submission);
+      }
+    });
+    return Array.from(grouped.values());
+  }, [assessmentSubmissions]);
+
+  const participantIdKey = useMemo(() => {
+    const ids = latestAssessmentSubmissions.map((submission) => submission.participantId);
+    return Array.from(new Set(ids)).sort().join(',');
+  }, [latestAssessmentSubmissions]);
 
   useEffect(() => {
     if (id) {
@@ -429,6 +496,104 @@ export default function CourseDetailPage() {
       loadLessons(id);
     }
   }, [id, course, canManageCourse, fetchLessonsByCourse, fetchLessonsForManagement]);
+
+  useEffect(() => {
+    if (!id || !course) return;
+    if (!canManageCourse && !isEnrolled) return;
+    let cancelled = false;
+
+    void Promise.resolve().then(async () => {
+      try {
+        const response = await fetchAssessments(id);
+        const details = await Promise.all(
+          (response.content || []).map(async (assessment) => {
+            try {
+              const detail = await fetchAssessment(id, assessment.id);
+              return {
+                assessment: detail.assessment,
+                questionSets: visibleAssessmentQuestionSets(detail.questionSets || []),
+              };
+            } catch (err) {
+              console.error('Failed to load assessment detail:', err);
+              return { assessment, questionSets: [] };
+            }
+          }),
+        );
+        if (!cancelled) {
+          setAssessmentDetails(details);
+        }
+      } catch (err) {
+        console.error('Failed to load assessments:', err);
+        if (!cancelled) {
+          setAssessmentDetails([]);
+        }
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id, course, canManageCourse, isEnrolled, fetchAssessment, fetchAssessments]);
+
+  useEffect(() => {
+    if (!id || !course) return;
+    if (!canManageCourse && !isEnrolled) return;
+    let cancelled = false;
+
+    void Promise.resolve().then(async () => {
+      try {
+        if (canManageCourse) {
+          const submissions = await fetchCourseSubmissions(id);
+          if (!cancelled) {
+            setAssessmentSubmissions(submissions);
+            setMyAssessmentResults([]);
+          }
+          return;
+        }
+
+        const results = await fetchMyCourseResults(id);
+        if (!cancelled) {
+          setMyAssessmentResults(results);
+          setAssessmentSubmissions([]);
+        }
+      } catch (err) {
+        console.error('Failed to load assessment submissions:', err);
+        if (!cancelled) {
+          setAssessmentSubmissions([]);
+          setMyAssessmentResults([]);
+        }
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id, course, canManageCourse, isEnrolled, fetchCourseSubmissions, fetchMyCourseResults]);
+
+  useEffect(() => {
+    if (!participantIdKey) {
+      void Promise.resolve().then(() => setParticipantNames({}));
+      return;
+    }
+
+    let cancelled = false;
+    fetchPublicUserProfiles(participantIdKey.split(','))
+      .then((profiles) => {
+        if (cancelled) return;
+        setParticipantNames(Object.fromEntries(
+          profiles.map((profile) => [profile.id, profile.fullName || profile.email]),
+        ));
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setParticipantNames({});
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchPublicUserProfiles, participantIdKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -563,6 +728,66 @@ export default function CourseDetailPage() {
       return;
     }
     navigate(`/courses/${id}/lessons/${lessonId}`);
+  };
+
+  const setAssessmentTab = (tab: CourseAssessmentTab) => {
+    const nextParams = new URLSearchParams(searchParams);
+    if (tab === 'questions') {
+      nextParams.delete('assessmentTab');
+    } else {
+      nextParams.set('assessmentTab', tab);
+    }
+    setSearchParams(nextParams);
+  };
+
+  const handleAddAssessmentQuestionSet = async () => {
+    if (!id || !course) return;
+    setCreatingAssessment(true);
+    try {
+      const assessment = await createAssessment(id, {
+        title: `Bài kiểm tra ${assessmentQuestionSets.length + 1}`,
+        description: `Bài kiểm tra thuộc khóa học ${course.title}`,
+        thumbnailUrl: course.thumbnailUrl || '',
+        category: course.category || 'Course assessment',
+        status: 'PUBLISHED',
+        timeLimitMinutes: null,
+        maxAttempts: 1,
+      });
+      navigate(`/courses/${id}/assessments/${assessment.id}/question-sets/new`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Không thể tạo bài kiểm tra';
+      showToast(message, 'error');
+    } finally {
+      setCreatingAssessment(false);
+    }
+  };
+
+  const handleStartAssessmentQuestionSet = async (assessment: Assessment, questionSet: AssessmentQuestionSet) => {
+    if (!id) return;
+    const maxAttempts = Math.max(1, assessment.maxAttempts || 1);
+    if (questionSet.attemptCount >= maxAttempts) {
+      showToast('Bạn đã hết lượt làm bài kiểm tra này.', 'warning');
+      return;
+    }
+
+    const confirmed = await confirm({
+      title: questionSet.timeLimitMinutes ? 'Bắt đầu bài làm có giới hạn thời gian' : 'Bắt đầu bài làm',
+      message: questionSet.timeLimitMinutes
+        ? `Bạn có ${questionSet.timeLimitMinutes} phút để hoàn thành phần này.`
+        : 'Hệ thống sẽ tạo một lượt làm bài mới cho phần này.',
+      confirmLabel: questionSet.completed ? 'Làm lại' : 'Bắt đầu',
+      cancelLabel: 'Hủy',
+      variant: 'default',
+    });
+    if (!confirmed) return;
+
+    try {
+      const attempt = await startQuestionSetAttempt(questionSet.id);
+      navigate(`/courses/${id}/assessments/${assessment.id}/take?attemptId=${attempt.id}&questionSetId=${questionSet.id}&startedAt=${encodeURIComponent(attempt.startedAt)}`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Không thể bắt đầu bài kiểm tra';
+      showToast(message, 'error');
+    }
   };
 
   const getLessonIcon = (type: string) => {
@@ -787,6 +1012,131 @@ export default function CourseDetailPage() {
               )}
             </CardBody>
           </Card>
+
+          {(canManageCourse || isEnrolled) && (
+            <Card className="rounded-b-none border-b-0">
+              <CardBody>
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="button" variant={assessmentTab === 'questions' ? 'primary' : 'secondary'} onClick={() => setAssessmentTab('questions')}>
+                      Câu hỏi
+                    </Button>
+                    {canManageCourse && (
+                      <Button type="button" variant={assessmentTab === 'submissions' ? 'primary' : 'secondary'} onClick={() => setAssessmentTab('submissions')}>
+                        Nộp bài
+                      </Button>
+                    )}
+                    {!canManageCourse && (
+                      <Button type="button" variant={assessmentTab === 'results' ? 'primary' : 'secondary'} onClick={() => setAssessmentTab('results')}>
+                        Kết quả
+                      </Button>
+                    )}
+                    {canManageCourse && (
+                      <Button type="button" variant={assessmentTab === 'gradebook' ? 'primary' : 'secondary'} onClick={() => setAssessmentTab('gradebook')}>
+                        Bảng điểm
+                      </Button>
+                    )}
+                  </div>
+                  {canManageCourse && assessmentTab === 'questions' && (
+                    <Button size="sm" onClick={handleAddAssessmentQuestionSet} isLoading={creatingAssessment}>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Thêm bài kiểm tra
+                    </Button>
+                  )}
+                </div>
+              </CardBody>
+            </Card>
+          )}
+
+          {(canManageCourse || isEnrolled) && assessmentTab === 'questions' && (
+            <Card className="!mt-0 rounded-t-none">
+              <CardBody className="p-0">
+                <div className="p-2 mb-4 border-b border-slate-100 flex items-center justify-between">
+                  <h2 className="text-lg font-bold text-slate-800">
+                    Bài kiểm tra
+                    <span className="ml-2 text-sm font-normal text-slate-500">
+                      ({assessmentQuestionSets.length} tập)
+                    </span>
+                  </h2>
+                </div>
+
+                {assessmentQuestionSets.length > 0 ? (
+                  <div className="divide-y divide-slate-100">
+                    {assessmentQuestionSets.map(({ assessment, questionSet }, index) => (
+                      <div
+                        key={`${assessment.id}:${questionSet.id}`}
+                        className="pressable flex w-full flex-col gap-4 p-4 text-left transition-colors hover:bg-slate-50 md:flex-row md:items-center"
+                      >
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-100 text-violet-600">
+                          <FileText className="h-5 w-5" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h3 className="truncate font-medium text-slate-800">Tập {index + 1}: {questionSet.title}</h3>
+                          <div className="mt-1 flex flex-wrap gap-3 text-sm text-slate-500">
+                            <span>{questionSet.questionCount} câu hỏi</span>
+                            <span>{questionSet.timeLimitMinutes ? `${questionSet.timeLimitMinutes} phút` : 'Không giới hạn'}</span>
+                            {questionSet.attemptCount > 0 && <span>{questionSet.attemptCount} lần nộp</span>}
+                          </div>
+                        </div>
+                        {canManageCourse ? (
+                          <Button
+                            variant="secondary"
+                            onClick={() => navigate(`/courses/${id}/assessments/${assessment.id}/question-sets/${questionSet.id}`)}
+                          >
+                            <Edit className="mr-2 h-4 w-4" />
+                            Quản lý
+                          </Button>
+                        ) : questionSet.attemptCount < Math.max(1, assessment.maxAttempts || 1) ? (
+                          <Button
+                            onClick={() => handleStartAssessmentQuestionSet(assessment, questionSet)}
+                            isLoading={assessmentAttemptLoading}
+                          >
+                            <PlayCircle className="mr-2 h-4 w-4" />
+                            {questionSet.completed ? 'Làm lại' : 'Làm bài'}
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="secondary"
+                            onClick={() => {
+                              if (questionSet.latestSubmittedAttemptId) {
+                                navigate(`/courses/${id}/assessments/${assessment.id}/result/${questionSet.latestSubmittedAttemptId}`);
+                              }
+                            }}
+                            disabled={!questionSet.latestSubmittedAttemptId}
+                          >
+                            <Eye className="mr-2 h-4 w-4" />
+                            Xem kết quả
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-12 text-center">
+                    <FileText className="mx-auto mb-4 h-12 w-12 text-slate-300" />
+                    <p className="text-slate-500">Chưa có bài kiểm tra nào</p>
+                  </div>
+                )}
+              </CardBody>
+            </Card>
+          )}
+
+          {(canManageCourse || isEnrolled) && assessmentTab === 'submissions' && canManageCourse && id && (
+            <AssessmentSubmitPage
+              courseId={id}
+              submissions={latestAssessmentSubmissions}
+              participantNames={participantNames}
+              className="!mt-0 rounded-t-none"
+            />
+          )}
+
+          {(canManageCourse || isEnrolled) && assessmentTab === 'gradebook' && canManageCourse && (
+            <AssessmentGradebookPage submissions={latestAssessmentSubmissions} participantNames={participantNames} className="!mt-0 rounded-t-none" />
+          )}
+
+          {(canManageCourse || isEnrolled) && assessmentTab === 'results' && !canManageCourse && id && (
+            <AssessmentResultListPage courseId={id} submissions={myAssessmentResults} className="!mt-0 rounded-t-none" />
+          )}
         </div>
 
         {/* Sidebar */}
