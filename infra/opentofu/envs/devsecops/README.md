@@ -10,7 +10,7 @@ Environment này dựng nền cloud chính cho SageLMS trên GCP/GKE.
 - IAM service accounts, GitHub Workload Identity Federation, ESO Workload Identity binding
 - Secret Manager skeleton
 - Cloud Storage buckets cho materials/evidence
-- Cloud SQL PostgreSQL 16 private IP
+- CloudNativePG backup foundation: GCS backup bucket, GSA và Workload Identity binding
 - Memorystore Redis 7 Standard HA private IP
 
 ## Cách chạy
@@ -38,8 +38,8 @@ tofu apply devsecops.tfplan
 
 - `github_owner`: GitHub org/user sở hữu repo, hiện dùng `daithang59`
 - `master_authorized_networks`: CIDR được phép truy cập GKE control plane
-- `cloud_sql_deletion_protection`: giữ `true` cho môi trường dùng chung
-- `enable_cloud_sql`, `enable_managed_redis`: mặc định `true` cho baseline đồ án
+- `enable_cnpg_backup`, `enable_managed_redis`: mặc định `true` cho baseline đồ án
+- `cnpg_backup_*`: bucket/GSA/KSA mapping cho CloudNativePG backup/WAL
 
 ## Kubeconfig
 
@@ -54,6 +54,7 @@ OpenTofu chỉ tạo Secret Manager metadata. Thêm secret value ngoài OpenTofu
 
 ```bash
 printf '%s' '<SECRET_VALUE>' | gcloud secrets versions add sagelms-devsecops-jwt-secret --data-file=-
+printf '%s' 'sagelms_app' | gcloud secrets versions add sagelms-devsecops-cnpg-app-username --data-file=-
 ```
 
 Không đưa secret value vào `terraform.tfvars`.

@@ -13,6 +13,7 @@ GCP service account ID bị giới hạn 30 ký tự. Phần triển khai hiện
 | External Secrets Operator | `sagelms-devsecops-eso-sa@sagelms.iam.gserviceaccount.com` |
 | FluxCD | `sagelms-devsecops-flux-sa@sagelms.iam.gserviceaccount.com` |
 | App runtime | `sagelms-devsecops-app-sa@sagelms.iam.gserviceaccount.com` |
+| CloudNativePG backup | `sagelms-devsecops-cnpg-sa@sagelms.iam.gserviceaccount.com` |
 
 ## GitHub Actions Truy Cập GCP
 
@@ -61,6 +62,16 @@ GSA: sagelms-devsecops-flux-sa@sagelms.iam.gserviceaccount.com
 
 Chưa có FluxCD KSA mapping được kích hoạt vì FluxCD chưa được bootstrap.
 
+CloudNativePG backup dùng Kubernetes Workload Identity:
+
+```text
+KSA: sagelms-data/sagelms-postgres
+GSA: sagelms-devsecops-cnpg-sa@sagelms.iam.gserviceaccount.com
+IAM member: serviceAccount:sagelms.svc.id.goog[sagelms-data/sagelms-postgres]
+```
+
+GSA này được cấp `roles/storage.objectAdmin` trên bucket `sagelms-cnpg-backup-sagelms` để ghi base backup/WAL và đọc khi restore.
+
 ## Quy Ước Secret Cho Runtime
 
 `auth-service` cần các environment variables sau:
@@ -70,8 +81,8 @@ Chưa có FluxCD KSA mapping được kích hoạt vì FluxCD chưa được boo
 | `DB_HOST` | `db-common-secret.DB_HOST` |
 | `DB_PORT` | `db-common-secret.DB_PORT` |
 | `DB_NAME` | `db-common-secret.DB_NAME` |
-| `DB_USER` | `db-auth-secret.DB_USER` |
-| `DB_PASSWORD` | `db-auth-secret.DB_PASSWORD` |
+| `DB_USER` | `db-app-secret.DB_USER` |
+| `DB_PASSWORD` | `db-app-secret.DB_PASSWORD` |
 | `JWT_SECRET` | `jwt-secret.JWT_SECRET` |
 | `GATEWAY_SHARED_SECRET` | `gateway-shared-secret.GATEWAY_SHARED_SECRET` |
 

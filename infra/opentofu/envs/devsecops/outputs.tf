@@ -38,19 +38,17 @@ output "workload_identity_pool" {
   value       = module.gke.workload_identity_pool
 }
 
-output "cloud_sql_instance_name" {
-  description = "Cloud SQL instance name."
-  value       = module.cloud_sql.instance_name
-}
-
-output "cloud_sql_private_ip_address" {
-  description = "Cloud SQL private IP address."
-  value       = module.cloud_sql.private_ip_address
-}
-
-output "cloud_sql_database_name" {
-  description = "Cloud SQL database name."
-  value       = module.cloud_sql.database_name
+output "cnpg_backup" {
+  description = "CloudNativePG backup bucket and Workload Identity handoff."
+  value = var.enable_cnpg_backup ? {
+    bucket_name                   = module.cnpg_backup[0].bucket_name
+    bucket_url                    = module.cnpg_backup[0].bucket_url
+    object_store_destination_path = module.cnpg_backup[0].object_store_destination_path
+    service_account_email         = module.cnpg_backup[0].service_account_email
+    workload_identity_member      = module.cnpg_backup[0].workload_identity_member
+    ksa_namespace                 = module.cnpg_backup[0].ksa_namespace
+    ksa_name                      = module.cnpg_backup[0].ksa_name
+  } : null
 }
 
 output "redis_instance_name" {
@@ -74,6 +72,7 @@ output "service_account_emails" {
     iac            = local.iac_service_account_email
     github_actions = module.iam.github_actions_service_account_email
     eso            = module.iam.eso_service_account_email
+    cnpg_backup    = var.enable_cnpg_backup ? module.cnpg_backup[0].service_account_email : null
     flux           = module.iam.flux_service_account_email
     app_runtime    = module.iam.app_runtime_service_account_email
     gke_nodes      = module.gke.node_service_account_email

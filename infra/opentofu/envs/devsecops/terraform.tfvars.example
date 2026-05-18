@@ -5,14 +5,16 @@ zones          = ["asia-southeast1-b", "asia-southeast1-c"]
 environment    = "devsecops"
 name_prefix    = "sagelms-devsecops"
 
-enable_cloud_sql      = true
-enable_managed_redis  = true
-redis_auth_enabled    = true
-cloud_sql_pitr_enabled = false
+enable_cnpg_backup  = true
+enable_managed_redis = true
+redis_auth_enabled   = true
 
-# Keep this true for shared/demo environments. Temporarily set false only when
-# intentionally destroying the Cloud SQL instance.
-cloud_sql_deletion_protection = true
+cnpg_backup_bucket_name         = "sagelms-cnpg-backup-sagelms"
+cnpg_backup_service_account_id  = "sagelms-devsecops-cnpg-sa"
+cnpg_backup_ksa_namespace       = "sagelms-data"
+cnpg_backup_ksa_name            = "sagelms-postgres"
+cnpg_backup_object_prefix       = "sagelms-postgres"
+cnpg_backup_retention_days      = 30
 
 # Replace with fixed admin/self-hosted-runner/bastion IPs before applying GKE.
 master_authorized_networks = [

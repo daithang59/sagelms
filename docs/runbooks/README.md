@@ -43,7 +43,7 @@ Hướng dẫn tạo, cấu hình và phân label cho self-hosted GitHub Actions
 
 Hướng dẫn vận hành phần Cloud/IaC DevSecOps:
 - Chạy bootstrap và environment bằng OpenTofu
-- Kiểm tra GKE, Cloud SQL, Redis, Secret Manager, ESO
+- Kiểm tra GKE, CloudNativePG backup foundation, Redis, Secret Manager, ESO
 - Tạm dừng để tiết kiệm chi phí
 - Xóa và tạo lại tài nguyên đúng thứ tự
 

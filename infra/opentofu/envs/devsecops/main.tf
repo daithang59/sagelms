@@ -63,19 +63,21 @@ module "storage" {
   depends_on = [module.project_services]
 }
 
-module "cloud_sql" {
-  source                               = "../../modules/cloud-sql"
-  enabled                              = var.enable_cloud_sql
-  project_id                           = var.project_id
-  region                               = var.region
-  name_prefix                          = var.name_prefix
-  labels                               = local.labels
-  network_self_link                    = module.network.vpc_self_link
-  private_service_access_connection_id = module.network.private_service_access_connection_id
-  deletion_protection                  = var.cloud_sql_deletion_protection
-  point_in_time_recovery_enabled       = var.cloud_sql_pitr_enabled
+module "cnpg_backup" {
+  count = var.enable_cnpg_backup ? 1 : 0
 
-  depends_on = [module.project_services, module.network]
+  source             = "../../modules/cnpg-backup"
+  project_id         = var.project_id
+  region             = var.region
+  bucket_name        = var.cnpg_backup_bucket_name
+  service_account_id = var.cnpg_backup_service_account_id
+  ksa_namespace      = var.cnpg_backup_ksa_namespace
+  ksa_name           = var.cnpg_backup_ksa_name
+  object_prefix      = var.cnpg_backup_object_prefix
+  retention_days     = var.cnpg_backup_retention_days
+  labels             = local.labels
+
+  depends_on = [module.project_services]
 }
 
 module "redis" {
