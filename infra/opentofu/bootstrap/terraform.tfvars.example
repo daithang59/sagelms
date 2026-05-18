@@ -1,0 +1,4 @@
+project_id        = "sagelms"
+region            = "asia-southeast1"
+name_prefix       = "sagelms-devsecops"
+state_bucket_name = "sagelms-devsecops-tofu-state"
