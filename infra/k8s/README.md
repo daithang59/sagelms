@@ -20,12 +20,13 @@ Thư mục này chứa các Kubernetes manifests cho môi trường **staging/de
 infra/k8s/
 ├── namespaces/
 │   └── dev.yaml          ← Namespace definition
-├── base/                 ← Kustomize base (sẽ bổ sung)
+├── base/                 ← Kustomize base cho application workloads
 │   └── kustomization.yaml
 ├── devsecops/            ← Namespace/KSA/ExternalSecret foundation cho môi trường cloud
 │   ├── kustomization.yaml
 │   ├── namespaces.yaml
-│   └── cnpg-foundation.yaml
+│   ├── cnpg-foundation.yaml
+│   └── apps/             ← Overlay deploy web/gateway/backend/worker
 ├── README.md             ← File này
 ```
 
@@ -45,7 +46,13 @@ Apply foundation nhẹ cho DevSecOps:
 kubectl apply -k infra/k8s/devsecops/
 ```
 
-Phần `devsecops/` chỉ tạo namespace, ServiceAccount `sagelms-data/sagelms-postgres` và ExternalSecret contract cho CloudNativePG. CloudNativePG operator, Barman plugin, Cluster CR và ScheduledBackup vẫn thuộc phần runtime/GitOps tiếp theo.
+Phần `devsecops/` tạo namespace, ServiceAccount `sagelms-data/sagelms-postgres` và ExternalSecret contract cho CloudNativePG. CloudNativePG operator, Barman plugin, Cluster CR và ScheduledBackup vẫn thuộc phần runtime/GitOps tiếp theo.
+
+Apply application workloads cho DevSecOps sau khi foundation/database/secret store đã sẵn sàng:
+
+```bash
+kubectl apply -k infra/k8s/devsecops/apps/
+```
 
 ## Lưu ý
 

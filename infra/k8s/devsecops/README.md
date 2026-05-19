@@ -11,6 +11,11 @@ infra/k8s/devsecops/
 ├── kustomization.yaml
 ├── namespaces.yaml
 ├── cnpg-foundation.yaml
+├── apps/
+│   ├── kustomization.yaml
+│   ├── app-shared-externalsecret.yaml
+│   ├── ingress.yaml
+│   └── README.md
 └── cloudnativepg-runtime/
     ├── kustomization.yaml
     ├── objectstore.yaml
@@ -27,6 +32,7 @@ infra/k8s/devsecops/
 5. `cloudnativepg-runtime/cluster.yaml` tạo PostgreSQL cluster bằng CloudNativePG operator.
 6. `cloudnativepg-runtime/scheduledbackup.yaml` tạo lịch base backup định kỳ.
 7. Barman Cloud Plugin dùng Workload Identity để ghi WAL/base backup lên GCS.
+8. `apps/` deploy web, gateway, backend services và worker vào namespace `sagelms-devsecops` sau khi foundation/database/secret store đã sẵn sàng.
 
 ## `kustomization.yaml`
 
@@ -53,9 +59,10 @@ Lệnh này chỉ apply phần foundation, chưa tạo PostgreSQL cluster runtim
 
 ## `namespaces.yaml`
 
-File này tạo 2 namespace:
+File này tạo 3 namespace:
 
 ```text
+sagelms-devsecops
 cnpg-system
 sagelms-data
 ```
@@ -63,6 +70,7 @@ sagelms-data
 Ý nghĩa:
 
 - `cnpg-system`: namespace dành cho CloudNativePG operator và Barman Cloud Plugin.
+- `sagelms-devsecops`: namespace dành cho workload ứng dụng SageLMS.
 - `sagelms-data`: namespace dành cho PostgreSQL cluster, PVC, service, backup CR và các secret DB.
 
 Tách database sang `sagelms-data` giúp không trộn workload ứng dụng với workload stateful/database.

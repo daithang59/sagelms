@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: course-service
+  labels:
+    app.kubernetes.io/name: course-service
+    app.kubernetes.io/part-of: sagelms
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: course-service
+  ports:
+    - name: http
+      port: 8082
+      targetPort: http

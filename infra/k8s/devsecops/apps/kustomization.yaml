@@ -1,0 +1,61 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: sagelms-devsecops
+
+resources:
+  - ../../base/apps
+  - app-shared-externalsecret.yaml
+  - ingress.yaml
+
+images:
+  - name: harbor.sagelms.dev/sagelms-app/gateway
+    newName: harbor.sagelms.dev/sagelms-app/gateway
+    newTag: dev
+  - name: harbor.sagelms.dev/sagelms-app/auth-service
+    newName: harbor.sagelms.dev/sagelms-app/auth-service
+    newTag: dev
+  - name: harbor.sagelms.dev/sagelms-app/course-service
+    newName: harbor.sagelms.dev/sagelms-app/course-service
+    newTag: dev
+  - name: harbor.sagelms.dev/sagelms-app/content-service
+    newName: harbor.sagelms.dev/sagelms-app/content-service
+    newTag: dev
+  - name: harbor.sagelms.dev/sagelms-app/progress-service
+    newName: harbor.sagelms.dev/sagelms-app/progress-service
+    newTag: dev
+  - name: harbor.sagelms.dev/sagelms-app/assessment-service
+    newName: harbor.sagelms.dev/sagelms-app/assessment-service
+    newTag: dev
+  - name: harbor.sagelms.dev/sagelms-app/worker
+    newName: harbor.sagelms.dev/sagelms-app/worker
+    newTag: dev
+  - name: harbor.sagelms.dev/sagelms-app/web
+    newName: harbor.sagelms.dev/sagelms-app/web
+    newTag: dev
+
+patches:
+  - target:
+      kind: ServiceAccount
+      labelSelector: app.kubernetes.io/part-of=sagelms
+    patch: |-
+      - op: add
+        path: /imagePullSecrets
+        value:
+          - name: harbor-pull-secret
+  - target:
+      kind: Service
+      name: gateway
+    patch: |-
+      - op: add
+        path: /metadata/annotations
+        value:
+          cloud.google.com/neg: '{"ingress": true}'
+  - target:
+      kind: Service
+      name: web
+    patch: |-
+      - op: add
+        path: /metadata/annotations
+        value:
+          cloud.google.com/neg: '{"ingress": true}'
