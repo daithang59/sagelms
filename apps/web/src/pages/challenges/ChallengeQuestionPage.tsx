@@ -22,32 +22,41 @@ export default function ChallengeQuestionPage({
 
   return (
     <Card>
-      <CardBody className="space-y-4">
+      <CardBody>
         <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-4">
           <h2 className="text-lg font-bold text-slate-800">
-            Tập câu hỏi <span className="ml-2 text-sm font-normal text-slate-500">({questionSets.length} tập)</span>
+            Thử thách <span className="ml-2 text-sm font-normal text-slate-500">({questionSets.length} tập)</span>
           </h2>
           {canManage && (
             <Button size="sm" onClick={() => navigate(`/challenges/${challenge.id}/question-sets/new`)}>
               <Plus className="h-4 w-4" />
-              Thêm tập câu hỏi
+              Thêm thử thách
             </Button>
           )}
         </div>
 
         {questionSets.length > 0 ? (
-          <div className="space-y-3">
+          <div className="flex flex-col gap-2">
             {questionSets.map((questionSet, index) => (
               <div
                 key={questionSet.id}
-                className="flex flex-col gap-4 rounded-xl border border-slate-100 p-4 text-left transition hover:border-violet-200 hover:bg-violet-50/30 md:flex-row md:items-center"
+                role="button"
+                tabIndex={0}
+                onClick={() => onStartQuestionSet(questionSet)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    onStartQuestionSet(questionSet);
+                  }
+                }}
+                className="pressable flex w-full cursor-pointer flex-col gap-4 rounded-2xl p-4 text-left transition-colors hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/30 md:flex-row md:items-center"
               >
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-violet-100 text-violet-600">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-100 text-violet-600">
                   <FileText className="h-5 w-5" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="font-semibold text-slate-900">Tập {index + 1}: {questionSet.title}</h3>
+                    <h3 className="font-medium text-slate-900">Tập {index + 1}: {questionSet.title}</h3>
                     {questionSet.completed && (
                       <Badge variant="success">
                         <CheckCircle2 className="mr-1 h-3 w-3" />
@@ -73,20 +82,24 @@ export default function ChallengeQuestionPage({
                     Quản lý
                   </Button>
                 ) : (
-                  questionSet.attemptCount < Math.max(1, challenge.maxAttempts || 1) ? (
+                  questionSet.attemptCount < Math.max(1, questionSet.maxAttempts || challenge.maxAttempts || 1) ? (
                     <Button
-                      onClick={() => onStartQuestionSet(questionSet)}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onStartQuestionSet(questionSet);
+                      }}
                       isLoading={attemptLoading}
                     >
                       <PlayCircle className="mr-2 h-4 w-4" />
                       {questionSet.completed
-                        ? `Làm lại (${questionSet.attemptCount}/${Math.max(1, challenge.maxAttempts || 1)})`
+                        ? `Làm lại (${questionSet.attemptCount}/${Math.max(1, questionSet.maxAttempts || challenge.maxAttempts || 1)})`
                         : 'Làm bài'}
                     </Button>
                   ) : (
                     <Button
                       variant="secondary"
-                      onClick={() => {
+                      onClick={(event) => {
+                        event.stopPropagation();
                         if (questionSet.latestSubmittedAttemptId) {
                           navigate(`/challenges/${challenge.id}/result/${questionSet.latestSubmittedAttemptId}`);
                         }
@@ -104,7 +117,7 @@ export default function ChallengeQuestionPage({
         ) : (
           <div className="p-12 text-center">
             <Swords className="mx-auto mb-4 h-12 w-12 text-slate-300" />
-            <p className="text-slate-500">Chưa có tập câu hỏi nào</p>
+            <p className="text-slate-500">Chưa có thử thách nào</p>
           </div>
         )}
       </CardBody>

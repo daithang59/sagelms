@@ -82,6 +82,8 @@ services:
       COURSE_SERVICE_PORT: 8082
       CONTENT_SERVICE_HOST: content-service
       CONTENT_SERVICE_PORT: 8083
+      ASSESSMENT_SERVICE_HOST: assessment-service
+      ASSESSMENT_SERVICE_PORT: 8085
       CHALLENGE_SERVICE_HOST: challenge-service
       CHALLENGE_SERVICE_PORT: 8086
     depends_on:
@@ -90,6 +92,8 @@ services:
       course-service:
         condition: service_started
       content-service:
+        condition: service_started
+      assessment-service:
         condition: service_started
       challenge-service:
         condition: service_started
@@ -161,6 +165,28 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    profiles:
+      - app
+
+  assessment-service:
+    build:
+      context: ../../services/assessment-service
+      dockerfile: Dockerfile
+    expose:
+      - "8085"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-sagelms}
+      DB_USER: ${POSTGRES_USER:-sagelms}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-sagelms}
+      COURSE_SERVICE_HOST: course-service
+      COURSE_SERVICE_PORT: 8082
+    depends_on:
+      postgres:
+        condition: service_healthy
+      course-service:
+        condition: service_started
     profiles:
       - app
 

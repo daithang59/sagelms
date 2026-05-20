@@ -69,12 +69,14 @@ export interface ChallengeQuestionSet {
   completed: boolean;
   latestSubmittedAttemptId: string | null;
   attemptCount: number;
+  maxAttempts: number | null;
 }
 
 export interface ChallengeQuestionSetRequest {
   title: string;
   timeLimitMinutes?: number | null;
   sortOrder?: number;
+  maxAttempts?: number | null;
 }
 
 export interface ChallengeQuestionSetDetailResponse {

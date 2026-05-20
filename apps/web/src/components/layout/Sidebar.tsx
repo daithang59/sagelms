@@ -15,7 +15,7 @@ import {
 
 const navigation = [
   {
-    name: 'Dashboard',
+    name: 'Trang chủ',
     path: '/dashboard',
     icon: LayoutDashboard,
     roles: ['ADMIN', 'INSTRUCTOR', 'STUDENT'],
@@ -33,7 +33,7 @@ const navigation = [
     roles: ['ADMIN', 'INSTRUCTOR', 'STUDENT'],
   },
   {
-    name: 'AI Tutor',
+    name: 'Chat AI',
     path: '/ai-tutor',
     icon: Bot,
     roles: ['ADMIN', 'INSTRUCTOR', 'STUDENT'],
@@ -45,13 +45,13 @@ const navigation = [
     roles: ['ADMIN'],
   },
   {
-    name: 'Quản trị khóa',
+    name: 'Quản lý khóa học',
     path: '/admin/courses',
     icon: BookOpen,
     roles: ['ADMIN'],
   },
   {
-    name: 'Duyệt giáo viên',
+    name: 'Duyệt giảng viên',
     path: '/admin/instructors',
     icon: Users,
     roles: ['ADMIN'],
@@ -156,3 +156,4 @@ export default function Sidebar({ isCollapsed, onToggle }: SidebarProps) {
     </aside>
   );
 }
+

@@ -5,12 +5,78 @@ import { useToast } from '@/components/Toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useChallengeAttempt, useChallenges, useUserProfiles } from '@/hooks';
 import type { Challenge, ChallengeLeaderboardEntry, ChallengeQuestionSet, ChallengeSubmissionSummary } from '@/types/challenge';
-import { ArrowLeft, BookOpen, Plus, Trophy, UserRound, Users } from 'lucide-react';
+import { ArrowLeft, BookOpen, Plus, Trophy, UserRound, Users, X, Mail } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
+import type { PublicUserProfile } from '@/types/auth';
 import ChallengeForm from './ChallengeForm';
 import ChallengeQuestionPage from './ChallengeQuestionPage';
 import ChallengeRankingPage from './ChallengeRankingPage';
 import ChallengeResultListPage from './ChallengeResultListPage';
 import ChallengeSubmitPage from './ChallengeSubmitPage';
+
+function InstructorProfileModal({
+  profile,
+  onClose,
+}: {
+  profile: PublicUserProfile | null;
+  onClose: () => void;
+}) {
+  if (!profile) return null;
+
+  const instructorName = profile.fullName || profile.email || 'Giảng viên';
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <motion.div
+        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+        onClick={onClose}
+      />
+      <motion.div
+        className="relative w-full max-w-lg rounded-2xl bg-white shadow-xl"
+        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 10 }}
+        transition={{ duration: 0.2, ease: 'easeOut' }}
+      >
+        <div className="flex items-start justify-between border-b border-slate-100 p-6">
+          <div className="flex items-center gap-4">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-violet-100 text-lg font-bold text-violet-700">
+              {instructorName.charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-slate-800">{instructorName}</h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Giảng viên SageLMS
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="space-y-6 p-4">
+          <div className="flex flex-wrap gap-3 text-sm text-slate-600">
+            {profile.email && (
+              <span className="inline-flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2">
+                <Mail className="h-4 w-4" />
+                {profile.email}
+              </span>
+            )}
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
 
 type ChallengeDetailTab = 'questions' | 'submissions' | 'results' | 'ranking';
 
@@ -63,7 +129,9 @@ export default function ChallengeDetailPage() {
   const [leaderboard, setLeaderboard] = useState<ChallengeLeaderboardEntry[]>([]);
   const [participantNames, setParticipantNames] = useState<Record<string, string>>({});
   const [creatorName, setCreatorName] = useState('Giảng viên');
+  const [creatorProfile, setCreatorProfile] = useState<PublicUserProfile | null>(null);
   const [showChallengeForm, setShowChallengeForm] = useState(false);
+  const [showInstructorProfile, setShowInstructorProfile] = useState(false);
 
   const userId = user?.id;
   const userRole = user?.role;
@@ -150,10 +218,12 @@ export default function ChallengeDetailPage() {
         if (ignore) return;
         const profile = profiles[0];
         setCreatorName(profile?.fullName || profile?.email || 'Giảng viên');
+        setCreatorProfile(profile || null);
       })
       .catch(() => {
         if (!ignore) {
           setCreatorName('Giảng viên');
+          setCreatorProfile(null);
         }
       });
 
@@ -210,7 +280,7 @@ export default function ChallengeDetailPage() {
   }, [currentTab, fetchMyGradedSubmissions, id, showToast, userId]);
 
   const handleStartSet = async (questionSet: ChallengeQuestionSet) => {
-    const maxAttempts = Math.max(1, challenge?.maxAttempts || 1);
+    const maxAttempts = Math.max(1, questionSet.maxAttempts || challenge?.maxAttempts || 1);
     if (questionSet.attemptCount >= maxAttempts) {
       showToast('Bạn đã nộp bài cho phần này và không còn lượt làm lại.', 'warning');
       return;
@@ -279,12 +349,14 @@ export default function ChallengeDetailPage() {
             {challenge.category && <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white">{challenge.category}</span>}
           </div>
           <h1 className="text-3xl font-bold text-white">{challenge.title}</h1>
-          <div className="mt-3 flex items-center gap-2 text-sm font-medium text-white/90">
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm">
-              <UserRound className="h-4 w-4" />
-            </span>
-            <span>Tạo bởi {creatorName}</span>
-          </div>
+          <button
+            type="button"
+            onClick={() => setShowInstructorProfile(true)}
+            className="pressable mt-3 inline-flex max-w-full items-center gap-2 rounded-lg bg-white/15 px-3 py-2 text-sm font-medium text-white backdrop-blur-md transition-colors hover:bg-white/25"
+          >
+            <UserRound className="h-4 w-4 shrink-0" />
+            <span className="truncate">{creatorName}</span>
+          </button>
         </div>
       </div>
 
@@ -376,6 +448,15 @@ export default function ChallengeDetailPage() {
         onSuccess={refreshChallenge}
         editChallenge={challenge}
       />
+
+      <AnimatePresence>
+        {showInstructorProfile && creatorProfile && (
+          <InstructorProfileModal
+            profile={creatorProfile}
+            onClose={() => setShowInstructorProfile(false)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

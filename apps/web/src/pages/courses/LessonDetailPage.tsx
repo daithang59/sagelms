@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Badge, Button, Card, CardBody } from '@/components/ui';
+import { Badge, Button, Card, CardBody, useConfirm } from '@/components/ui';
 import { useLessons } from '@/hooks';
 import { useCourses } from '@/hooks/useCourses';
 import { useAuth } from '@/contexts/AuthContext';
@@ -22,9 +22,11 @@ import {
   Link as LinkIcon,
   ListVideo,
   PlayCircle,
+  Trash2,
 } from 'lucide-react';
 import type { Lesson } from '@/types/lesson';
 import type { Course } from '@/types/course';
+import LessonForm from './LessonForm';
 
 const typeLabels: Record<string, string> = {
   VIDEO: 'Video',
@@ -60,16 +62,20 @@ export default function LessonDetailPage() {
     fetchLesson,
     fetchLessonsByCourse,
     fetchLessonsForManagement,
+    deleteLesson,
     publishLesson,
   } = useLessons();
   const { fetchCourse } = useCourses();
   const { showToast } = useToast();
+  const confirm = useConfirm();
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [course, setCourse] = useState<Course | null>(null);
   const [courseLessons, setCourseLessons] = useState<Lesson[]>([]);
   const [loading, setLoading] = useState(true);
   const [lessonsLoading, setLessonsLoading] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [showLessonForm, setShowLessonForm] = useState(false);
 
   const isAdmin = user?.role === 'ADMIN';
   const isCourseOwner = Boolean(course && user?.id && course.instructorId === user.id);
@@ -170,6 +176,37 @@ export default function LessonDetailPage() {
     }
   };
 
+  const refreshLessonDetail = async () => {
+    if (!lessonId) return;
+    const updatedLesson = await fetchLesson(lessonId);
+    setLesson(updatedLesson);
+    setCourseLessons((items) => items.map((item) => (item.id === updatedLesson.id ? updatedLesson : item)));
+  };
+
+  const handleDeleteLesson = async () => {
+    if (!lesson || !courseId) return;
+
+    const confirmed = await confirm({
+      title: 'Xóa bài học',
+      message: `Bạn có chắc chắn muốn xóa bài học "${lesson.title}"?`,
+      confirmLabel: 'Xóa bài',
+      cancelLabel: 'Hủy',
+      variant: 'danger',
+    });
+    if (!confirmed) return;
+
+    setDeleting(true);
+    try {
+      await deleteLesson(lesson.id);
+      showToast('Xóa bài học thành công.', 'success');
+      navigate(`/courses/${courseId}`);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Xóa bài học thất bại.', 'error');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex min-h-[400px] items-center justify-center">
@@ -200,7 +237,7 @@ export default function LessonDetailPage() {
       </button>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <main className="min-w-0 space-y-5">
+        <main className="min-w-0 space-y-4">
           <Card className="overflow-hidden">
             <CardBody className="space-y-6 p-6">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -209,37 +246,38 @@ export default function LessonDetailPage() {
                     {getTypeIcon(lesson.type)}
                   </div>
                   <div className="min-w-0">
-                    <div className="mb-2 flex flex-wrap items-center gap-2">
+                    <h1 className="text-xl font-bold leading-tight text-slate-900">{lesson.title}</h1>
+                    <div className="flex flex-wrap items-center gap-3 text-sm text-slate-500">
+                      <span>{typeLabels[lesson.type] || lesson.type}</span>
+                      {lesson.durationMinutes && (
+                        <span className="flex items-center gap-1.5">
+                          <Clock className="h-4 w-4" />
+                          {lesson.durationMinutes} phút
+                        </span>
+                      )}
                       <Badge variant={lesson.isPublished ? 'success' : 'warning'}>
                         {lesson.isPublished ? 'Đã xuất bản' : 'Bản nháp'}
                       </Badge>
-                      <span className="text-sm text-slate-500">{typeLabels[lesson.type] || lesson.type}</span>
-                      {lessonPosition && (
-                        <span className="text-sm text-slate-400">
-                          Bài {lessonPosition} / {courseLessons.length}
-                        </span>
-                      )}
                     </div>
-                    <h1 className="text-2xl font-bold leading-tight text-slate-900 lg:text-3xl">{lesson.title}</h1>
-                    {lesson.durationMinutes && (
-                      <div className="mt-2 flex items-center gap-1.5 text-sm text-slate-500">
-                        <Clock className="h-4 w-4" />
-                        {lesson.durationMinutes} phút
-                      </div>
-                    )}
                   </div>
                 </div>
 
                 {canManageLesson && (
-                  <div className="flex shrink-0 flex-wrap gap-2">
-                    <Button variant="secondary" size="sm" onClick={handleTogglePublish} isLoading={publishing}>
-                      {lesson.isPublished ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      {lesson.isPublished ? 'Ẩn bài' : 'Xuất bản'}
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={() => navigate(courseId ? `/courses/${courseId}` : '/courses')}>
-                      <Edit3 className="h-4 w-4" />
-                      Quản lý khóa
-                    </Button>
+                  <div className="flex shrink-0 flex-col items-end gap-2">
+                    <div className="flex flex-wrap justify-end gap-2">
+                      <Button variant="secondary" size="sm" onClick={handleTogglePublish} isLoading={publishing}>
+                        {lesson.isPublished ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        {lesson.isPublished ? 'Ẩn' : 'Hiện'}
+                      </Button>
+                      <Button variant="danger" size="sm" onClick={handleDeleteLesson} isLoading={deleting}>
+                        <Trash2 className="h-4 w-4" />
+                        Xóa
+                      </Button>
+                      <Button size="sm" onClick={() => setShowLessonForm(true)}>
+                        <Edit3 className="h-4 w-4" />
+                        Chỉnh sửa
+                      </Button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -279,7 +317,7 @@ export default function LessonDetailPage() {
         <aside className="xl:sticky xl:top-24 xl:self-start">
           <Card className="overflow-hidden">
             <CardBody className="p-0">
-              <div className="border-b border-slate-100 p-5">
+              <div className="border-b border-slate-100 pb-4">
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
                     <ListVideo className="h-5 w-5" />
@@ -298,7 +336,7 @@ export default function LessonDetailPage() {
                   ))}
                 </div>
               ) : courseLessons.length > 0 ? (
-                <div className="max-h-[calc(100vh-220px)] divide-y divide-slate-100 overflow-y-auto">
+                <div className="max-h-[calc(100vh-220px)] rounded-xl divide-y divide-slate-100 overflow-y-auto">
                   {courseLessons.map((item, index) => (
                     <button
                       key={item.id}
@@ -338,6 +376,16 @@ export default function LessonDetailPage() {
           </Card>
         </aside>
       </div>
+
+      {courseId && (
+        <LessonForm
+          isOpen={showLessonForm}
+          onClose={() => setShowLessonForm(false)}
+          courseId={courseId}
+          editLesson={lesson}
+          onSuccess={refreshLessonDetail}
+        />
+      )}
     </div>
   );
 }

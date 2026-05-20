@@ -13,7 +13,8 @@ public record ChallengeQuestionSetResponse(
         long questionCount,
         boolean completed,
         UUID latestSubmittedAttemptId,
-        long attemptCount
+        long attemptCount,
+        Integer maxAttempts
 ) {
     public static ChallengeQuestionSetResponse from(
             ChallengeQuestionSet questionSet,
@@ -30,6 +31,7 @@ public record ChallengeQuestionSetResponse(
                 questionCount,
                 completed,
                 latestSubmittedAttemptId,
-                attemptCount);
+                attemptCount,
+                questionSet.getMaxAttempts());
     }
 }

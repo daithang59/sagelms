@@ -18,6 +18,11 @@ import QuestionDetailPage from '@/pages/challenges/QuestionDetailPage';
 import QuestionTakingPage from '@/pages/challenges/QuestionTakingPage';
 import QuestionResultPage from '@/pages/challenges/QuestionResultPage';
 import QuestionReviewPage from '@/pages/challenges/QuestionReviewPage';
+import QuizzesPage from '@/pages/courses/QuizzesPage';
+import AssessmentQuestionDetailPage from '@/pages/courses/AssessmentQuestionDetailPage';
+import AssessmentTakingPage from '@/pages/courses/AssessmentTakingPage';
+import AssessmentResultPage from '@/pages/courses/AssessmentResultPage';
+import AssessmentReviewPage from '@/pages/courses/AssessmentReviewPage';
 import InstructorApplicationsPage from '@/pages/admin/InstructorApplicationsPage';
 import AdminUsersPage from '@/pages/admin/AdminUsersPage';
 import AdminCoursesPage from '@/pages/admin/AdminCoursesPage';
@@ -107,7 +112,33 @@ function App() {
                   </ProtectedRoute>
                 }
               />
-              <Route path="/quizzes" element={<Navigate to="/challenges" replace />} />
+              <Route path="/quizzes" element={<QuizzesPage />} />
+              <Route
+                path="/courses/:courseId/assessments/:id/question-sets/new"
+                element={
+                  <ProtectedRoute allowedRoles={['ADMIN', 'INSTRUCTOR']}>
+                    <AssessmentQuestionDetailPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/courses/:courseId/assessments/:id/question-sets/:questionSetId"
+                element={
+                  <ProtectedRoute allowedRoles={['ADMIN', 'INSTRUCTOR']}>
+                    <AssessmentQuestionDetailPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route path="/courses/:courseId/assessments/:id/take" element={<AssessmentTakingPage />} />
+              <Route path="/courses/:courseId/assessments/:id/result/:attemptId" element={<AssessmentResultPage />} />
+              <Route
+                path="/courses/:courseId/assessments/:id/submissions/:attemptId/review"
+                element={
+                  <ProtectedRoute allowedRoles={['ADMIN', 'INSTRUCTOR']}>
+                    <AssessmentReviewPage />
+                  </ProtectedRoute>
+                }
+              />
               <Route path="/ai-tutor" element={<AiTutorPage />} />
               <Route
                 path="/admin/users"

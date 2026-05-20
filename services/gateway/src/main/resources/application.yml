@@ -57,6 +57,17 @@ spring:
         # --- Course Service (less specific, comes after) ---
         # Note: gateway validates JWT for auth, course-service trusts gateway headers.
         # This is secure because only frontend can reach gateway (not publicly exposed).
+        # --- Assessment Service (course-scoped, must come BEFORE course-service) ---
+        - id: assessment-service
+          uri: http://${ASSESSMENT_SERVICE_HOST:localhost}:${ASSESSMENT_SERVICE_PORT:8085}
+          predicates:
+            - Path=/api/v1/courses/{courseId}/assessments/**,/api/v1/courses/{courseId}/assessment-submissions,/api/v1/courses/{courseId}/assessment-gradebook,/api/v1/courses/{courseId}/my-assessment-results,/api/v1/assessments/**,/api/v1/assessment-question-sets/**,/api/v1/assessment-attempts/**
+          filters:
+            - StripPrefix=0
+
+        # --- Course Service (less specific, comes after assessment/content routes) ---
+        # Note: gateway validates JWT for auth, course-service trusts gateway headers.
+        # This is secure because only frontend can reach gateway (not publicly exposed).
         - id: course-service
           uri: http://${COURSE_SERVICE_HOST:localhost}:${COURSE_SERVICE_PORT:8082}
           predicates:
@@ -64,15 +75,6 @@ spring:
           filters:
             - StripPrefix=0
             - RemoveRequestHeader=X-Forwarded-Authorization
-
-        # --- Assessment Service ---
-        # Temporarily disabled until course-scoped assignments are implemented.
-        # - id: assessment-service
-        #   uri: http://${ASSESSMENT_SERVICE_HOST:localhost}:${ASSESSMENT_SERVICE_PORT:8085}
-        #   predicates:
-        #     - Path=/api/v1/assessment/**,/api/v1/assessment-attempts/**
-        #   filters:
-        #     - StripPrefix=0
 
         # --- Challenge Service ---
         - id: challenge-service
@@ -87,12 +89,6 @@ spring:
         #   uri: http://${PROGRESS_SERVICE_HOST:localhost}:${PROGRESS_SERVICE_PORT:8084}
         #   predicates:
         #     - Path=/api/v1/progress/**
-
-        # --- Assessment Service ---
-        # - id: assessment-service
-        #   uri: http://${ASSESSMENT_SERVICE_HOST:localhost}:${ASSESSMENT_SERVICE_PORT:8085}
-        #   predicates:
-        #     - Path=/api/v1/assessments/**
 
         # --- AI Tutor Service ---
         # - id: ai-tutor-service

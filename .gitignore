@@ -79,3 +79,11 @@ reports/
 .terraform/
 *.tfstate
 *.tfstate.*
+terraform.tfvars
+*.tfvars
+!*.tfvars.example
+*.tfplan
+crash.log
+crash.*.log
+local-secret-*
+*.secret

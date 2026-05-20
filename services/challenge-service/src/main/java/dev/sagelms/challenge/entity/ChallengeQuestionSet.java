@@ -19,6 +19,9 @@ public class ChallengeQuestionSet extends BaseEntity {
     @Column(name = "sort_order")
     private Integer sortOrder = 0;
 
+    @Column(name = "max_attempts")
+    private Integer maxAttempts;
+
     public Challenge getChallenge() { return challenge; }
     public void setChallenge(Challenge challenge) { this.challenge = challenge; }
     public String getTitle() { return title; }
@@ -27,4 +30,6 @@ public class ChallengeQuestionSet extends BaseEntity {
     public void setTimeLimitMinutes(Integer timeLimitMinutes) { this.timeLimitMinutes = timeLimitMinutes; }
     public Integer getSortOrder() { return sortOrder; }
     public void setSortOrder(Integer sortOrder) { this.sortOrder = sortOrder; }
+    public Integer getMaxAttempts() { return maxAttempts; }
+    public void setMaxAttempts(Integer maxAttempts) { this.maxAttempts = maxAttempts; }
 }

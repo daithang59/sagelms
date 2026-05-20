@@ -43,7 +43,8 @@ public class ChallengeService {
     }
 
     @Transactional(readOnly = true)
-    public Page<ChallengeResponse> listChallenges(String search, String category, UUID viewerId, String roles, Pageable pageable) {
+    public Page<ChallengeResponse> listChallenges(String search, String category, UUID viewerId, String roles,
+            Pageable pageable) {
         String normalizedSearch = normalizeFilterValue(search);
         String normalizedCategory = normalizeFilterValue(category);
         boolean hasSearch = normalizedSearch != null;
@@ -52,7 +53,8 @@ public class ChallengeService {
         String categoryFilter = hasCategory ? normalizedCategory : "";
         Page<Challenge> challenges;
         if (RoleUtils.isAdmin(roles)) {
-            challenges = challengeRepository.findAllFiltered(hasSearch, searchPattern, hasCategory, categoryFilter, pageable);
+            challenges = challengeRepository.findAllFiltered(hasSearch, searchPattern, hasCategory, categoryFilter,
+                    pageable);
         } else if (RoleUtils.isInstructor(roles) && viewerId != null) {
             challenges = challengeRepository.findVisibleToInstructorFiltered(
                     viewerId,
@@ -62,7 +64,8 @@ public class ChallengeService {
                     categoryFilter,
                     pageable);
         } else {
-            challenges = challengeRepository.findPublishedFiltered(hasSearch, searchPattern, hasCategory, categoryFilter, pageable);
+            challenges = challengeRepository.findPublishedFiltered(hasSearch, searchPattern, hasCategory,
+                    categoryFilter, pageable);
         }
         return challenges.map(this::toResponse);
     }
@@ -162,7 +165,8 @@ public class ChallengeService {
         return getQuestions(challengeId, canManage(challenge, viewerId, roles));
     }
 
-    public ChallengeQuestionResponse addQuestion(UUID questionSetId, ChallengeQuestionRequest request, UUID userId, String roles) {
+    public ChallengeQuestionResponse addQuestion(UUID questionSetId, ChallengeQuestionRequest request, UUID userId,
+            String roles) {
         ChallengeQuestionSet questionSet = findQuestionSet(questionSetId);
         requireCanManage(questionSet.getChallenge(), userId, roles);
         requireNoSubmittedAttemptsForQuestionSet(questionSet.getId());
@@ -175,14 +179,16 @@ public class ChallengeService {
         return toQuestionResponse(saved, true);
     }
 
-    public ChallengeQuestionResponse addQuestionToChallenge(UUID challengeId, ChallengeQuestionRequest request, UUID userId, String roles) {
+    public ChallengeQuestionResponse addQuestionToChallenge(UUID challengeId, ChallengeQuestionRequest request,
+            UUID userId, String roles) {
         Challenge challenge = findChallenge(challengeId);
         requireCanManage(challenge, userId, roles);
         ChallengeQuestionSet questionSet = getOrCreateDefaultQuestionSet(challenge);
         return addQuestion(questionSet.getId(), request, userId, roles);
     }
 
-    public ChallengeQuestionResponse updateQuestion(UUID questionId, ChallengeQuestionRequest request, UUID userId, String roles) {
+    public ChallengeQuestionResponse updateQuestion(UUID questionId, ChallengeQuestionRequest request, UUID userId,
+            String roles) {
         ChallengeQuestion question = findQuestion(questionId);
         requireCanManage(question.getChallenge(), userId, roles);
         UUID questionSetId = question.getQuestionSet() != null ? question.getQuestionSet().getId() : null;
@@ -204,7 +210,8 @@ public class ChallengeService {
         questionRepository.delete(question);
     }
 
-    public StartAttemptResponse startAttempt(UUID questionSetId, UUID participantId, String participantEmail, String roles) {
+    public StartAttemptResponse startAttempt(UUID questionSetId, UUID participantId, String participantEmail,
+            String roles) {
         if (participantId == null) {
             throw new ForbiddenException("Login required to join this challenge.");
         }
@@ -216,13 +223,14 @@ public class ChallengeService {
         long submittedAttempts = attemptRepository.countByQuestionSetIdAndParticipantIdAndSubmittedAtIsNotNull(
                 questionSetId,
                 participantId);
-        int maxAttempts = normalizedMaxAttempts(challenge);
+        int maxAttempts = normalizedMaxAttempts(questionSet);
         if (submittedAttempts >= maxAttempts) {
             throw new ValidationException("You have already submitted this challenge attempt.");
         }
 
         Optional<ChallengeAttempt> existingAttempt = attemptRepository
-                .findFirstByQuestionSetIdAndParticipantIdAndSubmittedAtIsNullOrderByStartedAtDesc(questionSetId, participantId);
+                .findFirstByQuestionSetIdAndParticipantIdAndSubmittedAtIsNullOrderByStartedAtDesc(questionSetId,
+                        participantId);
         if (existingAttempt.isPresent()) {
             ChallengeAttempt attempt = existingAttempt.get();
             return new StartAttemptResponse(
@@ -252,7 +260,8 @@ public class ChallengeService {
                 getQuestionSetQuestions(questionSetId, false));
     }
 
-    public StartAttemptResponse startChallengeAttempt(UUID challengeId, UUID participantId, String participantEmail, String roles) {
+    public StartAttemptResponse startChallengeAttempt(UUID challengeId, UUID participantId, String participantEmail,
+            String roles) {
         Challenge challenge = findChallenge(challengeId);
         ChallengeQuestionSet questionSet = getOrCreateDefaultQuestionSet(challenge);
         return startAttempt(questionSet.getId(), participantId, participantEmail, roles);
@@ -292,7 +301,8 @@ public class ChallengeService {
                 if (submittedAnswer != null && submittedAnswer.choiceId() != null) {
                     selected = choiceRepository.findById(submittedAnswer.choiceId())
                             .filter(choice -> choice.getQuestion().getId().equals(question.getId()))
-                            .orElseThrow(() -> new ValidationException("Invalid choice for question: " + question.getId()));
+                            .orElseThrow(
+                                    () -> new ValidationException("Invalid choice for question: " + question.getId()));
                 }
                 answer.setChoice(selected);
                 answer.setIsCorrect(selected != null && Boolean.TRUE.equals(selected.getIsCorrect()));
@@ -323,7 +333,8 @@ public class ChallengeService {
         if (!attempt.getParticipantId().equals(participantId)) {
             throw new ForbiddenException("You can only view your own attempt result.");
         }
-        return toAttemptResult(attempt, answerRepository.findByAttemptId(attemptId), attempt.getGradingStatus() == GradingStatus.GRADED);
+        return toAttemptResult(attempt, answerRepository.findByAttemptId(attemptId),
+                attempt.getGradingStatus() == GradingStatus.GRADED);
     }
 
     @Transactional(readOnly = true)
@@ -336,23 +347,31 @@ public class ChallengeService {
     }
 
     @Transactional(readOnly = true)
-    public List<ChallengeSubmissionSummaryResponse> getMyGradedSubmissions(UUID challengeId, UUID participantId, String roles) {
+    public List<ChallengeSubmissionSummaryResponse> getMyGradedSubmissions(UUID challengeId, UUID participantId,
+            String roles) {
         if (participantId == null) {
             throw new ForbiddenException("Login required to view challenge results.");
         }
         Challenge challenge = findChallenge(challengeId);
         requireCanView(challenge, participantId, roles);
-        return attemptRepository.findByChallengeIdAndParticipantIdAndSubmittedAtIsNotNullOrderBySubmittedAtDesc(challengeId, participantId).stream()
+        return attemptRepository
+                .findByChallengeIdAndParticipantIdAndSubmittedAtIsNotNullOrderBySubmittedAtDesc(challengeId,
+                        participantId)
+                .stream()
                 .filter(attempt -> attempt.getGradingStatus() == GradingStatus.GRADED)
                 .map(this::toSubmissionSummary)
                 .toList();
     }
 
     @Transactional(readOnly = true)
-    public List<ChallengeSubmissionSummaryResponse> getParticipantSubmissions(UUID challengeId, UUID participantId, UUID userId, String roles) {
+    public List<ChallengeSubmissionSummaryResponse> getParticipantSubmissions(UUID challengeId, UUID participantId,
+            UUID userId, String roles) {
         Challenge challenge = findChallenge(challengeId);
         requireCanManage(challenge, userId, roles);
-        return attemptRepository.findByChallengeIdAndParticipantIdAndSubmittedAtIsNotNullOrderBySubmittedAtDesc(challengeId, participantId).stream()
+        return attemptRepository
+                .findByChallengeIdAndParticipantIdAndSubmittedAtIsNotNullOrderBySubmittedAtDesc(challengeId,
+                        participantId)
+                .stream()
                 .map(this::toSubmissionSummary)
                 .toList();
     }
@@ -370,7 +389,8 @@ public class ChallengeService {
 
         Map<UUID, LeaderboardParticipant> participants = new HashMap<>();
         for (ChallengeAttempt attempt : attemptRepository
-                .findByChallengeIdAndGradingStatusAndSubmittedAtIsNotNullOrderBySubmittedAtAsc(challengeId, GradingStatus.GRADED)) {
+                .findByChallengeIdAndGradingStatusAndSubmittedAtIsNotNullOrderBySubmittedAtAsc(challengeId,
+                        GradingStatus.GRADED)) {
             if (attempt.getQuestionSet() == null || !visibleSetIds.contains(attempt.getQuestionSet().getId())) {
                 continue;
             }
@@ -431,7 +451,8 @@ public class ChallengeService {
         }
 
         Map<UUID, Boolean> grades = Optional.ofNullable(request.answers()).orElse(List.of()).stream()
-                .collect(Collectors.toMap(GradeChallengeAnswerRequest::questionId, GradeChallengeAnswerRequest::isCorrect));
+                .collect(Collectors.toMap(GradeChallengeAnswerRequest::questionId,
+                        GradeChallengeAnswerRequest::isCorrect));
         List<ChallengeAnswer> answers = answerRepository.findByAttemptId(attemptId);
         BigDecimal earnedPoints = BigDecimal.ZERO;
         BigDecimal totalPoints = BigDecimal.ZERO;
@@ -520,13 +541,17 @@ public class ChallengeService {
     private ChallengeQuestionSetResponse toQuestionSetResponse(ChallengeQuestionSet questionSet, UUID viewerId) {
         long questionCount = questionRepository.countByQuestionSetId(questionSet.getId());
         long attemptCount = viewerId != null
-                ? attemptRepository.countByQuestionSetIdAndParticipantIdAndSubmittedAtIsNotNull(questionSet.getId(), viewerId)
+                ? attemptRepository.countByQuestionSetIdAndParticipantIdAndSubmittedAtIsNotNull(questionSet.getId(),
+                        viewerId)
                 : 0;
         UUID latestAttemptId = viewerId == null ? null
-                : attemptRepository.findFirstByQuestionSetIdAndParticipantIdAndSubmittedAtIsNotNullOrderBySubmittedAtDesc(questionSet.getId(), viewerId)
-                    .map(ChallengeAttempt::getId)
-                    .orElse(null);
-        return ChallengeQuestionSetResponse.from(questionSet, questionCount, attemptCount > 0, latestAttemptId, attemptCount);
+                : attemptRepository
+                        .findFirstByQuestionSetIdAndParticipantIdAndSubmittedAtIsNotNullOrderBySubmittedAtDesc(
+                                questionSet.getId(), viewerId)
+                        .map(ChallengeAttempt::getId)
+                        .orElse(null);
+        return ChallengeQuestionSetResponse.from(questionSet, questionCount, attemptCount > 0, latestAttemptId,
+                attemptCount);
     }
 
     private List<ChallengeQuestionResponse> getQuestions(UUID challengeId, boolean revealCorrect) {
@@ -573,13 +598,15 @@ public class ChallengeService {
         challenge.setCategory(request.category());
         challenge.setStatus(request.status() != null ? request.status() : ChallengeStatus.DRAFT);
         challenge.setTimeLimitMinutes(request.timeLimitMinutes());
-        challenge.setMaxAttempts(request.maxAttempts() != null && request.maxAttempts() > 0 ? request.maxAttempts() : 1);
+        challenge
+                .setMaxAttempts(request.maxAttempts() != null && request.maxAttempts() > 0 ? request.maxAttempts() : 1);
     }
 
     private void applyQuestionSetRequest(ChallengeQuestionSet questionSet, ChallengeQuestionSetRequest request) {
         questionSet.setTitle(request.title());
         questionSet.setTimeLimitMinutes(request.timeLimitMinutes());
         questionSet.setSortOrder(request.sortOrder() != null ? request.sortOrder() : 0);
+        questionSet.setMaxAttempts(request.maxAttempts() != null && request.maxAttempts() > 0 ? request.maxAttempts() : null);
     }
 
     private void applyQuestionRequest(ChallengeQuestion question, ChallengeQuestionRequest request) {
@@ -615,7 +642,8 @@ public class ChallengeService {
         }
 
         List<ChallengeChoice> existingChoices = choiceRepository.findByQuestionIdOrderBySortOrderAsc(question.getId());
-        List<ChallengeChoiceRequest> requestedChoices = Optional.ofNullable(request.choices()).orElse(List.of()).stream()
+        List<ChallengeChoiceRequest> requestedChoices = Optional.ofNullable(request.choices()).orElse(List.of())
+                .stream()
                 .filter(choice -> choice.text() != null && !choice.text().isBlank())
                 .toList();
 
@@ -657,7 +685,8 @@ public class ChallengeService {
         }
     }
 
-    private ChallengeAttemptResultResponse toAttemptResult(ChallengeAttempt attempt, List<ChallengeAnswer> answers, boolean revealCorrect) {
+    private ChallengeAttemptResultResponse toAttemptResult(ChallengeAttempt attempt, List<ChallengeAnswer> answers,
+            boolean revealCorrect) {
         List<ChallengeAnswerResultResponse> answerResults = answers.stream()
                 .map(answer -> {
                     ChallengeQuestion question = answer.getQuestion();
@@ -712,6 +741,7 @@ public class ChallengeService {
         questionSet.setChallenge(challenge);
         questionSet.setTitle("Tap cau hoi mac dinh");
         questionSet.setTimeLimitMinutes(challenge.getTimeLimitMinutes());
+        questionSet.setMaxAttempts(challenge.getMaxAttempts());
         questionSet.setSortOrder(0);
         return questionSetRepository.save(questionSet);
     }
@@ -721,9 +751,19 @@ public class ChallengeService {
                 .orElseGet(() -> createDefaultQuestionSet(challenge));
     }
 
-    private int normalizedMaxAttempts(Challenge challenge) {
-        Integer maxAttempts = challenge.getMaxAttempts();
-        return maxAttempts != null && maxAttempts > 0 ? maxAttempts : 1;
+    private int normalizedMaxAttempts(ChallengeQuestionSet questionSet) {
+        Integer maxAttempts = questionSet.getMaxAttempts();
+        if (maxAttempts != null && maxAttempts > 0) {
+            return maxAttempts;
+        }
+        Integer challengeMaxAttempts = questionSet.getChallenge().getMaxAttempts();
+        return challengeMaxAttempts != null && challengeMaxAttempts > 0 ? challengeMaxAttempts : 1;
+    }
+
+    private String normalizeFilterValue(String value) {
+        return value != null && !value.isBlank()
+                ? value.trim().toLowerCase(Locale.ROOT)
+                : null;
     }
 
     private String normalizeFilterValue(String value) {
@@ -759,8 +799,8 @@ public class ChallengeService {
             long usedSeconds,
             long limitSeconds,
             BigDecimal rankingScore,
-            BigDecimal attemptScore
-    ) {}
+            BigDecimal attemptScore) {
+    }
 
     private record LeaderboardParticipantScore(
             UUID participantId,
@@ -771,8 +811,8 @@ public class ChallengeService {
             long totalLimitSeconds,
             BigDecimal accuracyPercent,
             BigDecimal rankingScore,
-            Instant firstStartedAt
-    ) {}
+            Instant firstStartedAt) {
+    }
 
     private static class LeaderboardParticipant {
         private final UUID participantId;
@@ -867,7 +907,8 @@ public class ChallengeService {
     }
 
     private boolean canManage(Challenge challenge, UUID userId, String roles) {
-        return RoleUtils.isAdmin(roles) || (RoleUtils.isInstructor(roles) && userId != null && challenge.getInstructorId().equals(userId));
+        return RoleUtils.isAdmin(roles)
+                || (RoleUtils.isInstructor(roles) && userId != null && challenge.getInstructorId().equals(userId));
     }
 
     private void requireCanManage(Challenge challenge, UUID userId, String roles) {
@@ -890,14 +931,20 @@ public class ChallengeService {
     }
 
     public static class NotFoundException extends RuntimeException {
-        public NotFoundException(String message) { super(message); }
+        public NotFoundException(String message) {
+            super(message);
+        }
     }
 
     public static class ForbiddenException extends RuntimeException {
-        public ForbiddenException(String message) { super(message); }
+        public ForbiddenException(String message) {
+            super(message);
+        }
     }
 
     public static class ValidationException extends RuntimeException {
-        public ValidationException(String message) { super(message); }
+        public ValidationException(String message) {
+            super(message);
+        }
     }
 }

@@ -6,5 +6,6 @@ import jakarta.validation.constraints.Size;
 public record ChallengeQuestionSetRequest(
         @NotBlank @Size(max = 255) String title,
         Integer timeLimitMinutes,
-        Integer sortOrder
+        Integer sortOrder,
+        Integer maxAttempts
 ) {}

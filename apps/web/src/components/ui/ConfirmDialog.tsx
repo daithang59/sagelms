@@ -67,7 +67,7 @@ export default function ConfirmDialogProvider({ children }: ConfirmDialogProvide
               </div>
               <div className="min-w-0">
                 <div className="flex items-center justify-center">
-                  <h2 id="confirm-dialog-title" className="text-lg font-bold text-slate-900">
+                  <h2 id="confirm-dialog-title" className="text-xl font-bold text-slate-900">
                     {pending.title}
                   </h2>
                   <button
@@ -76,16 +76,16 @@ export default function ConfirmDialogProvider({ children }: ConfirmDialogProvide
                     className="absolute right-5 top-5 rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
                     aria-label="Hủy xác nhận"
                   >
-                    <X className="h-4 w-4" />
+                    <X className="h-6 w-6" />
                   </button>
                 </div>
-                <p id="confirm-dialog-message" className="mx-auto mt-2 max-w-sm text-center text-sm leading-6 text-slate-600">
+                <p id="confirm-dialog-message" className="mx-auto mt-2 max-w-sm text-center text-base leading-6 text-slate-600">
                   {pending.message}
                 </p>
               </div>
             </div>
             <div className="flex flex-col-reverse gap-3 border-t border-slate-100 bg-slate-50 px-6 py-4 sm:flex-row sm:justify-end">
-              <Button type="button" variant="secondary" onClick={() => close(false)}>
+              <Button type="button" size="lg" variant="secondary" onClick={() => close(false)}>
                 {pending.cancelLabel}
               </Button>
               <Button type="button" variant={isDanger ? 'danger' : 'primary'} onClick={() => close(true)}>
