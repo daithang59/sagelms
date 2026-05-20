@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+﻿import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Badge, Button, Card, CardBody, useConfirm } from '@/components/ui';
 import { useToast } from '@/components/Toast';
@@ -189,6 +189,17 @@ export default function QuestionTakingPage() {
     );
   }
 
+  const answeredCount = questions.filter((question) => {
+    const answer = answers[question.id] || {};
+    if (question.type === 'MULTIPLE_CHOICE') {
+      return Boolean(answer.choiceId);
+    }
+    return Boolean(answer.textAnswer?.trim() || answer.file);
+  }).length;
+  const timeLabel = questionSet.timeLimitMinutes
+    ? (remainingSeconds !== null ? formatRemainingTime(remainingSeconds) : `${questionSet.timeLimitMinutes} phút`)
+    : 'Không giới hạn';
+
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <button onClick={() => navigate(`/courses/${courseId}?assessmentTab=questions`)} className="flex items-center gap-2 text-slate-600 hover:text-slate-900">
@@ -202,11 +213,8 @@ export default function QuestionTakingPage() {
             <h1 className="text-2xl font-bold text-slate-900">{questionSet.title}</h1>
             <p className="mt-1 text-sm text-slate-500">Hoàn thành các câu hỏi rồi nộp bài để giảng viên chấm điểm.</p>
           </div>
-          <div className="flex items-center gap-2 rounded-xl bg-violet-50 px-4 py-3 text-violet-700">
-            <Timer className="h-5 w-5" />
-            {questionSet.timeLimitMinutes
-              ? (remainingSeconds !== null ? formatRemainingTime(remainingSeconds) : `${questionSet.timeLimitMinutes} phút`)
-              : 'Không giới hạn'}
+          <div className="flex items-center gap-2 rounded-xl bg-violet-50 px-4 py-3 font-semibold text-violet-700">
+            {answeredCount}/{questions.length} câu
           </div>
         </CardBody>
       </Card>
@@ -299,10 +307,14 @@ export default function QuestionTakingPage() {
         ))}
       </div>
 
-      <div className="sticky bottom-4 flex flex-col justify-end gap-3 sm:flex-row">
-        <Button type="button" variant="secondary" onClick={() => setAnswers({})}>
-          <RotateCcw className="mr-2 h-4 w-4" />
-          Xóa tất cả câu trả lời
+      <div className="sticky bottom-4 flex flex-col justify-end gap-3 sm:flex-row sm:items-center">
+        <Button variant="secondary">
+          <Timer className="h-5 w-5" />
+          {timeLabel}
+        </Button>
+        <Button type="button" variant="danger" onClick={() => setAnswers({})}>
+          <RotateCcw className="h-4 w-4" />
+          Xóa tất cả
         </Button>
         <Button onClick={() => submit({ confirmBeforeSubmit: true })} isLoading={loading} className="gap-2 shadow-lg shadow-violet-500/25">
           <Send className="h-4 w-4" />
@@ -312,6 +324,4 @@ export default function QuestionTakingPage() {
     </div>
   );
 }
-
-
 

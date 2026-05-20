@@ -123,11 +123,12 @@ export default function QuestionReviewPage() {
         {result.answers.map((answer, index) => {
           const currentGrade = Boolean(grades[answer.questionId]);
           const selectedChoiceIsWrong = answer.type === 'MULTIPLE_CHOICE' && answer.selectedChoiceText && !currentGrade;
+          const choices = answer.choices || [];
           return (
             <Card key={answer.questionId}>
               <CardBody className="space-y-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
                     <Badge variant={answer.type === 'ESSAY' ? 'info' : 'brand'}>
                       {answer.type === 'ESSAY' ? 'Tự luận' : 'Trắc nghiệm'}
                     </Badge>
@@ -137,14 +138,14 @@ export default function QuestionReviewPage() {
                     {answer.questionTitle && <p className="mt-2 text-slate-600">{answer.prompt}</p>}
                     <p className="mt-2 text-sm font-medium text-slate-500">{answer.points} điểm</p>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex shrink-0 gap-2">
                     <Button
                       type="button"
                       size="sm"
                       variant={currentGrade ? 'primary' : 'secondary'}
                       onClick={() => setGrades({ ...grades, [answer.questionId]: true })}
                     >
-                      <Check className="mr-1 h-4 w-4" />
+                      <Check className="h-4 w-4" />
                       Đúng
                     </Button>
                     <Button
@@ -153,13 +154,53 @@ export default function QuestionReviewPage() {
                       variant={!currentGrade ? 'primary' : 'secondary'}
                       onClick={() => setGrades({ ...grades, [answer.questionId]: false })}
                     >
-                      <X className="mr-1 h-4 w-4" />
+                      <X className="h-4 w-4" />
                       Sai
                     </Button>
                   </div>
                 </div>
 
-                {answer.type === 'MULTIPLE_CHOICE' ? (
+                {answer.type === 'MULTIPLE_CHOICE' ? choices.length > 0 ? (
+                  <div className="space-y-3">
+                    {choices.map((choice) => {
+                      const isSelected = choice.id === answer.selectedChoiceId || choice.text === answer.selectedChoiceText;
+                      const isCorrect = Boolean(choice.isCorrect)
+                        || choice.id === answer.correctChoiceId
+                        || choice.text === answer.correctChoiceText;
+                      const isWrongSelection = isSelected && !isCorrect;
+
+                      return (
+                        <div
+                          key={choice.id}
+                          className={`flex items-center justify-between gap-3 rounded-xl border p-4 ${
+                            isCorrect
+                              ? 'border-emerald-200 bg-emerald-50'
+                              : isWrongSelection
+                                ? 'border-rose-200 bg-rose-50'
+                                : 'border-slate-200 bg-white'
+                          }`}
+                        >
+                          <p className={`min-w-0 text-slate-700 ${isCorrect ? 'font-medium text-emerald-800' : ''}`}>
+                            {choice.text}
+                          </p>
+                          <div className="flex shrink-0 flex-wrap justify-end gap-3 text-sm font-semibold">
+                            {isSelected && (
+                              <span className={isWrongSelection ? 'text-rose-600' : 'text-emerald-700'}>
+                                Học viên chọn
+                              </span>
+                            )}
+                            {isCorrect && <span className="text-emerald-700">Đáp án đúng</span>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {!answer.selectedChoiceId && (
+                      <div className="rounded-xl border border-slate-200 p-4 text-sm font-medium text-slate-500">
+                        Học viên chưa chọn đáp án.
+                      </div>
+                    )}
+                  </div>
+                ) : (
                   <div className="grid gap-3 md:grid-cols-2">
                     <div className={`rounded-xl border p-4 ${selectedChoiceIsWrong ? 'border-rose-200 bg-rose-50' : 'border-slate-200'}`}>
                       <div className={`text-xs font-semibold uppercase ${selectedChoiceIsWrong ? 'text-rose-500' : 'text-slate-400'}`}>
@@ -206,6 +247,4 @@ export default function QuestionReviewPage() {
     </div>
   );
 }
-
-
 

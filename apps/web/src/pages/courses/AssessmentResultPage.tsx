@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Badge, Card, CardBody } from '@/components/ui';
 import { useToast } from '@/components/Toast';
@@ -142,8 +142,10 @@ export default function QuestionResultPage() {
                 {answer.type === 'MULTIPLE_CHOICE' ? hasChoices ? (
                   <div className="space-y-3">
                     {choices.map((choice) => {
-                      const isSelected = choice.id === answer.selectedChoiceId;
-                      const isCorrect = Boolean(choice.isCorrect);
+                      const isSelected = choice.id === answer.selectedChoiceId || choice.text === answer.selectedChoiceText;
+                      const isCorrect = Boolean(choice.isCorrect)
+                        || choice.id === answer.correctChoiceId
+                        || choice.text === answer.correctChoiceText;
                       const isWrongSelection = isSelected && !isCorrect;
                       return (
                         <div
@@ -159,11 +161,11 @@ export default function QuestionResultPage() {
                           <p className={`min-w-0 text-slate-700 ${isCorrect ? 'font-medium text-emerald-800' : ''}`}>
                             {choice.text}
                           </p>
-                          <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                          <div className="flex shrink-0 flex-wrap justify-end gap-3 text-sm font-semibold">
                             {isSelected && (
-                              <Badge variant={isWrongSelection ? 'error' : 'success'}>Bạn chọn</Badge>
+                              <span className={isWrongSelection ? 'text-rose-600' : 'text-emerald-700'}>Bạn chọn</span>
                             )}
-                            {isCorrect && <Badge variant="success">Đáp án đúng</Badge>}
+                            {isCorrect && <span className="text-emerald-700">Đáp án đúng</span>}
                           </div>
                         </div>
                       );
@@ -208,6 +210,5 @@ export default function QuestionResultPage() {
     </div>
   );
 }
-
 
 
