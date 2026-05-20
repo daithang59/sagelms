@@ -1,0 +1,25 @@
+gateway:
+  - "services/gateway/**"
+auth_service:
+  - "services/auth-service/**"
+course_service:
+  - "services/course-service/**"
+content_service:
+  - "services/content-service/**"
+progress_service:
+  - "services/progress-service/**"
+assessment_service:
+  - "services/assessment-service/**"
+worker:
+  - "services/worker/**"
+frontend:
+  - "apps/web/**"
+infra:
+  - "infra/**"
+  - "deploy/**"
+  - "charts/**"
+  - "platform/**"
+  - ".github/workflows/**"
+docker:
+  - "services/*/Dockerfile"
+  - "infra/docker/**"
