@@ -91,7 +91,7 @@ jobs:
           node-version: "20"
 
       - name: Install commitlint
-        run: npm i -D @commitlint/cli @commitlint/config-conventional
+        run: npm install --no-save @commitlint/cli @commitlint/config-conventional
 
       - name: Lint commits in PR range
         run: |
@@ -107,54 +107,73 @@ jobs:
   changes:
     runs-on: ubuntu-latest
     outputs:
-      java: ${{ steps.filter.outputs.java }}
+      java_services: ${{ steps.matrices.outputs.java_services }}
+      docker_images: ${{ steps.matrices.outputs.docker_images }}
       frontend: ${{ steps.filter.outputs.frontend }}
       infra: ${{ steps.filter.outputs.infra }}
       docker: ${{ steps.filter.outputs.docker }}
+      any_relevant: ${{ steps.matrices.outputs.any_relevant }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
         id: filter
         with:
-          filters: |
-            java:
-              - 'services/gateway/**'
-              - 'services/auth-service/**'
-              - 'services/course-service/**'
-              - 'services/content-service/**'
-              - 'services/progress-service/**'
-              - 'services/assessment-service/**'
-              - 'services/worker/**'
-            frontend:
-              - 'apps/web/**'
-            infra:
-              - 'infra/**'
-              - '.github/workflows/**'
-            docker:
-              - 'services/gateway/Dockerfile'
-              - 'services/auth-service/Dockerfile'
-              - 'services/course-service/Dockerfile'
-              - 'services/content-service/Dockerfile'
-              - 'infra/docker/**'
+          filters: .github/path-filters.yml
+      - name: Build service matrices
+        id: matrices
+        env:
+          GATEWAY: ${{ steps.filter.outputs.gateway }}
+          AUTH_SERVICE: ${{ steps.filter.outputs.auth_service }}
+          COURSE_SERVICE: ${{ steps.filter.outputs.course_service }}
+          CONTENT_SERVICE: ${{ steps.filter.outputs.content_service }}
+          PROGRESS_SERVICE: ${{ steps.filter.outputs.progress_service }}
+          ASSESSMENT_SERVICE: ${{ steps.filter.outputs.assessment_service }}
+          WORKER: ${{ steps.filter.outputs.worker }}
+          FRONTEND: ${{ steps.filter.outputs.frontend }}
+          INFRA: ${{ steps.filter.outputs.infra }}
+          DOCKER: ${{ steps.filter.outputs.docker }}
+        run: |
+          java_services=()
+          docker_images=()
+
+          add_java() {
+            java_services+=("\"$1\"")
+          }
+
+          add_docker() {
+            docker_images+=("{\"service\":\"$1\",\"context\":\"services/$1\"}")
+          }
+
+          if [[ "$GATEWAY" == "true" ]]; then add_java "gateway"; add_docker "gateway"; fi
+          if [[ "$AUTH_SERVICE" == "true" ]]; then add_java "auth-service"; add_docker "auth-service"; fi
+          if [[ "$COURSE_SERVICE" == "true" ]]; then add_java "course-service"; add_docker "course-service"; fi
+          if [[ "$CONTENT_SERVICE" == "true" ]]; then add_java "content-service"; add_docker "content-service"; fi
+          if [[ "$PROGRESS_SERVICE" == "true" ]]; then add_java "progress-service"; fi
+          if [[ "$ASSESSMENT_SERVICE" == "true" ]]; then add_java "assessment-service"; fi
+          if [[ "$WORKER" == "true" ]]; then add_java "worker"; fi
+
+          {
+            printf "java_services=[%s]\n" "$(IFS=,; echo "${java_services[*]}")"
+            printf "docker_images=[%s]\n" "$(IFS=,; echo "${docker_images[*]}")"
+          } >> "$GITHUB_OUTPUT"
+
+          if [[ ${#java_services[@]} -gt 0 || ${#docker_images[@]} -gt 0 || "$FRONTEND" == "true" || "$INFRA" == "true" || "$DOCKER" == "true" ]]; then
+            echo "any_relevant=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "any_relevant=false" >> "$GITHUB_OUTPUT"
+          fi
 
   # --------------------------------------------------
   # Java services — unit tests
   # --------------------------------------------------
   test_java:
     needs: changes
-    if: needs.changes.outputs.java == 'true'
+    if: needs.changes.outputs.java_services != '[]'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        service:
-          - gateway
-          - auth-service
-          - course-service
-          - content-service
-          - progress-service
-          - assessment-service
-          - worker
+        service: ${{ fromJson(needs.changes.outputs.java_services) }}
     defaults:
       run:
         working-directory: services/${{ matrix.service }}
@@ -180,19 +199,12 @@ jobs:
     needs:
       - changes
       - test_java
-    if: needs.changes.outputs.java == 'true'
+    if: needs.changes.outputs.java_services != '[]'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        service:
-          - gateway
-          - auth-service
-          - course-service
-          - content-service
-          - progress-service
-          - assessment-service
-          - worker
+        service: ${{ fromJson(needs.changes.outputs.java_services) }}
     defaults:
       run:
         working-directory: services/${{ matrix.service }}
@@ -303,7 +315,7 @@ jobs:
   dependency_scan:
     name: Dependency scan
     needs: changes
-    if: needs.changes.outputs.java == 'true' || needs.changes.outputs.frontend == 'true' || needs.changes.outputs.infra == 'true' || needs.changes.outputs.docker == 'true'
+    if: needs.changes.outputs.any_relevant == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -353,9 +365,6 @@ jobs:
     needs: changes
     if: needs.changes.outputs.infra == 'true'
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: infra/opentofu
     steps:
       - uses: actions/checkout@v4
       - name: Setup OpenTofu
@@ -363,11 +372,11 @@ jobs:
         with:
           tofu_version: 1.9.0
       - name: Init
-        run: tofu init -backend=false
+        run: tofu -chdir=infra/opentofu/envs/devsecops init -backend=false
       - name: Format check
-        run: tofu fmt -check -recursive
+        run: tofu fmt -check -recursive infra/opentofu
       - name: Validate
-        run: tofu validate
+        run: tofu -chdir=infra/opentofu/envs/devsecops validate
 
   # --------------------------------------------------
   # Docker — Build smoke test (no push)
@@ -375,20 +384,12 @@ jobs:
   docker_build:
     name: "Docker: Build"
     needs: changes
-    if: needs.changes.outputs.docker == 'true' || needs.changes.outputs.java == 'true'
+    if: needs.changes.outputs.docker_images != '[]'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - service: gateway
-            context: services/gateway
-          - service: auth-service
-            context: services/auth-service
-          - service: course-service
-            context: services/course-service
-          - service: content-service
-            context: services/content-service
+        include: ${{ fromJson(needs.changes.outputs.docker_images) }}
     steps:
       - uses: actions/checkout@v4
       - name: Build Docker image
@@ -400,7 +401,7 @@ jobs:
   sonar_optional:
     name: SonarQube (optional self-hosted)
     needs: changes
-    if: ${{ vars.ENABLE_SONAR == 'true' && (needs.changes.outputs.java == 'true' || needs.changes.outputs.frontend == 'true' || needs.changes.outputs.infra == 'true' || needs.changes.outputs.docker == 'true') }}
+    if: ${{ vars.ENABLE_SONAR == 'true' && needs.changes.outputs.any_relevant == 'true' }}
     runs-on: [self-hosted, devsecops, security]
     steps:
       - uses: actions/checkout@v4
@@ -425,6 +426,7 @@ jobs:
     name: CI Status
     if: always()
     needs:
+      - changes
       - secret_scan
       - pr_title
       - conventions_branch
@@ -448,6 +450,7 @@ jobs:
           echo "=== CI Status Report ==="
           results=(
             "secret_scan:${{ needs.secret_scan.result }}"
+            "changes:${{ needs.changes.result }}"
             "pr_title:${{ needs.pr_title.result }}"
             "conventions_branch:${{ needs.conventions_branch.result }}"
             "conventions_commits:${{ needs.conventions_commits.result }}"
