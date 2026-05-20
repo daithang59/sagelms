@@ -115,6 +115,28 @@ PR sửa infra/opentofu
 
 Không chạy `tofu apply` từ Pull Request. Không cấp quyền đọc remote state hoặc quyền GCP cho PR từ branch chưa được bảo vệ.
 
+Workflow `.github/workflows/infra-plan.yml` tách thành hai lớp:
+
+| Job | Trigger | Quyền cloud | Mục đích |
+|---|---|---|---|
+| `validate` | Pull Request hoặc manual | Không | `tofu init -backend=false`, `tofu fmt`, `tofu validate` |
+| `checkov` | Pull Request hoặc manual | Không | Scan static OpenTofu bằng Checkov |
+| `plan` | `workflow_dispatch` | Có, qua GitHub Environment `devsecops-infra` | Tạo remote plan với GCS backend |
+
+`workflow_dispatch` không nhận input để tuân thủ Checkov rule `CKV_GHA_7`. Khi chạy manual workflow này, job `plan` sẽ chạy sau khi `validate` và `checkov` pass.
+
+Environment `devsecops-infra` cần các biến:
+
+```text
+GCP_WORKLOAD_IDENTITY_PROVIDER=projects/384858175117/locations/global/workloadIdentityPools/sagelms-devsecops-github-pool/providers/github
+GCP_SERVICE_ACCOUNT=sagelms-devsecops-gha-sa@sagelms.iam.gserviceaccount.com
+TF_VAR_GITHUB_OWNER=daithang59
+```
+
+Nếu cần giữ đúng cấu hình local không commit như `master_authorized_networks`, thêm GitHub Environment secret `TOFU_TFVARS` với nội dung HCL tương đương file `terraform.tfvars` an toàn. Không đưa secret value thật vào `TOFU_TFVARS`.
+
+Ghi chú khi test trên fork: WIF hiện được cấu hình theo repository `daithang59/sagelms`, nên job `plan` trên fork chỉ chạy được nếu nhóm mở rộng điều kiện WIF cho `duyimew/sagelms` hoặc tạo provider riêng cho fork. Hai job `validate` và `checkov` vẫn chạy bình thường trên fork.
+
 ## Post-deploy smoke test
 
 Sau khi FluxCD deploy, workflow hoặc runbook cần kiểm tra:
