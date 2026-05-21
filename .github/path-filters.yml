@@ -10,16 +10,15 @@ progress_service:
   - "services/progress-service/**"
 assessment_service:
   - "services/assessment-service/**"
+challenge_service:
+  - "services/challenge-service/**"
+ai_tutor_service:
+  - "services/ai-tutor-service/**"
 worker:
   - "services/worker/**"
 frontend:
   - "apps/web/**"
-infra:
-  - "infra/**"
-  - "deploy/**"
-  - "charts/**"
-  - "platform/**"
+github:
   - ".github/workflows/**"
 docker:
   - "services/*/Dockerfile"
-  - "infra/docker/**"
