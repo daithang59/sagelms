@@ -23,7 +23,7 @@ Cung cấp **chatbot AI** hỏi đáp dựa trên nội dung khoá học, sử d
 | pgvector | Vector store (trong PostgreSQL) |
 | Redis | Job queue |
 
-## Port: `8086`
+## Port: `8087`
 
 ## RAG Pipeline
 

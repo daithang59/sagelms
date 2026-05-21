@@ -345,7 +345,7 @@ function AdminDashboard({ data }: { data: AdminDashboardData }) {
         </Card>
 
         <div className="space-y-4">
-          <QuickAction to="/admin/courses" icon={BookOpen} title="Quản trị khóa học" description="Giám sát, lưu trữ hoặc khôi phục khóa trong hệ thống." />
+          <QuickAction to="/admin/courses" icon={BookOpen} title="Quản lý khóa học" description="Giám sát, lưu trữ hoặc khôi phục khóa trong hệ thống." />
           <Card>
             <CardHeader>
               <div className="flex items-center gap-3">

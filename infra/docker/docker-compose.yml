@@ -72,6 +72,8 @@ services:
       ASSESSMENT_SERVICE_PORT: 8085
       CHALLENGE_SERVICE_HOST: challenge-service
       CHALLENGE_SERVICE_PORT: 8086
+      AI_TUTOR_SERVICE_HOST: ai-tutor-service
+      AI_TUTOR_SERVICE_PORT: 8087
     depends_on:
       auth-service:
         condition: service_started
@@ -82,6 +84,8 @@ services:
       assessment-service:
         condition: service_started
       challenge-service:
+        condition: service_started
+      ai-tutor-service:
         condition: service_started
     profiles:
       - app
@@ -191,6 +195,21 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    profiles:
+      - app
+
+  ai-tutor-service:
+    build:
+      context: ../../services/ai-tutor-service
+      dockerfile: Dockerfile
+    expose:
+      - "8087"
+    environment:
+      GATEWAY_SHARED_SECRET: ${GATEWAY_SHARED_SECRET:-sagelms-dev-gateway-secret}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+      GOOGLE_MODEL: ${GOOGLE_MODEL:-gemini-3.0-flash}
+      AI_TUTOR_TEMPERATURE: ${AI_TUTOR_TEMPERATURE:-0.2}
+      AI_TUTOR_MAX_OUTPUT_TOKENS: ${AI_TUTOR_MAX_OUTPUT_TOKENS:-1024}
     profiles:
       - app
 

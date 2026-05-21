@@ -7,6 +7,7 @@ import {
   Filter,
   RefreshCw,
   RotateCcw,
+  Trash,
   Search,
   SearchX,
   Users,
@@ -15,6 +16,7 @@ import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import { Card, CardBody } from '@/components/ui/Card';
 import { useToast } from '@/components/Toast';
+import useConfirm from '@/hooks/useConfirm';
 import api from '@/lib/axios';
 import type { Course, CourseListResponse, CourseRequest, CourseStatus } from '@/types/course';
 
@@ -22,7 +24,7 @@ const statusOptions: Array<{ value: '' | CourseStatus; label: string }> = [
   { value: '', label: 'Tất cả trạng thái' },
   { value: 'PUBLISHED', label: 'Đã xuất bản' },
   { value: 'DRAFT', label: 'Bản nháp' },
-  { value: 'ARCHIVED', label: 'Đã lưu trữ' },
+  { value: 'ARCHIVED', label: 'Đã xóa' },
 ];
 
 const categoryOptions = [
@@ -38,7 +40,7 @@ const categoryOptions = [
 const statusMeta: Record<CourseStatus, { label: string; variant: 'success' | 'warning' | 'neutral' }> = {
   PUBLISHED: { label: 'Đã xuất bản', variant: 'success' },
   DRAFT: { label: 'Bản nháp', variant: 'warning' },
-  ARCHIVED: { label: 'Đã lưu trữ', variant: 'neutral' },
+  ARCHIVED: { label: 'Đã xóa', variant: 'neutral' },
 };
 
 function formatDate(value: string) {
@@ -94,6 +96,7 @@ function SummaryCard({
 
 export default function AdminCoursesPage() {
   const { showToast } = useToast();
+  const confirm = useConfirm();
   const [courses, setCourses] = useState<Course[]>([]);
   const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
@@ -155,12 +158,17 @@ export default function AdminCoursesPage() {
   };
 
   const updateCourseStatus = async (course: Course, nextStatus: CourseStatus) => {
-    const actionLabel = nextStatus === 'ARCHIVED' ? 'lưu trữ' : 'khôi phục';
-    const ok = window.confirm(
-      nextStatus === 'ARCHIVED'
+    const isArchiving = nextStatus === 'ARCHIVED';
+    const actionLabel = isArchiving ? 'lưu trữ' : 'khôi phục';
+    const ok = await confirm({
+      title: isArchiving ? 'Lưu trữ khóa học' : 'Khôi phục khóa học',
+      message: isArchiving
         ? `Bạn có chắc muốn lưu trữ khóa "${course.title}"? Học viên sẽ không thể tìm thấy khóa này trong danh sách công khai.`
         : `Khôi phục khóa "${course.title}" về bản nháp? Giảng viên cần xuất bản lại nếu muốn mở ghi danh.`,
-    );
+      confirmLabel: isArchiving ? 'Lưu trữ' : 'Khôi phục',
+      cancelLabel: 'Hủy',
+      variant: isArchiving ? 'danger' : 'default',
+    });
 
     if (!ok) return;
 
@@ -185,7 +193,7 @@ export default function AdminCoursesPage() {
             <BookOpen className="h-3.5 w-3.5" />
             Admin course operations
           </div>
-          <h1 className="text-3xl font-bold text-slate-900">Quản trị khóa học</h1>
+          <h1 className="text-3xl font-bold text-slate-900">Quản lý khóa học</h1>
           <p className="mt-2 max-w-2xl text-sm text-slate-500">
             Theo dõi toàn bộ khóa học trong hệ thống, xử lý khóa vi phạm và hỗ trợ giảng viên khi cần.
           </p>
@@ -333,31 +341,33 @@ export default function AdminCoursesPage() {
                       <div className="flex items-center justify-end gap-2">
                         <Link
                           to={`/courses/${course.id}`}
-                          className="pressable inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700"
+                          className="pressable inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition hover:border-violet-200 hover:bg-violet-50 hover:text-violet-700"
                           title="Mở chi tiết"
                         >
                           <ExternalLink className="h-4 w-4" />
                         </Link>
                         {course.status === 'ARCHIVED' ? (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            isLoading={actingCourseId === course.id}
+                          <button
+                            type="button"
+                            disabled={actingCourseId === course.id}
                             onClick={() => void updateCourseStatus(course, 'DRAFT')}
+                            className="pressable inline-flex h-10 w-10 items-center justify-center rounded-xl border bg-green-400 text-white transition hover:bg-green-500 disabled:cursor-not-allowed disabled:opacity-60"
+                            title="Khôi phục về bản nháp"
+                            aria-label={`Khôi phục khóa ${course.title}`}
                           >
-                            <RotateCcw className="h-4 w-4" />
-                            Khôi phục
-                          </Button>
+                            {actingCourseId === course.id ? <RefreshCw className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+                          </button>
                         ) : (
-                          <Button
-                            variant="danger"
-                            size="sm"
-                            isLoading={actingCourseId === course.id}
+                          <button
+                            type="button"
+                            disabled={actingCourseId === course.id}
                             onClick={() => void updateCourseStatus(course, 'ARCHIVED')}
+                            className="pressable inline-flex h-10 w-10 items-center justify-center rounded-xl bg-rose-600 text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+                            title="Lưu trữ khóa học"
+                            aria-label={`Lưu trữ khóa ${course.title}`}
                           >
-                            <Archive className="h-4 w-4" />
-                            Lưu trữ
-                          </Button>
+                            {actingCourseId === course.id ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Trash className="h-4 w-4" />}
+                          </button>
                         )}
                       </div>
                     </td>

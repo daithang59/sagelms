@@ -14,7 +14,7 @@ Chứa mã nguồn của tất cả **backend microservices** trong SageLMS.
 | [content-service](./content-service/) | `8083` | Spring Boot | Quản lý nội dung bài giảng |
 | [progress-service](./progress-service/) | `8084` | Spring Boot | Theo dõi tiến trình học |
 | [assessment-service](./assessment-service/) | `8085` | Spring Boot | Quiz, chấm điểm |
-| [ai-tutor-service](./ai-tutor-service/) | `8086` | FastAPI | AI Tutor RAG |
+| [ai-tutor-service](./ai-tutor-service/) | `8087` | FastAPI | AI Tutor RAG |
 | [worker](./worker/) | — | Celery/BullMQ | Background jobs |
 
 ## Nguyên tắc

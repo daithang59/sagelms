@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { AxiosError } from 'axios';
+import type { AxiosError, InternalAxiosRequestConfig } from 'axios';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1';
 
@@ -15,6 +15,22 @@ const apiClient = axios.create({
   headers: { 'Content-Type': 'application/json' },
   timeout: 15000,
 });
+
+function toApiError(error: AxiosError, fallback = 'An error occurred.') {
+  const data = error.response?.data as {
+    message?: string;
+    code?: string;
+    detail?: string | { message?: string; code?: string };
+  } | undefined;
+  const detail = data?.detail;
+  const message = typeof detail === 'object'
+    ? detail.message
+    : typeof detail === 'string'
+      ? detail
+      : data?.message || error.message || fallback;
+  const code = typeof detail === 'object' ? detail.code : data?.code;
+  return Object.assign(new Error(message || fallback), { code });
+}
 
 // ── Request interceptor: attach JWT token ──
 apiClient.interceptors.request.use(
@@ -32,6 +48,8 @@ apiClient.interceptors.request.use(
 let isRefreshing = false;
 let refreshQueue: Array<{ resolve: (token: string) => void; reject: (err: Error) => void }> = [];
 
+type RetryableRequestConfig = InternalAxiosRequestConfig & { __retry?: boolean };
+
 const drainQueue = (token: string, err?: Error) => {
   refreshQueue.forEach(({ resolve, reject }) => {
     if (err) reject(err);
@@ -43,10 +61,9 @@ const drainQueue = (token: string, err?: Error) => {
 apiClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
-    const config = error.config;
-    if (!config || (config as any).__retry) {
-      const msg = (error.response?.data as any)?.message || error.message || 'An error occurred.';
-      return Promise.reject(new Error(msg));
+    const config = error.config as RetryableRequestConfig | undefined;
+    if (!config || config.__retry) {
+      return Promise.reject(toApiError(error));
     }
 
     const url = config.url || '';
@@ -58,7 +75,7 @@ apiClient.interceptors.response.use(
         return new Promise<string>((resolve, reject) => {
           refreshQueue.push({ resolve, reject });
         }).then((token) => {
-          (config as any).__retry = true;
+          config.__retry = true;
           config.headers.Authorization = `Bearer ${token}`;
           return apiClient(config);
         });
@@ -73,8 +90,7 @@ apiClient.interceptors.response.use(
         localStorage.removeItem('refreshToken');
         localStorage.removeItem('user');
         if (window.location.pathname !== '/login') window.location.href = '/login';
-        const msg = (error.response?.data as any)?.message || 'Session expired. Please login again.';
-        return Promise.reject(new Error(msg));
+        return Promise.reject(toApiError(error, 'Session expired. Please login again.'));
       }
 
       try {
@@ -87,7 +103,7 @@ apiClient.interceptors.response.use(
         drainQueue(newAccessToken);
         isRefreshing = false;
 
-        (config as any).__retry = true;
+        config.__retry = true;
         config.headers.Authorization = `Bearer ${newAccessToken}`;
         return apiClient(config);
       } catch (refreshError) {
@@ -102,8 +118,7 @@ apiClient.interceptors.response.use(
       }
     }
 
-    const msg = (error.response?.data as any)?.message || error.message || 'An error occurred.';
-    return Promise.reject(new Error(msg));
+    return Promise.reject(toApiError(error));
   },
 );
 
