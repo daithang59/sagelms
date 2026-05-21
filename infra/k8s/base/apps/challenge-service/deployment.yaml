@@ -24,7 +24,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: challenge-service
-          image: harbor.sagelms.dev/sagelms-app/challenge-service:dev
+          image: harbor.sagelms.id.vn/sagelms-app/challenge-service:dev
           imagePullPolicy: IfNotPresent
           ports:
             - name: http

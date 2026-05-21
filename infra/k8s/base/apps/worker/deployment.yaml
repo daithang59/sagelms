@@ -24,7 +24,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: worker
-          image: harbor.sagelms.dev/sagelms-app/worker:dev
+          image: harbor.sagelms.id.vn/sagelms-app/worker:dev
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:

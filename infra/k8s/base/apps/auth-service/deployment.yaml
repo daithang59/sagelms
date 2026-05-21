@@ -24,7 +24,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: auth-service
-          image: harbor.sagelms.dev/sagelms-app/auth-service:dev
+          image: harbor.sagelms.id.vn/sagelms-app/auth-service:dev
           imagePullPolicy: IfNotPresent
           ports:
             - name: http

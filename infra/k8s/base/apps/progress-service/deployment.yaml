@@ -24,7 +24,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: progress-service
-          image: harbor.sagelms.dev/sagelms-app/progress-service:dev
+          image: harbor.sagelms.id.vn/sagelms-app/progress-service:dev
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
