@@ -19,7 +19,6 @@ variable "services" {
     "secretmanager.googleapis.com",
     "servicenetworking.googleapis.com",
     "serviceusage.googleapis.com",
-    "sqladmin.googleapis.com",
     "storage.googleapis.com",
     "sts.googleapis.com",
   ]

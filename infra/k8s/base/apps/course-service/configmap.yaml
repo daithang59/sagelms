@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: course-service-config
+  labels:
+    app.kubernetes.io/name: course-service
+    app.kubernetes.io/part-of: sagelms
+data:
+  SERVER_PORT: "8082"
+  SPRING_PROFILES_ACTIVE: "gke"
+  DB_HOST: "sagelms-postgres-rw.sagelms-data.svc.cluster.local"
+  DB_PORT: "5432"
+  DB_NAME: "sagelms"

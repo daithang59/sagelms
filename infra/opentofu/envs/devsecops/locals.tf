@@ -9,6 +9,8 @@ locals {
   namespaces = [
     "sagelms-devsecops",
     "platform-system",
+    "cnpg-system",
+    "sagelms-data",
     "harbor",
     "monitoring",
   ]

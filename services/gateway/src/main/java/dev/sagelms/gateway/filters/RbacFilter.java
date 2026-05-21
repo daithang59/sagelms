@@ -107,6 +107,9 @@ public class RbacFilter implements GlobalFilter, Ordered {
         if (path.matches("^/api/v1/challenges/[^/]+/attempts$")) {
             return false;
         }
+        if (path.matches("^/api/v1/question-sets/[^/]+/attempts$")) {
+            return false;
+        }
         return method == HttpMethod.POST || method == HttpMethod.PUT
                 || method == HttpMethod.DELETE || method == HttpMethod.PATCH;
     }

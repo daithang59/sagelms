@@ -1,0 +1,115 @@
+name: OpenTofu Infra Plan
+
+on:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "infra/opentofu/**"
+      - ".github/workflows/infra-plan.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+  id-token: write
+
+concurrency:
+  group: infra-plan-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TF_IN_AUTOMATION: "true"
+  TOFU_VERSION: "1.9.0"
+  TOFU_WORKDIR: infra/opentofu/envs/devsecops
+
+jobs:
+  validate:
+    name: OpenTofu fmt/validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: ${{ env.TOFU_VERSION }}
+
+      - name: Init without backend
+        run: tofu -chdir=${{ env.TOFU_WORKDIR }} init -backend=false
+
+      - name: Format check
+        run: tofu fmt -check -recursive infra/opentofu
+
+      - name: Validate configuration
+        run: tofu -chdir=${{ env.TOFU_WORKDIR }} validate
+
+  checkov:
+    name: Checkov OpenTofu scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Checkov on OpenTofu
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: infra/opentofu
+
+  plan:
+    name: OpenTofu remote plan
+    needs:
+      - validate
+      - checkov
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    environment: devsecops-infra
+    env:
+      GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+      GCP_SERVICE_ACCOUNT: ${{ vars.GCP_SERVICE_ACCOUNT }}
+      TF_VAR_github_owner: ${{ vars.TF_VAR_GITHUB_OWNER || github.repository_owner }}
+      TOFU_TFVARS: ${{ secrets.TOFU_TFVARS }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check required environment configuration
+        run: |
+          missing=0
+          if [[ -z "$GCP_WORKLOAD_IDENTITY_PROVIDER" ]]; then
+            echo "Missing GitHub Environment variable: GCP_WORKLOAD_IDENTITY_PROVIDER"
+            missing=1
+          fi
+          if [[ -z "$GCP_SERVICE_ACCOUNT" ]]; then
+            echo "Missing GitHub Environment variable: GCP_SERVICE_ACCOUNT"
+            missing=1
+          fi
+          if [[ $missing -ne 0 ]]; then
+            exit 1
+          fi
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_SERVICE_ACCOUNT }}
+
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: ${{ env.TOFU_VERSION }}
+
+      - name: Write optional CI tfvars
+        if: ${{ env.TOFU_TFVARS != '' }}
+        run: |
+          printf '%s' "$TOFU_TFVARS" > "${{ env.TOFU_WORKDIR }}/ci.auto.tfvars"
+
+      - name: Init remote backend
+        run: tofu -chdir=${{ env.TOFU_WORKDIR }} init
+
+      - name: Create plan
+        run: tofu -chdir=${{ env.TOFU_WORKDIR }} plan -input=false -no-color -out=tfplan
+
+      - name: Upload plan artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: devsecops-tfplan
+          path: ${{ env.TOFU_WORKDIR }}/tfplan
+          if-no-files-found: error

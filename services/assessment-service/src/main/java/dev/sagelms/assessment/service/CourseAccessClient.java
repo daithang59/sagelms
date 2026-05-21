@@ -22,7 +22,7 @@ public class CourseAccessClient {
             @Value("${app.course-service.base-url}") String courseServiceBaseUrl,
             @Value("${app.internal.secret}") String internalSecret) {
         this.courseServiceBaseUrl = courseServiceBaseUrl;
-        this.internalSecret = internalSecret;
+        this.internalSecret = cleanSecret(internalSecret);
     }
 
     public boolean isCourseOwner(UUID courseId, UUID userId) {
@@ -81,5 +81,9 @@ public class CourseAccessClient {
         public CourseAccessException(String message) {
             super(message);
         }
+    }
+
+    private static String cleanSecret(String value) {
+        return value == null ? "" : value.trim();
     }
 }

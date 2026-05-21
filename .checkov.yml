@@ -1,0 +1,9 @@
+# Default Checkov gate for the cloud IaC baseline.
+# Kubernetes/Kustomize, Dockerfile, and OpenAPI scans have separate unfinished
+# baselines; enabling them in the default repo scan currently creates noise and,
+# on Windows Checkov 3.2.529, the Kustomize runner crashes while renaming temp
+# output files.
+directory:
+  - infra/opentofu
+framework:
+  - terraform

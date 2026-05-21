@@ -26,7 +26,7 @@ public class CourseOwnershipClient {
             @Value("${app.internal.secret:dev-internal-secret-change-me}") String internalSecret) {
         this.restTemplate = restTemplateBuilder.build();
         this.courseServiceUrl = courseServiceUrl;
-        this.internalSecret = internalSecret;
+        this.internalSecret = cleanSecret(internalSecret);
     }
 
     public boolean isCourseOwner(UUID courseId, UUID userId) {
@@ -73,5 +73,9 @@ public class CourseOwnershipClient {
         } catch (RestClientException ex) {
             return false;
         }
+    }
+
+    private static String cleanSecret(String value) {
+        return value == null ? "" : value.trim();
     }
 }

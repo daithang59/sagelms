@@ -1,0 +1,83 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sagelms-postgres
+  namespace: sagelms-data
+  annotations:
+    iam.gke.io/gcp-service-account: sagelms-devsecops-cnpg-sa@sagelms.iam.gserviceaccount.com
+  labels:
+    app.kubernetes.io/name: sagelms-postgres
+    app.kubernetes.io/part-of: sagelms
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: sagelms-postgres-app-secret
+  namespace: sagelms-data
+  labels:
+    app.kubernetes.io/name: sagelms-postgres
+    app.kubernetes.io/part-of: sagelms
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: gcpsm-sagelms-devsecops
+  target:
+    name: sagelms-postgres-app-secret
+    creationPolicy: Owner
+  data:
+    - secretKey: username
+      remoteRef:
+        key: sagelms-devsecops-cnpg-app-username
+    - secretKey: password
+      remoteRef:
+        key: sagelms-devsecops-cnpg-app-password
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: sagelms-postgres-superuser-secret
+  namespace: sagelms-data
+  labels:
+    app.kubernetes.io/name: sagelms-postgres
+    app.kubernetes.io/part-of: sagelms
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: gcpsm-sagelms-devsecops
+  target:
+    name: sagelms-postgres-superuser-secret
+    creationPolicy: Owner
+    template:
+      engineVersion: v2
+      data:
+        username: postgres
+        password: "{{ .password }}"
+  data:
+    - secretKey: password
+      remoteRef:
+        key: sagelms-devsecops-cnpg-superuser-password
+---
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: db-app-secret
+  namespace: sagelms-devsecops
+  labels:
+    app.kubernetes.io/part-of: sagelms
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: gcpsm-sagelms-devsecops
+  target:
+    name: db-app-secret
+    creationPolicy: Owner
+  data:
+    - secretKey: DB_USER
+      remoteRef:
+        key: sagelms-devsecops-cnpg-app-username
+    - secretKey: DB_PASSWORD
+      remoteRef:
+        key: sagelms-devsecops-cnpg-app-password
