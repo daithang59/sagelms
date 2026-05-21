@@ -6,44 +6,35 @@ namespace: sagelms-devsecops
 resources:
   - ../../base/apps
   - app-shared-externalsecret.yaml
-  - harbor-pull-externalsecret.yaml
   - ingress.yaml
 
 images:
   - name: harbor.sagelms.dev/sagelms-app/gateway
-    newName: harbor.sagelms.dev/sagelms-app/gateway
-    newTag: dev
+    newName: asia-southeast1-docker.pkg.dev/sagelms/sagelms-app/gateway
+    newTag: gke-temp-93d7c34
   - name: harbor.sagelms.dev/sagelms-app/auth-service
-    newName: harbor.sagelms.dev/sagelms-app/auth-service
-    newTag: dev
+    newName: asia-southeast1-docker.pkg.dev/sagelms/sagelms-app/auth-service
+    newTag: gke-temp-93d7c34
   - name: harbor.sagelms.dev/sagelms-app/course-service
-    newName: harbor.sagelms.dev/sagelms-app/course-service
-    newTag: dev
+    newName: asia-southeast1-docker.pkg.dev/sagelms/sagelms-app/course-service
+    newTag: gke-temp-93d7c34
   - name: harbor.sagelms.dev/sagelms-app/content-service
-    newName: harbor.sagelms.dev/sagelms-app/content-service
-    newTag: dev
+    newName: asia-southeast1-docker.pkg.dev/sagelms/sagelms-app/content-service
+    newTag: gke-temp-93d7c34
   - name: harbor.sagelms.dev/sagelms-app/progress-service
-    newName: harbor.sagelms.dev/sagelms-app/progress-service
-    newTag: dev
+    newName: asia-southeast1-docker.pkg.dev/sagelms/sagelms-app/progress-service
+    newTag: gke-temp-93d7c34
   - name: harbor.sagelms.dev/sagelms-app/assessment-service
-    newName: harbor.sagelms.dev/sagelms-app/assessment-service
-    newTag: dev
+    newName: asia-southeast1-docker.pkg.dev/sagelms/sagelms-app/assessment-service
+    newTag: gke-temp-93d7c34
   - name: harbor.sagelms.dev/sagelms-app/worker
-    newName: harbor.sagelms.dev/sagelms-app/worker
-    newTag: dev
+    newName: asia-southeast1-docker.pkg.dev/sagelms/sagelms-app/worker
+    newTag: gke-temp-93d7c34
   - name: harbor.sagelms.dev/sagelms-app/web
-    newName: harbor.sagelms.dev/sagelms-app/web
-    newTag: dev
+    newName: asia-southeast1-docker.pkg.dev/sagelms/sagelms-app/web
+    newTag: gke-temp-93d7c34
 
 patches:
-  - target:
-      kind: ServiceAccount
-      labelSelector: app.kubernetes.io/part-of=sagelms
-    patch: |-
-      - op: add
-        path: /imagePullSecrets
-        value:
-          - name: harbor-pull-secret
   - target:
       kind: Service
       name: gateway

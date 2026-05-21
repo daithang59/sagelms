@@ -176,8 +176,9 @@ sagelms-devsecops-internal-api-secret
 ```
 
 Secret này đã được thêm vào danh sách `secret_suffixes` của module
-`secret-manager`, nên OpenTofu sẽ quản lý Secret ID này. Sau khi apply, vẫn cần
-thêm giá trị thật vào Google Secret Manager trước khi app sử dụng.
+`secret-manager`, nên OpenTofu quản lý Secret ID này. Value thật đã được thêm
+vào Google Secret Manager bằng một chuỗi random mạnh, không lưu trong Git hoặc
+OpenTofu state.
 
 ## 5. Cách Thêm Giá Trị Vào Secret
 
