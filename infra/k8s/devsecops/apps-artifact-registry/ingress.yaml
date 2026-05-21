@@ -4,8 +4,8 @@ metadata:
   name: sagelms-ingress
   annotations:
     kubernetes.io/ingress.allow-http: "true"
+    kubernetes.io/ingress.class: "gce"
 spec:
-  ingressClassName: gce
   rules:
     - http:
         paths:

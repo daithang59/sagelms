@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   # --------------------------------------------------
-  # Secret scan — always runs
+  # Secret scan - always runs
   # --------------------------------------------------
   secret_scan:
     runs-on: ubuntu-latest
@@ -64,17 +64,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check branch naming
+        env:
+          BRANCH: ${{ github.head_ref }}
         run: |
-          BRANCH="${{ github.head_ref }}"
           echo "Branch: $BRANCH"
           if [[ "$BRANCH" == dependabot/* ]]; then
-            echo "✅ Dependabot branch allowed"
+            echo "[OK] Dependabot branch allowed"
           elif [[ ! "$BRANCH" =~ ^(feat|fix|chore|docs|refactor|test|ci|build|perf|style|revert)\/[a-zA-Z0-9_-]+(\/[a-zA-Z0-9_-]+)*$ ]]; then
-            echo "❌ Invalid branch name: $BRANCH"
-            echo "✅ Expected: <type>/<slug> (e.g., feat/auth-login) or dependabot/*"
+            echo "[FAIL] Invalid branch name: $BRANCH"
+            echo "[OK] Expected: <type>/<slug> (e.g., feat/auth-login) or dependabot/*"
             exit 1
           fi
-          echo "✅ Branch name OK"
+          echo "[OK] Branch name OK"
 
   # --------------------------------------------------
   # Conventions: Commit Messages
@@ -103,7 +104,7 @@ jobs:
           npx commitlint --from "$BASE" --to "$HEAD" --verbose
 
   # --------------------------------------------------
-  # Path filter — detect which areas changed
+  # Path filter - detect which areas changed
   # --------------------------------------------------
   changes:
     runs-on: ubuntu-latest
@@ -165,7 +166,7 @@ jobs:
           fi
 
   # --------------------------------------------------
-  # Java services — unit tests
+  # Java services - unit tests
   # --------------------------------------------------
   test_java:
     needs: changes
@@ -194,7 +195,7 @@ jobs:
           fi
 
   # --------------------------------------------------
-  # Java services — package smoke build
+  # Java services - package smoke build
   # --------------------------------------------------
   build_java:
     needs:
@@ -225,7 +226,7 @@ jobs:
           fi
 
   # --------------------------------------------------
-  # Frontend — ESLint
+  # Frontend - ESLint
   # --------------------------------------------------
   lint_frontend:
     name: "Frontend: ESLint"
@@ -246,7 +247,7 @@ jobs:
       - run: npm run lint
 
   # --------------------------------------------------
-  # Frontend — TypeScript Type Check
+  # Frontend - TypeScript Type Check
   # --------------------------------------------------
   typecheck_frontend:
     name: "Frontend: TypeScript"
@@ -267,7 +268,7 @@ jobs:
       - run: npm run typecheck
 
   # --------------------------------------------------
-  # Frontend — Unit Tests (Vitest)
+  # Frontend - Unit Tests (Vitest)
   # --------------------------------------------------
   test_frontend:
     name: "Frontend: Tests"
@@ -288,7 +289,7 @@ jobs:
       - run: npm test -- --run
 
   # --------------------------------------------------
-  # Frontend — Production Build
+  # Frontend - Production Build
   # --------------------------------------------------
   build_frontend:
     name: "Frontend: Build"
@@ -311,7 +312,7 @@ jobs:
       - run: npm run build
 
   # --------------------------------------------------
-  # Dependency scan — report-first on GitHub-hosted
+  # Dependency scan - report-first on GitHub-hosted
   # --------------------------------------------------
   dependency_scan:
     name: Dependency scan
@@ -332,7 +333,7 @@ jobs:
           ignore-unfixed: true
 
   # --------------------------------------------------
-  # IaC / workflow scan — Checkov
+  # IaC / workflow scan - Checkov
   # --------------------------------------------------
   checkov_infra:
     name: "Checkov: infra"
@@ -359,7 +360,7 @@ jobs:
           directory: .github/workflows
 
   # --------------------------------------------------
-  # OpenTofu validation — GitHub-hosted
+  # OpenTofu validation - GitHub-hosted
   # --------------------------------------------------
   infra_validate:
     name: OpenTofu validate
@@ -380,7 +381,7 @@ jobs:
         run: tofu -chdir=infra/opentofu/envs/devsecops validate
 
   # --------------------------------------------------
-  # Docker — Build smoke test (no push)
+  # Docker - Build smoke test (no push)
   # --------------------------------------------------
   docker_build:
     name: "Docker: Build"
@@ -397,7 +398,7 @@ jobs:
         run: docker build -t sagelms-${{ matrix.service }}:ci-test ${{ matrix.context }}
 
   # --------------------------------------------------
-  # SonarQube — optional self-hosted job, disabled by default
+  # SonarQube - optional self-hosted job, disabled by default
   # --------------------------------------------------
   sonar_optional:
     name: SonarQube (optional self-hosted)
@@ -421,7 +422,7 @@ jobs:
             -Dsonar.sources=apps/web,services,contracts,infra
 
   # --------------------------------------------------
-  # Status gate — single check for branch protection
+  # Status gate - single check for branch protection
   # --------------------------------------------------
   ci_status:
     name: CI Status
@@ -473,16 +474,16 @@ jobs:
             name="${r%%:*}"
             status="${r##*:}"
             if [[ "$status" == "failure" || "$status" == "cancelled" ]]; then
-              echo "❌ $name: $status"
+              echo "[FAIL] $name: $status"
               failed=1
             else
-              echo "✅ $name: $status"
+              echo "[OK] $name: $status"
             fi
           done
           if [[ $failed -eq 1 ]]; then
             echo ""
-            echo "❌ CI FAILED — one or more required jobs did not pass"
+            echo "[FAIL] CI FAILED - one or more required jobs did not pass"
             exit 1
           fi
           echo ""
-          echo "✅ All CI checks passed!"
+          echo "[OK] All CI checks passed!"
