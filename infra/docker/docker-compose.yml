@@ -204,12 +204,18 @@ services:
       dockerfile: Dockerfile
     expose:
       - "8087"
+    env_file:
+      - ../../.env
     environment:
       GATEWAY_SHARED_SECRET: ${GATEWAY_SHARED_SECRET:-sagelms-dev-gateway-secret}
-      GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
-      GOOGLE_MODEL: ${GOOGLE_MODEL:-gemini-3.0-flash}
-      AI_TUTOR_TEMPERATURE: ${AI_TUTOR_TEMPERATURE:-0.2}
-      AI_TUTOR_MAX_OUTPUT_TOKENS: ${AI_TUTOR_MAX_OUTPUT_TOKENS:-1024}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-sagelms}
+      DB_USER: ${POSTGRES_USER:-sagelms}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-sagelms}
+    depends_on:
+      postgres:
+        condition: service_healthy
     profiles:
       - app
 

@@ -4,11 +4,11 @@ import type {
   AiTutorChatMessage,
   AiTutorChatRequest,
   AiTutorChatResponse,
+  AiTutorConversationSummary,
+  AiTutorStoredMessage,
 } from '@/types/ai-tutor';
 
-const MAX_HISTORY_MESSAGES = 20;
-
-function createMessage(role: AiTutorChatMessage['role'], content: string): AiTutorChatMessage {
+function createOptimisticMessage(role: AiTutorChatMessage['role'], content: string): AiTutorChatMessage {
   return {
     id: crypto.randomUUID(),
     role,
@@ -22,36 +22,76 @@ function getAiTutorErrorMessage(error: unknown) {
   if (code === 'GEMINI_API_KEY_MISSING') {
     return 'AI Tutor chưa được cấu hình Gemini API key.';
   }
-  if (code === 'LANGCHAIN_GEMINI_MISSING') {
-    return 'AI Tutor service thiếu dependency LangChain Gemini.';
+  if (code === 'USER_CONTEXT_MISSING') {
+    return 'AI Tutor chưa nhận được thông tin người dùng từ Gateway.';
+  }
+  if (code === 'CONVERSATION_NOT_FOUND') {
+    return 'Không tìm thấy cuộc trò chuyện này.';
   }
   return 'Không thể nhận phản hồi từ AI Tutor.';
 }
 
 export function useAiTutor() {
   const [messages, setMessages] = useState<AiTutorChatMessage[]>([]);
+  const [conversations, setConversations] = useState<AiTutorConversationSummary[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadingConversations, setLoadingConversations] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastPrompt, setLastPrompt] = useState<string | null>(null);
 
-  const clearChat = useCallback(() => {
+  const loadConversations = useCallback(async () => {
+    await Promise.resolve();
+    setLoadingConversations(true);
+    setError(null);
+    try {
+      const response = await api.get<AiTutorConversationSummary[]>('/ai/conversations');
+      setConversations(response);
+      return response;
+    } catch (err) {
+      setError(getAiTutorErrorMessage(err));
+      return [];
+    } finally {
+      setLoadingConversations(false);
+    }
+  }, []);
+
+  const loadConversation = useCallback(async (id: string) => {
+    await Promise.resolve();
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await api.get<AiTutorStoredMessage[]>(`/ai/conversations/${id}/messages`);
+      setConversationId(id);
+      setMessages(response);
+      setLastPrompt(null);
+    } catch (err) {
+      setError(getAiTutorErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const newConversation = useCallback(() => {
     setMessages([]);
     setConversationId(null);
     setError(null);
     setLastPrompt(null);
   }, []);
 
+  const deleteConversation = useCallback(async (id: string) => {
+    await api.delete<void>(`/ai/conversations/${id}`);
+    setConversations((items) => items.filter((item) => item.id !== id));
+    if (conversationId === id) {
+      newConversation();
+    }
+  }, [conversationId, newConversation]);
+
   const sendMessage = useCallback(async (rawMessage: string) => {
     const message = rawMessage.trim();
     if (!message || loading) return;
 
-    const userMessage = createMessage('user', message);
-    const history = messages.slice(-MAX_HISTORY_MESSAGES).map((item) => ({
-      role: item.role,
-      content: item.content,
-    }));
-
+    const userMessage = createOptimisticMessage('user', message);
     setMessages((items) => [...items, userMessage]);
     setLoading(true);
     setError(null);
@@ -61,32 +101,31 @@ export function useAiTutor() {
       message,
       conversationId,
       courseId: null,
-      history,
     };
 
     try {
       const response = await api.post<AiTutorChatResponse>('/ai/chat', payload);
       setConversationId(response.conversationId);
-      setMessages((items) => [...items, createMessage('assistant', response.answer)]);
+      setMessages((items) => [
+        ...items,
+        {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: response.answer,
+          createdAt: response.createdAt,
+        },
+      ]);
       setLastPrompt(null);
+      void loadConversations();
     } catch (err) {
       setError(getAiTutorErrorMessage(err));
     } finally {
       setLoading(false);
     }
-  }, [conversationId, loading, messages]);
+  }, [conversationId, loadConversations, loading]);
 
   const retryLastMessage = useCallback(async () => {
     if (!lastPrompt || loading) return;
-
-    const latestMessage = messages[messages.length - 1];
-    const historySource = latestMessage?.role === 'user' && latestMessage.content === lastPrompt
-      ? messages.slice(0, -1)
-      : messages;
-    const history = historySource.slice(-MAX_HISTORY_MESSAGES).map((item) => ({
-      role: item.role,
-      content: item.content,
-    }));
 
     setLoading(true);
     setError(null);
@@ -96,26 +135,39 @@ export function useAiTutor() {
         message: lastPrompt,
         conversationId,
         courseId: null,
-        history,
       });
       setConversationId(response.conversationId);
-      setMessages((items) => [...items, createMessage('assistant', response.answer)]);
+      setMessages((items) => [
+        ...items,
+        {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: response.answer,
+          createdAt: response.createdAt,
+        },
+      ]);
       setLastPrompt(null);
+      void loadConversations();
     } catch (err) {
       setError(getAiTutorErrorMessage(err));
     } finally {
       setLoading(false);
     }
-  }, [conversationId, lastPrompt, loading, messages]);
+  }, [conversationId, lastPrompt, loadConversations, loading]);
 
   return {
     messages,
+    conversations,
     conversationId,
     loading,
+    loadingConversations,
     error,
     lastPrompt,
+    loadConversations,
+    loadConversation,
+    deleteConversation,
+    newConversation,
     sendMessage,
     retryLastMessage,
-    clearChat,
   };
 }

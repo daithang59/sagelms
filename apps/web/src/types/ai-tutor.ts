@@ -7,16 +7,25 @@ export interface AiTutorChatMessage {
   createdAt: string;
 }
 
-export interface AiTutorChatHistoryItem {
+export interface AiTutorConversationSummary {
+  id: string;
+  title: string;
+  courseId?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+
+export interface AiTutorStoredMessage {
+  id: string;
   role: AiTutorChatRole;
   content: string;
+  createdAt: string;
 }
 
 export interface AiTutorChatRequest {
   message: string;
   courseId: string | null;
   conversationId?: string | null;
-  history: AiTutorChatHistoryItem[];
 }
 
 export interface AiTutorChatResponse {
