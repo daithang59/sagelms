@@ -170,10 +170,29 @@ jobs:
             echo "tagged_image=${remote_image}"
             echo "digest_image=${digest_ref}"
           } | tee image-digest-${{ matrix.service }}.txt
+          {
+            echo "repo_digest=${repo_digest}"
+            echo "digest_image=${digest_ref}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Generate CycloneDX SBOM for pushed digest
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
+        with:
+          image-ref: ${{ steps.digest.outputs.digest_image }}
+          format: cyclonedx
+          output: sbom-${{ matrix.service }}.cdx.json
+          exit-code: "0"
 
       - name: Upload digest artifact
         uses: actions/upload-artifact@v4
         with:
           name: image-digest-${{ matrix.service }}
           path: image-digest-${{ matrix.service }}.txt
+          if-no-files-found: error
+
+      - name: Upload pushed image SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-pushed-${{ matrix.service }}
+          path: sbom-${{ matrix.service }}.cdx.json
           if-no-files-found: error

@@ -144,18 +144,34 @@ jobs:
           }
 
           add_docker() {
-            docker_images+=("{\"service\":\"$1\",\"context\":\"$2\"}")
+            service="$1"
+            context="${2:-services/$1}"
+            docker_images+=("{\"service\":\"${service}\",\"context\":\"${context}\"}")
           }
 
-          if [[ "$FRONTEND" == "true" ]]; then add_docker "web" "apps/web"; fi
-          if [[ "$GATEWAY" == "true" ]]; then add_java "gateway"; add_docker "gateway" "services/gateway"; fi
-          if [[ "$AUTH_SERVICE" == "true" ]]; then add_java "auth-service"; add_docker "auth-service" "services/auth-service"; fi
-          if [[ "$COURSE_SERVICE" == "true" ]]; then add_java "course-service"; add_docker "course-service" "services/course-service"; fi
-          if [[ "$CONTENT_SERVICE" == "true" ]]; then add_java "content-service"; add_docker "content-service" "services/content-service"; fi
-          if [[ "$CHALLENGE_SERVICE" == "true" ]]; then add_java "challenge-service"; add_docker "challenge-service" "services/challenge-service"; fi
+          add_web_docker() {
+            add_docker "web" "apps/web"
+          }
+
+          if [[ "$GATEWAY" == "true" ]]; then add_java "gateway"; add_docker "gateway"; fi
+          if [[ "$AUTH_SERVICE" == "true" ]]; then add_java "auth-service"; add_docker "auth-service"; fi
+          if [[ "$COURSE_SERVICE" == "true" ]]; then add_java "course-service"; add_docker "course-service"; fi
+          if [[ "$CONTENT_SERVICE" == "true" ]]; then add_java "content-service"; add_docker "content-service"; fi
           if [[ "$PROGRESS_SERVICE" == "true" ]]; then add_java "progress-service"; fi
-          if [[ "$ASSESSMENT_SERVICE" == "true" ]]; then add_java "assessment-service"; add_docker "assessment-service" "services/assessment-service"; fi
+          if [[ "$ASSESSMENT_SERVICE" == "true" ]]; then add_java "assessment-service"; add_docker "assessment-service"; fi
+          if [[ "$CHALLENGE_SERVICE" == "true" ]]; then add_java "challenge-service"; add_docker "challenge-service"; fi
           if [[ "$WORKER" == "true" ]]; then add_java "worker"; fi
+          if [[ "$FRONTEND" == "true" ]]; then add_web_docker; fi
+
+          if [[ "$DOCKER" == "true" && ${#docker_images[@]} -eq 0 ]]; then
+            add_web_docker
+            add_docker "gateway"
+            add_docker "auth-service"
+            add_docker "course-service"
+            add_docker "content-service"
+            add_docker "assessment-service"
+            add_docker "challenge-service"
+          fi
 
           {
             printf "java_services=[%s]\n" "$(IFS=,; echo "${java_services[*]}")"
@@ -346,7 +362,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Run Checkov on infra
-        uses: bridgecrewio/checkov-action@master
+        uses: bridgecrewio/checkov-action@v12.1347.0
         with:
           directory: infra
 
@@ -358,7 +374,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Run Checkov on GitHub workflows
-        uses: bridgecrewio/checkov-action@master
+        uses: bridgecrewio/checkov-action@v12.1347.0
         with:
           directory: .github/workflows
 
@@ -417,7 +433,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Run Checkov on Dockerfiles
-        uses: bridgecrewio/checkov-action@master
+        uses: bridgecrewio/checkov-action@v12.1347.0
         with:
           directory: .
           framework: dockerfile
@@ -444,9 +460,17 @@ jobs:
         with:
           image-ref: sagelms-${{ matrix.service }}:ci-test
           format: table
+          output: trivy-${{ matrix.service }}.txt
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           exit-code: "1"
+      - name: Upload Trivy image scan report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trivy-image-scan-${{ matrix.service }}
+          path: trivy-${{ matrix.service }}.txt
+          if-no-files-found: ignore
 
   # --------------------------------------------------
   # SonarCloud - optional GitHub-hosted quality gate

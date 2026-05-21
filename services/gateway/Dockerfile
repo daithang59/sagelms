@@ -1,16 +1,20 @@
-# --- Build stage ---
-FROM maven:3.9.8-eclipse-temurin-17-alpine AS build
+FROM eclipse-temurin:17-jdk-alpine AS build
 WORKDIR /app
-COPY pom.xml .
-RUN mvn dependency:go-offline -B
-COPY src src
-RUN mvn package -DskipTests -B
 
-# --- Runtime stage ---
+COPY pom.xml .
+COPY .mvn .mvn
+COPY mvnw .
+RUN chmod +x mvnw && ./mvnw dependency:go-offline -B
+
+COPY src src
+RUN ./mvnw package -DskipTests -B
+
 FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
-RUN addgroup -S -g 10001 sagelms && adduser -S -D -H -u 10001 -G sagelms sagelms
-COPY --from=build --chown=10001:10001 /app/target/*.jar app.jar
-USER 10001:10001
+
+RUN addgroup -S sagelms && adduser -S sagelms -G sagelms
+COPY --from=build --chown=sagelms:sagelms /app/target/*.jar app.jar
+
+USER sagelms
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["sh", "-c", "exec java ${JAVA_OPTS:-} -jar app.jar"]

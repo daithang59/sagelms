@@ -6,33 +6,41 @@ namespace: sagelms-devsecops
 resources:
   - ../../base/apps
   - app-shared-externalsecret.yaml
+  - harbor-pull-externalsecret.yaml
   - ingress.yaml
 
 images:
   - name: harbor.sagelms.dev/sagelms-app/gateway
-    newName: harbor.sagelms.dev/sagelms-app/gateway
-    newTag: dev
+    newName: harbor.hldthang.io.vn/sagelms-app/gateway
+    digest: sha256:5d1620d2fc3f120a9fdba2d4d0a69cd8e68ad60d0c8c30e9a7391183fcd03d5d
   - name: harbor.sagelms.dev/sagelms-app/auth-service
-    newName: harbor.sagelms.dev/sagelms-app/auth-service
-    newTag: dev
+    newName: harbor.hldthang.io.vn/sagelms-app/auth-service
+    digest: sha256:356d176843830c320900bd7ee8ddf5daa2a4ba1249bfad90abbd5670bd517867
   - name: harbor.sagelms.dev/sagelms-app/course-service
-    newName: harbor.sagelms.dev/sagelms-app/course-service
-    newTag: dev
+    newName: harbor.hldthang.io.vn/sagelms-app/course-service
+    digest: sha256:3adfe06c86bb046f3beda4789f71c7f31e8a95a1e53746342c214cc4c2ff3841
   - name: harbor.sagelms.dev/sagelms-app/content-service
-    newName: harbor.sagelms.dev/sagelms-app/content-service
-    newTag: dev
+    newName: harbor.hldthang.io.vn/sagelms-app/content-service
+    digest: sha256:8b85378c2e3cd7ef660c41e5ab3de224048e8c68689a03f17722ce94a15620f5
+  # TODO(member-runtime): progress-service is pending supply-chain evidence.
+  # Do not pin a digest until its Harbor image, Trivy report, and SBOM are produced.
   - name: harbor.sagelms.dev/sagelms-app/progress-service
-    newName: harbor.sagelms.dev/sagelms-app/progress-service
+    newName: harbor.hldthang.io.vn/sagelms-app/progress-service
     newTag: dev
   - name: harbor.sagelms.dev/sagelms-app/assessment-service
-    newName: harbor.sagelms.dev/sagelms-app/assessment-service
-    newTag: dev
+    newName: harbor.hldthang.io.vn/sagelms-app/assessment-service
+    digest: sha256:ca4fa37ed6f5effc82774272a3feff3000b642e896fc4abdd58bf5d8a6d9f82c
+  - name: harbor.sagelms.dev/sagelms-app/challenge-service
+    newName: harbor.hldthang.io.vn/sagelms-app/challenge-service
+    digest: sha256:6c4cf75db822db2ea4bc2013ea7b1b6e1a2b4fc118752c063503d51de69bd5ca
+  # TODO(member-runtime): worker is pending supply-chain evidence.
+  # Do not pin a digest until its Harbor image, Trivy report, and SBOM are produced.
   - name: harbor.sagelms.dev/sagelms-app/worker
-    newName: harbor.sagelms.dev/sagelms-app/worker
+    newName: harbor.hldthang.io.vn/sagelms-app/worker
     newTag: dev
   - name: harbor.sagelms.dev/sagelms-app/web
-    newName: harbor.sagelms.dev/sagelms-app/web
-    newTag: dev
+    newName: harbor.hldthang.io.vn/sagelms-app/web
+    digest: sha256:b7f6ba65d272faa26cd2ff132dd3322c8a96eb78598151e7da72181347f7f4c2
 
 patches:
   - target:

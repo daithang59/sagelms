@@ -93,6 +93,7 @@ Hadolint
 Checkov Dockerfile scan
 Docker build
 Trivy image scan
+Upload Trivy image scan report
 ```
 
 Trivy image scan trong PR dùng:
