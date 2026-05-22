@@ -4,11 +4,12 @@ from datetime import datetime
 from typing import Annotated, Literal
 
 from fastapi import Depends, FastAPI, Header, HTTPException, status
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from sqlalchemy.orm import Session
 
 import chatbot
 import database
+import learning_context
 
 
 class ApiModel(BaseModel):
@@ -18,6 +19,7 @@ class ApiModel(BaseModel):
 class ChatRequest(ApiModel):
     message: str = Field(min_length=1, max_length=4000)
     course_id: str | None = Field(default=None, alias="courseId")
+    challenge_id: str | None = Field(default=None, alias="challengeId")
     conversation_id: str | None = Field(default=None, alias="conversationId")
 
     @field_validator("message")
@@ -27,6 +29,12 @@ class ChatRequest(ApiModel):
         if not message:
             raise ValueError("message must not be blank")
         return message
+
+    @model_validator(mode="after")
+    def only_one_learning_context(self) -> "ChatRequest":
+        if self.course_id and self.challenge_id:
+            raise ValueError("courseId and challengeId cannot be used together")
+        return self
 
 
 class ChatResponse(ApiModel):
@@ -50,6 +58,18 @@ class StoredMessage(ApiModel):
     role: Literal["user", "assistant"]
     content: str
     created_at: datetime = Field(alias="createdAt")
+
+
+class RenameConversationRequest(ApiModel):
+    title: str = Field(min_length=1, max_length=160)
+
+    @field_validator("title")
+    @classmethod
+    def title_must_not_be_blank(cls, value: str) -> str:
+        title = " ".join(value.split())
+        if not title:
+            raise ValueError("title must not be blank")
+        return title
 
 
 class UserContext(ApiModel):
@@ -140,6 +160,23 @@ def map_gemini_error(error: Exception) -> HTTPException:
     )
 
 
+def map_learning_context_error(error: learning_context.LearningContextError) -> HTTPException:
+    if isinstance(error, learning_context.LearningContextForbiddenError):
+        return HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"code": "LEARNING_CONTEXT_FORBIDDEN", "message": str(error)},
+        )
+    if isinstance(error, learning_context.LearningContextNotFoundError):
+        return HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"code": "LEARNING_CONTEXT_NOT_FOUND", "message": str(error)},
+        )
+    return HTTPException(
+        status_code=status.HTTP_502_BAD_GATEWAY,
+        detail={"code": "LEARNING_CONTEXT_REQUEST_FAILED", "message": str(error)},
+    )
+
+
 @app.post("/api/v1/ai/chat", response_model=ChatResponse)
 def chat(payload: ChatRequest, _: GatewayDependency, user: UserDependency, db: DbDependency) -> ChatResponse:
     gemini_settings = chatbot.GeminiSettings.from_env()
@@ -158,11 +195,17 @@ def chat(payload: ChatRequest, _: GatewayDependency, user: UserDependency, db: D
             detail={"code": "CONVERSATION_NOT_FOUND", "message": "Conversation not found."},
         )
 
+    try:
+        learning_context_text = learning_context.load_learning_context(payload, user)
+    except learning_context.LearningContextError as exc:
+        db.rollback()
+        raise map_learning_context_error(exc) from exc
+
     history = database.get_context_messages(db, conversation.id)
     database.add_message(db, conversation, "user", payload.message)
 
     try:
-        answer = chatbot.generate_gemini_answer(payload, user, history, gemini_settings)
+        answer = chatbot.generate_gemini_answer(payload, user, history, gemini_settings, learning_context_text)
         assistant_message = database.add_message(db, conversation, "assistant", answer, gemini_settings.google_model)
         db.commit()
     except Exception as exc:
@@ -212,6 +255,25 @@ def get_conversation_messages(
         for message in messages
         if message.role in {"user", "assistant"}
     ]
+
+
+@app.put("/api/v1/ai/conversations/{conversation_id}", response_model=ConversationSummary)
+def rename_conversation(
+    conversation_id: str,
+    payload: RenameConversationRequest,
+    _: GatewayDependency,
+    user: UserDependency,
+    db: DbDependency,
+) -> ConversationSummary:
+    conversation = require_visible_conversation(db, conversation_id, user)
+    updated = database.rename_conversation(db, conversation, payload.title)
+    return ConversationSummary(
+        id=updated.id,
+        title=updated.title,
+        course_id=updated.course_id,
+        updated_at=updated.updated_at,
+        created_at=updated.created_at,
+    )
 
 
 @app.delete("/api/v1/ai/conversations/{conversation_id}", status_code=status.HTTP_204_NO_CONTENT)

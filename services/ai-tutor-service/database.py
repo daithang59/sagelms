@@ -167,15 +167,14 @@ def get_context_messages(db: Session, conversation_id: str) -> list[AiMessageRec
         db.execute(
             select(AiMessageRecord)
             .where(AiMessageRecord.conversation_id == conversation_id)
-            .order_by(AiMessageRecord.created_at.desc())
-            .limit(MAX_CONTEXT_MESSAGES)
+            .order_by(AiMessageRecord.created_at.asc())
         )
         .scalars()
         .all()
     )
     return [
         record
-        for record in reversed(records)
+        for record in records[-MAX_CONTEXT_MESSAGES:]
         if record.role in {"user", "assistant"}
     ]
 
@@ -208,3 +207,11 @@ def soft_delete_conversation(db: Session, conversation: AiConversation) -> None:
     conversation.deleted_at = utc_now()
     conversation.updated_at = conversation.deleted_at
     db.commit()
+
+
+def rename_conversation(db: Session, conversation: AiConversation, title: str) -> AiConversation:
+    conversation.title = title
+    conversation.updated_at = utc_now()
+    db.commit()
+    db.refresh(conversation)
+    return conversation
