@@ -112,7 +112,9 @@ jobs:
       java_services: ${{ steps.matrices.outputs.java_services }}
       docker_images: ${{ steps.matrices.outputs.docker_images }}
       frontend: ${{ steps.filter.outputs.frontend }}
+      ai_tutor_service: ${{ steps.filter.outputs.ai_tutor_service }}
       infra: ${{ steps.filter.outputs.infra }}
+      github: ${{ steps.filter.outputs.github }}
       docker: ${{ steps.filter.outputs.docker }}
       any_relevant: ${{ steps.matrices.outputs.any_relevant }}
     steps:
@@ -128,12 +130,14 @@ jobs:
           AUTH_SERVICE: ${{ steps.filter.outputs.auth_service }}
           COURSE_SERVICE: ${{ steps.filter.outputs.course_service }}
           CONTENT_SERVICE: ${{ steps.filter.outputs.content_service }}
-          CHALLENGE_SERVICE: ${{ steps.filter.outputs.challenge_service }}
           PROGRESS_SERVICE: ${{ steps.filter.outputs.progress_service }}
           ASSESSMENT_SERVICE: ${{ steps.filter.outputs.assessment_service }}
+          CHALLENGE_SERVICE: ${{ steps.filter.outputs.challenge_service }}
+          AI_TUTOR_SERVICE: ${{ steps.filter.outputs.ai_tutor_service }}
           WORKER: ${{ steps.filter.outputs.worker }}
           FRONTEND: ${{ steps.filter.outputs.frontend }}
           INFRA: ${{ steps.filter.outputs.infra }}
+          GITHUB_WORKFLOWS: ${{ steps.filter.outputs.github }}
           DOCKER: ${{ steps.filter.outputs.docker }}
         run: |
           java_services=()
@@ -157,7 +161,7 @@ jobs:
           if [[ "$AUTH_SERVICE" == "true" ]]; then add_java "auth-service"; add_docker "auth-service"; fi
           if [[ "$COURSE_SERVICE" == "true" ]]; then add_java "course-service"; add_docker "course-service"; fi
           if [[ "$CONTENT_SERVICE" == "true" ]]; then add_java "content-service"; add_docker "content-service"; fi
-          if [[ "$PROGRESS_SERVICE" == "true" ]]; then add_java "progress-service"; fi
+          if [[ "$PROGRESS_SERVICE" == "true" ]]; then add_java "progress-service"; add_docker "progress-service"; fi
           if [[ "$ASSESSMENT_SERVICE" == "true" ]]; then add_java "assessment-service"; add_docker "assessment-service"; fi
           if [[ "$CHALLENGE_SERVICE" == "true" ]]; then add_java "challenge-service"; add_docker "challenge-service"; fi
           if [[ "$WORKER" == "true" ]]; then add_java "worker"; fi
@@ -169,6 +173,7 @@ jobs:
             add_docker "auth-service"
             add_docker "course-service"
             add_docker "content-service"
+            add_docker "progress-service"
             add_docker "assessment-service"
             add_docker "challenge-service"
           fi
@@ -178,11 +183,36 @@ jobs:
             printf "docker_images=[%s]\n" "$(IFS=,; echo "${docker_images[*]}")"
           } >> "$GITHUB_OUTPUT"
 
-          if [[ ${#java_services[@]} -gt 0 || ${#docker_images[@]} -gt 0 || "$FRONTEND" == "true" || "$INFRA" == "true" || "$DOCKER" == "true" ]]; then
+          if [[ ${#java_services[@]} -gt 0 || ${#docker_images[@]} -gt 0 || "$FRONTEND" == "true" || "$AI_TUTOR_SERVICE" == "true" || "$INFRA" == "true" || "$GITHUB_WORKFLOWS" == "true" || "$DOCKER" == "true" ]]; then
             echo "any_relevant=true" >> "$GITHUB_OUTPUT"
           else
             echo "any_relevant=false" >> "$GITHUB_OUTPUT"
           fi
+
+  # --------------------------------------------------
+  # AI Tutor service - Python tests/lint
+  # --------------------------------------------------
+  test_ai_tutor:
+    name: "AI Tutor: tests"
+    needs: changes
+    if: needs.changes.outputs.ai_tutor_service == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/ai-tutor-service
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: services/ai-tutor-service/requirements.txt
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Run Ruff
+        run: python -m ruff check .
+      - name: Run pytest
+        run: python -m pytest
 
   # --------------------------------------------------
   # Java services - unit tests
@@ -369,7 +399,7 @@ jobs:
   checkov_workflows:
     name: "Checkov: workflows"
     needs: changes
-    if: needs.changes.outputs.infra == 'true'
+    if: needs.changes.outputs.infra == 'true' || needs.changes.outputs.github == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -416,8 +446,11 @@ jobs:
           - services/auth-service/Dockerfile
           - services/course-service/Dockerfile
           - services/content-service/Dockerfile
+          - services/progress-service/Dockerfile
           - services/assessment-service/Dockerfile
           - services/challenge-service/Dockerfile
+          - services/ai-tutor-service/Dockerfile
+          - services/worker/Dockerfile
     steps:
       - uses: actions/checkout@v4
       - name: Run Hadolint
@@ -440,7 +473,7 @@ jobs:
           soft_fail: true
 
   # --------------------------------------------------
-  # Docker - Build and image scan smoke test (no push)
+  # Docker - Build smoke test (no push)
   # --------------------------------------------------
   docker_build:
     name: "Docker: Build and scan"
@@ -563,6 +596,7 @@ jobs:
       - pr_title
       - conventions_branch
       - conventions_commits
+      - test_ai_tutor
       - test_java
       - build_java
       - lint_frontend
@@ -588,6 +622,7 @@ jobs:
             "pr_title:${{ needs.pr_title.result }}"
             "conventions_branch:${{ needs.conventions_branch.result }}"
             "conventions_commits:${{ needs.conventions_commits.result }}"
+            "test_ai_tutor:${{ needs.test_ai_tutor.result }}"
             "test_java:${{ needs.test_java.result }}"
             "build_java:${{ needs.build_java.result }}"
             "lint_frontend:${{ needs.lint_frontend.result }}"

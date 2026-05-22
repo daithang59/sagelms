@@ -18,6 +18,8 @@ worker:
   - "services/worker/**"
 frontend:
   - "apps/web/**"
+infra:
+  - "infra/**"
 github:
   - ".github/workflows/**"
 docker:
