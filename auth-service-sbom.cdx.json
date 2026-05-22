@@ -20,10 +20,10 @@
       ]
     },
     "component": {
-      "bom-ref": "pkg:oci/auth-service@sha256:4354fdbc1ff71486a66fc409446ff495574f87780a3e7b0e253205c8aa35affb?arch=amd64&repository_url=harbor.hldthang.io.vn%2Fsagelms-app%2Fauth-service",
+      "bom-ref": "pkg:oci/auth-service@sha256:4354fdbc1ff71486a66fc409446ff495574f87780a3e7b0e253205c8aa35affb?arch=amd64&repository_url=harbor.sagelm.id.vn%2Fsagelms-app%2Fauth-service",
       "type": "container",
-      "name": "harbor.hldthang.io.vn/sagelms-app/auth-service@sha256:4354fdbc1ff71486a66fc409446ff495574f87780a3e7b0e253205c8aa35affb",
-      "purl": "pkg:oci/auth-service@sha256:4354fdbc1ff71486a66fc409446ff495574f87780a3e7b0e253205c8aa35affb?arch=amd64&repository_url=harbor.hldthang.io.vn%2Fsagelms-app%2Fauth-service",
+      "name": "harbor.sagelm.id.vn/sagelms-app/auth-service@sha256:4354fdbc1ff71486a66fc409446ff495574f87780a3e7b0e253205c8aa35affb",
+      "purl": "pkg:oci/auth-service@sha256:4354fdbc1ff71486a66fc409446ff495574f87780a3e7b0e253205c8aa35affb?arch=amd64&repository_url=harbor.sagelm.id.vn%2Fsagelms-app%2Fauth-service",
       "properties": [
         {
           "name": "aquasecurity:trivy:DiffID",
@@ -63,15 +63,15 @@
         },
         {
           "name": "aquasecurity:trivy:Reference",
-          "value": "harbor.hldthang.io.vn/sagelms-app/auth-service@sha256:4354fdbc1ff71486a66fc409446ff495574f87780a3e7b0e253205c8aa35affb"
+          "value": "harbor.sagelm.id.vn/sagelms-app/auth-service@sha256:4354fdbc1ff71486a66fc409446ff495574f87780a3e7b0e253205c8aa35affb"
         },
         {
           "name": "aquasecurity:trivy:RepoDigest",
-          "value": "harbor.hldthang.io.vn/sagelms-app/auth-service@sha256:4354fdbc1ff71486a66fc409446ff495574f87780a3e7b0e253205c8aa35affb"
+          "value": "harbor.sagelm.id.vn/sagelms-app/auth-service@sha256:4354fdbc1ff71486a66fc409446ff495574f87780a3e7b0e253205c8aa35affb"
         },
         {
           "name": "aquasecurity:trivy:RepoTag",
-          "value": "harbor.hldthang.io.vn/sagelms-app/auth-service:b5dceb7"
+          "value": "harbor.sagelm.id.vn/sagelms-app/auth-service:b5dceb7"
         },
         {
           "name": "aquasecurity:trivy:SchemaVersion",
@@ -7692,7 +7692,7 @@
       "dependsOn": []
     },
     {
-      "ref": "pkg:oci/auth-service@sha256:4354fdbc1ff71486a66fc409446ff495574f87780a3e7b0e253205c8aa35affb?arch=amd64&repository_url=harbor.hldthang.io.vn%2Fsagelms-app%2Fauth-service",
+      "ref": "pkg:oci/auth-service@sha256:4354fdbc1ff71486a66fc409446ff495574f87780a3e7b0e253205c8aa35affb?arch=amd64&repository_url=harbor.sagelm.id.vn%2Fsagelms-app%2Fauth-service",
       "dependsOn": [
         "f3447541-a39e-4e1a-8e98-33bf19d13bc1",
         "pkg:maven/ch.qos.logback/logback-classic@1.5.32",

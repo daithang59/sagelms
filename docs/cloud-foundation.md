@@ -61,7 +61,7 @@
 - ClusterSecretStore `gcpsm-sagelms-devsecops` đang `Ready=True`.
 - ExternalSecrets cho DB, Redis, JWT, gateway shared secret và Grafana admin đã đồng bộ.
 - Manifest ExternalSecret mới cho CloudNativePG nằm ở `infra/k8s/devsecops` và đã apply thành công.
-- Manifest runtime CloudNativePG nằm ở `infra/k8s/devsecops/cloudnativepg-runtime` và đã apply thành công.
+- Manifest runtime CloudNativePG nằm ở `infra/k8s/devsecops/cloudnativepg` và đã apply thành công.
 - ExternalSecrets mới đã đồng bộ: `sagelms-data/sagelms-postgres-app-secret`, `sagelms-data/sagelms-postgres-superuser-secret`, `sagelms-devsecops/db-app-secret`.
 - Harbor pull secret và LLM API key hiện mới có metadata, chờ value thật từ nhóm.
 
