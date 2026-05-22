@@ -16,6 +16,7 @@ Nhóm secret chính:
 - Redis: host, port, password/AUTH string
 - JWT secret
 - Gateway shared secret
+- Internal API secret
 - LLM API key
 - Harbor pull secret
 - Grafana admin password

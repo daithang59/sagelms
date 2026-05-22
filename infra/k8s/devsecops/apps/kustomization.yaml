@@ -1,0 +1,80 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: sagelms-devsecops
+
+resources:
+  - ../../base/apps
+  - app-shared-externalsecret.yaml
+  - harbor-pull-externalsecret.yaml
+  - ingress.yaml
+
+images:
+  - name: harbor.sagelms.dev/sagelms-app/gateway
+    newName: harbor.hldthang.io.vn/sagelms-app/gateway
+    newTag: dev
+  - name: harbor.sagelms.dev/sagelms-app/auth-service
+    newName: harbor.hldthang.io.vn/sagelms-app/auth-service
+    newTag: dev
+  - name: harbor.sagelms.dev/sagelms-app/course-service
+    newName: harbor.hldthang.io.vn/sagelms-app/course-service
+    newTag: dev
+  - name: harbor.sagelms.dev/sagelms-app/content-service
+    newName: harbor.hldthang.io.vn/sagelms-app/content-service
+    newTag: dev
+  - name: harbor.sagelms.dev/sagelms-app/progress-service
+    newName: harbor.hldthang.io.vn/sagelms-app/progress-service
+    newTag: dev
+  - name: harbor.sagelms.dev/sagelms-app/assessment-service
+    newName: harbor.hldthang.io.vn/sagelms-app/assessment-service
+    newTag: dev
+  - name: harbor.sagelms.dev/sagelms-app/challenge-service
+    newName: harbor.hldthang.io.vn/sagelms-app/challenge-service
+    newTag: dev
+  - name: harbor.sagelms.dev/sagelms-app/web
+    newName: harbor.hldthang.io.vn/sagelms-app/web
+    newTag: dev
+
+patches:
+  - target:
+      kind: ServiceAccount
+      labelSelector: app.kubernetes.io/part-of=sagelms
+    patch: |-
+      - op: add
+        path: /imagePullSecrets
+        value:
+          - name: harbor-pull-secret
+  - target:
+      kind: Service
+      name: gateway
+    patch: |-
+      - op: add
+        path: /metadata/annotations
+        value:
+          cloud.google.com/neg: '{"ingress": true}'
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: worker
+      $patch: delete
+  - patch: |-
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: worker-config
+      $patch: delete
+  - patch: |-
+      apiVersion: v1
+      kind: ServiceAccount
+      metadata:
+        name: worker
+      $patch: delete
+  - target:
+      kind: Service
+      name: web
+    patch: |-
+      - op: add
+        path: /metadata/annotations
+        value:
+          cloud.google.com/neg: '{"ingress": true}'

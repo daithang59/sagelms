@@ -1,6 +1,6 @@
 # Module: network
 
-Module này tạo nền network riêng cho GKE private nodes, Cloud SQL private IP và Memorystore Redis private IP.
+Module này tạo nền network riêng cho GKE private nodes, CloudNativePG workloads và Memorystore Redis private IP.
 
 ## Tài nguyên quản lý
 
@@ -43,4 +43,4 @@ Module này tạo nền network riêng cho GKE private nodes, Cloud SQL private 
 
 ## Lưu ý
 
-Các module `cloud-sql` và `redis` phụ thuộc vào output network, đặc biệt là `vpc_self_link` và Private Service Access.
+Module `redis` phụ thuộc vào output network, đặc biệt là `vpc_self_link` và Private Service Access. CloudNativePG chạy trong GKE nên dùng subnet/pod range của cluster và backup ra GCS qua egress/NAT/Private Google Access.

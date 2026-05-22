@@ -224,19 +224,54 @@ Nói ngắn gọn: Nhóm B đảm bảo code sau khi merge tạo ra image đáng
 
 ---
 
-## 5.2 Member 1 - CI/CD Automation Owner
+### 5.2 Member 1 - CI/CD Automation Owner
 
 ### Trách nhiệm chính
 
 Member 1 phụ trách automation bằng GitHub Actions.
 
+#### Hybrid workflow plan cho Member 1
+
+Mục tiêu hiện tại là **chạy PR validation bằng GitHub-hosted runners trước**, rồi chỉ bật self-hosted runner cho phần cần mạng nội bộ hoặc private service. Cách này giúp test pipeline sớm mà **không bị chặn bởi SonarQube**.
+
+| Pha | Runner | Job / mục tiêu |
+|---|---|---|
+| Phase 1 - hiện tại | `ubuntu-latest` | PR title/branch/commit conventions, secret scan, path filter, Java unit test + package, frontend lint/typecheck/test/build, Trivy dependency scan, Checkov scan, OpenTofu fmt/validate, Docker build smoke |
+| Phase 2 - sau này | `self-hosted, devsecops, security` | SonarQube quality gate khi có host reachable và runner cùng network |
+| Phase 3 - sau này | `self-hosted, devsecops, build` / `infra` | Build/push private registry, OpenTofu apply, private smoke test nếu hạ tầng nằm trong mạng riêng |
+
+#### Nguyên tắc triển khai
+
+- **GitHub-hosted là mặc định** cho PR validation.
+- **Self-hosted chỉ dùng khi có lý do thật sự**: SonarQube private, Harbor private, GKE private, OpenTofu apply cần network nội bộ.
+- **Python service không nằm trong phase hiện tại**. Workflow PR hiện tại tập trung vào Java services và frontend; AI Tutor Python chỉ quay lại nếu team đưa nó trở lại scope.
+- **SonarQube được giữ dưới dạng job tùy chọn** trong workflow, tắt mặc định để bạn test các bước khác ngay bây giờ.
+
+| Nhóm việc | Runner hiện tại | Ghi chú |
+|---|---|---|
+| PR validation | GitHub-hosted | Chạy ngay bây giờ, không cần self-hosted |
+| Path filter | GitHub-hosted | Phát hiện Java/frontend/infra/docker thay đổi |
+| Code checks | GitHub-hosted | Lint, format, unit test, typecheck, build |
+| OpenAPI lint | Chưa bật | Chỉ thêm khi có tool/config lint API rõ ràng |
+| SonarQube | Self-hosted (optional) | Tắt mặc định, bật khi có Sonar host reachable |
+| Gitleaks | GitHub-hosted | Có thể chạy ngay trong PR pipeline |
+| Trivy dependency | GitHub-hosted | Scan dependency ở mức repo |
+| Checkov | GitHub-hosted | Scan infra và workflow config |
+| Infra workflow | GitHub-hosted | `tofu fmt` + `tofu validate` cho PR hạ tầng |
+| Build workflow integration | GitHub-hosted hiện tại, self-hosted sau | Phối hợp Member 2 khi vào phase build/publish |
+| GitOps update workflow | GitHub-hosted sau | Chỉ khi workflow deploy được bật |
+| Manual approval | GitHub Environment | Dùng cho pha deploy, không chặn PR validation |
+| Post-deploy check | GitHub-hosted hoặc self-hosted tùy target | Chạy public endpoint thì GH-hosted là đủ |
+| Demo evidence | GitHub-hosted | Lưu report/log/artifact phục vụ bảo vệ đồ án |
+
+### Trách nhiệm chính
+
 | Nhóm việc | Task cụ thể |
 |---|---|
 | PR validation | Tạo workflow kiểm tra Pull Request |
 | Path filter | Chỉ chạy job theo phần thay đổi trong repo |
-| Code checks | Lint, format, unit test, typecheck |
-| OpenAPI lint | Kiểm tra API contracts |
-| SonarQube | Code quality/SAST quality gate |
+| Code checks | Lint, format, unit test, typecheck, build |
+| SonarQube | Chỉ bật khi runner/self-hosted và Sonar host đã sẵn sàng |
 | Gitleaks | Secret scanning |
 | Trivy dependency | Dependency vulnerability scan |
 | Checkov | Scan OpenTofu, Kubernetes, Helm, Kustomize, Dockerfile, workflow |
@@ -266,7 +301,7 @@ docs/deployment-approval-flow.md
 [ ] PR pipeline chạy được khi mở Pull Request
 [ ] Path filter chỉ chạy job liên quan đến phần thay đổi
 [ ] Lint/test/typecheck được tự động hóa
-[ ] SonarQube quality gate được tích hợp
+[ ] SonarQube quality gate được tích hợp hoặc tắt có chủ đích
 [ ] Gitleaks chặn secret leak
 [ ] Trivy dependency scan chạy được
 [ ] Checkov scan chạy được cho IaC/config

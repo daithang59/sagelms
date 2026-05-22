@@ -3,9 +3,6 @@ kind: Kustomization
 
 namespace: sagelms-dev
 
-resources: []
-# Sẽ bổ sung khi có deployment manifests:
-# - ../namespaces/dev.yaml
-# - deployment-auth.yaml
-# - deployment-course.yaml
-# - ...
+resources:
+  - namespace.yaml
+  - apps

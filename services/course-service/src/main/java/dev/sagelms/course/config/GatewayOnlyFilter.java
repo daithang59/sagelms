@@ -21,8 +21,8 @@ public class GatewayOnlyFilter extends OncePerRequestFilter {
 
     public GatewayOnlyFilter(@Value("${app.gateway.secret:dev-gateway-secret-change-me}") String gatewaySecret,
                              @Value("${app.internal.secret:dev-internal-secret-change-me}") String internalSecret) {
-        this.gatewaySecret = gatewaySecret;
-        this.internalSecret = internalSecret;
+        this.gatewaySecret = cleanSecret(gatewaySecret);
+        this.internalSecret = cleanSecret(internalSecret);
     }
 
     @Override
@@ -50,5 +50,9 @@ public class GatewayOnlyFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private static String cleanSecret(String value) {
+        return value == null ? "" : value.trim();
     }
 }

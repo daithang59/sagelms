@@ -34,8 +34,8 @@ variable "name_prefix" {
   default     = "sagelms-devsecops"
 }
 
-variable "enable_cloud_sql" {
-  description = "Whether to provision managed Cloud SQL."
+variable "enable_cnpg_backup" {
+  description = "Whether to provision CloudNativePG backup bucket, IAM and Workload Identity."
   type        = bool
   default     = true
 }
@@ -50,18 +50,6 @@ variable "redis_auth_enabled" {
   description = "Whether to enable Redis AUTH."
   type        = bool
   default     = true
-}
-
-variable "cloud_sql_deletion_protection" {
-  description = "Terraform-level deletion protection for Cloud SQL."
-  type        = bool
-  default     = true
-}
-
-variable "cloud_sql_pitr_enabled" {
-  description = "Whether to enable Cloud SQL point-in-time recovery."
-  type        = bool
-  default     = false
 }
 
 variable "master_authorized_networks" {
@@ -112,4 +100,40 @@ variable "eso_ksa_name" {
   description = "External Secrets Operator Kubernetes service account."
   type        = string
   default     = "external-secrets"
+}
+
+variable "cnpg_backup_bucket_name" {
+  description = "GCS bucket name for CloudNativePG base backups and WAL archive."
+  type        = string
+  default     = "sagelms-cnpg-backup-sagelms"
+}
+
+variable "cnpg_backup_service_account_id" {
+  description = "Google service account ID for CloudNativePG backup. Must be 30 characters or fewer."
+  type        = string
+  default     = "sagelms-devsecops-cnpg-sa"
+}
+
+variable "cnpg_backup_ksa_namespace" {
+  description = "Kubernetes namespace for the CloudNativePG PostgreSQL service account."
+  type        = string
+  default     = "sagelms-data"
+}
+
+variable "cnpg_backup_ksa_name" {
+  description = "Kubernetes service account name used by the CloudNativePG PostgreSQL cluster."
+  type        = string
+  default     = "sagelms-postgres"
+}
+
+variable "cnpg_backup_object_prefix" {
+  description = "Object prefix/server path for CloudNativePG backups inside the bucket."
+  type        = string
+  default     = "sagelms-postgres"
+}
+
+variable "cnpg_backup_retention_days" {
+  description = "Age in days before deleting old CloudNativePG backup objects."
+  type        = number
+  default     = 30
 }

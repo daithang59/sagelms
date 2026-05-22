@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: challenge-service
+  labels:
+    app.kubernetes.io/name: challenge-service
+    app.kubernetes.io/part-of: sagelms
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: challenge-service
+  ports:
+    - name: http
+      port: 8086
+      targetPort: http

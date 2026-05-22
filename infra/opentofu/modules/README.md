@@ -12,7 +12,7 @@ Thư mục này chứa các module OpenTofu tái sử dụng cho môi trường 
 | `iam` | Tạo service accounts, GitHub WIF, ESO Workload Identity binding |
 | `secret-manager` | Tạo Secret Manager metadata và IAM cho ESO đọc secret |
 | `storage` | Tạo non-state GCS buckets cho app/demo/evidence |
-| `cloud-sql` | Tạo Cloud SQL PostgreSQL 16 private IP |
+| `cnpg-backup` | Tạo GCS bucket, GSA và Workload Identity cho CloudNativePG backup/WAL |
 | `redis` | Tạo Memorystore Redis 7 Standard HA private IP |
 
 ## Quy tắc thiết kế

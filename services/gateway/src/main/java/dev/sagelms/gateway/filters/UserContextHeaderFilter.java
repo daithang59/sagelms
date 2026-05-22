@@ -27,7 +27,7 @@ public class UserContextHeaderFilter implements GlobalFilter, Ordered {
     private final String gatewaySecret;
 
     public UserContextHeaderFilter(@Value("${app.gateway.secret:dev-gateway-secret-change-me}") String gatewaySecret) {
-        this.gatewaySecret = gatewaySecret;
+        this.gatewaySecret = cleanSecret(gatewaySecret);
     }
 
     @Override
@@ -70,5 +70,9 @@ public class UserContextHeaderFilter implements GlobalFilter, Ordered {
     @Override
     public int getOrder() {
         return -1; // runs after security filter
+    }
+
+    private static String cleanSecret(String value) {
+        return value == null ? "" : value.trim();
     }
 }

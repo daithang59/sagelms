@@ -29,7 +29,7 @@ public class AuthUserClient {
             @Value("${app.internal.secret:dev-internal-secret-change-me}") String internalSecret) {
         this.restTemplate = restTemplateBuilder.build();
         this.authServiceUrl = authServiceUrl;
-        this.internalSecret = internalSecret;
+        this.internalSecret = cleanSecret(internalSecret);
     }
 
     public Map<UUID, UserSummary> getUsersByIds(Collection<UUID> userIds) {
@@ -99,4 +99,8 @@ public class AuthUserClient {
             String title,
             String message,
             String targetUrl) {}
+
+    private static String cleanSecret(String value) {
+        return value == null ? "" : value.trim();
+    }
 }

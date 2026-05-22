@@ -14,7 +14,6 @@ Bao gồm các nhóm chính:
 - GKE: `container.googleapis.com`
 - IAM/WIF: `iam.googleapis.com`, `iamcredentials.googleapis.com`, `sts.googleapis.com`
 - Secret Manager: `secretmanager.googleapis.com`
-- Cloud SQL: `sqladmin.googleapis.com`
 - Redis: `redis.googleapis.com`
 - Private Service Access: `servicenetworking.googleapis.com`
 - Storage: `storage.googleapis.com`

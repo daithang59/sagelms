@@ -1,0 +1,58 @@
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: sagelms-postgres
+  namespace: sagelms-data
+  labels:
+    app.kubernetes.io/name: sagelms-postgres
+    app.kubernetes.io/part-of: sagelms
+    sagelms.io/component: database
+spec:
+  instances: 1
+  imageName: ghcr.io/cloudnative-pg/postgresql:16-standard-bookworm
+  serviceAccountName: sagelms-postgres
+  primaryUpdateStrategy: unsupervised
+
+  storage:
+    size: 20Gi
+    storageClass: premium-rwo
+
+  enableSuperuserAccess: true
+  superuserSecret:
+    name: sagelms-postgres-superuser-secret
+
+  bootstrap:
+    initdb:
+      database: sagelms
+      owner: sagelms_app
+      secret:
+        name: sagelms-postgres-app-secret
+      postInitSQL:
+        - CREATE EXTENSION IF NOT EXISTS vector;
+        - CREATE EXTENSION IF NOT EXISTS pgcrypto;
+        - CREATE SCHEMA IF NOT EXISTS auth AUTHORIZATION sagelms_app;
+        - CREATE SCHEMA IF NOT EXISTS course AUTHORIZATION sagelms_app;
+        - CREATE SCHEMA IF NOT EXISTS content AUTHORIZATION sagelms_app;
+        - CREATE SCHEMA IF NOT EXISTS progress AUTHORIZATION sagelms_app;
+        - CREATE SCHEMA IF NOT EXISTS assessment AUTHORIZATION sagelms_app;
+        - CREATE SCHEMA IF NOT EXISTS ai_tutor AUTHORIZATION sagelms_app;
+
+  plugins:
+    - name: barman-cloud.cloudnative-pg.io
+      enabled: true
+      isWALArchiver: true
+      parameters:
+        barmanObjectName: sagelms-postgres-backup-store
+
+  resources:
+    requests:
+      cpu: "500m"
+      memory: 1Gi
+    limits:
+      cpu: "2"
+      memory: 4Gi
+
+  postgresql:
+    parameters:
+      max_connections: "200"
+      shared_buffers: 256MB
