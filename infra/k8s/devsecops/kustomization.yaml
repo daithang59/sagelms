@@ -7,3 +7,4 @@ resources:
   - harbor
   - fluxcd
   - cloudflare
+  - monitoring

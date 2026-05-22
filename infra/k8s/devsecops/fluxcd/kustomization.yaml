@@ -6,4 +6,6 @@ resources:
   - gitrepository.yaml
   - apps-kustomization.yaml
   - harbor-kustomization.yaml
+  - monitoring-kustomization.yaml
+  - monitoring-targets-kustomization.yaml
   - fluxcd-web-ui.yaml
