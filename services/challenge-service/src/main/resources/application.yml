@@ -19,3 +19,7 @@ spring:
     enabled: true
     schemas: challenge
     default-schema: challenge
+
+app:
+  internal:
+    secret: ${INTERNAL_API_SECRET:sagelms-dev-internal-secret}
