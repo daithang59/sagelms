@@ -1,4 +1,4 @@
-name: PR Validation (Hybrid)
+name: CI - Validation PR
 
 on:
   pull_request:
@@ -14,9 +14,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # --------------------------------------------------
-  # Secret scan - always runs
-  # --------------------------------------------------
   secret_scan:
     runs-on: ubuntu-latest
     steps:
@@ -32,9 +29,6 @@ jobs:
       - name: Run gitleaks
         run: gitleaks detect --source . --no-git --redact
 
-  # --------------------------------------------------
-  # Conventions: PR Title
-  # --------------------------------------------------
   pr_title:
     name: Validate PR title
     runs-on: ubuntu-latest
@@ -56,9 +50,6 @@ jobs:
             style
             revert
 
-  # --------------------------------------------------
-  # Conventions: Branch Naming
-  # --------------------------------------------------
   conventions_branch:
     name: Validate branch name
     runs-on: ubuntu-latest
@@ -77,9 +68,6 @@ jobs:
           fi
           echo "[OK] Branch name OK"
 
-  # --------------------------------------------------
-  # Conventions: Commit Messages
-  # --------------------------------------------------
   conventions_commits:
     name: Validate commit messages
     runs-on: ubuntu-latest
@@ -103,9 +91,6 @@ jobs:
           echo "Head: $HEAD"
           npx commitlint --from "$BASE" --to "$HEAD" --verbose
 
-  # --------------------------------------------------
-  # Path filter - detect which areas changed
-  # --------------------------------------------------
   changes:
     runs-on: ubuntu-latest
     outputs:
@@ -189,9 +174,6 @@ jobs:
             echo "any_relevant=false" >> "$GITHUB_OUTPUT"
           fi
 
-  # --------------------------------------------------
-  # AI Tutor service - Python tests/lint
-  # --------------------------------------------------
   test_ai_tutor:
     name: "AI Tutor: tests"
     needs: changes
@@ -214,9 +196,6 @@ jobs:
       - name: Run pytest
         run: python -m pytest
 
-  # --------------------------------------------------
-  # Java services - unit tests
-  # --------------------------------------------------
   test_java:
     needs: changes
     if: needs.changes.outputs.java_services != '[]'
@@ -243,9 +222,6 @@ jobs:
             mvn -B test --no-transfer-progress
           fi
 
-  # --------------------------------------------------
-  # Java services - package smoke build
-  # --------------------------------------------------
   build_java:
     needs:
       - changes
@@ -274,9 +250,6 @@ jobs:
             mvn -B package -DskipTests --no-transfer-progress
           fi
 
-  # --------------------------------------------------
-  # Frontend - ESLint
-  # --------------------------------------------------
   lint_frontend:
     name: "Frontend: ESLint"
     needs: changes
@@ -295,9 +268,6 @@ jobs:
       - run: npm ci --legacy-peer-deps
       - run: npm run lint
 
-  # --------------------------------------------------
-  # Frontend - TypeScript Type Check
-  # --------------------------------------------------
   typecheck_frontend:
     name: "Frontend: TypeScript"
     needs: changes
@@ -316,9 +286,6 @@ jobs:
       - run: npm ci --legacy-peer-deps
       - run: npm run typecheck
 
-  # --------------------------------------------------
-  # Frontend - Unit Tests (Vitest)
-  # --------------------------------------------------
   test_frontend:
     name: "Frontend: Tests"
     needs: changes
@@ -337,9 +304,6 @@ jobs:
       - run: npm ci --legacy-peer-deps
       - run: npm test -- --run
 
-  # --------------------------------------------------
-  # Frontend - Production Build
-  # --------------------------------------------------
   build_frontend:
     name: "Frontend: Build"
     needs:
@@ -360,9 +324,6 @@ jobs:
       - run: npm ci --legacy-peer-deps
       - run: npm run build
 
-  # --------------------------------------------------
-  # Dependency scan - report-first on GitHub-hosted
-  # --------------------------------------------------
   dependency_scan:
     name: Dependency scan
     needs: changes
@@ -381,9 +342,6 @@ jobs:
           exit-code: '0'
           ignore-unfixed: true
 
-  # --------------------------------------------------
-  # IaC / workflow scan - Checkov
-  # --------------------------------------------------
   checkov_infra:
     name: "Checkov: infra"
     needs: changes
@@ -408,9 +366,6 @@ jobs:
         with:
           directory: .github/workflows
 
-  # --------------------------------------------------
-  # OpenTofu validation - GitHub-hosted
-  # --------------------------------------------------
   infra_validate:
     name: OpenTofu validate
     needs: changes
@@ -429,9 +384,6 @@ jobs:
       - name: Validate
         run: tofu -chdir=infra/opentofu/envs/devsecops validate
 
-  # --------------------------------------------------
-  # Dockerfile - lint and static config scan
-  # --------------------------------------------------
   dockerfile_lint:
     name: "Dockerfile: Hadolint"
     needs: changes
@@ -472,9 +424,6 @@ jobs:
           framework: dockerfile
           soft_fail: true
 
-  # --------------------------------------------------
-  # Docker - Build smoke test (no push)
-  # --------------------------------------------------
   docker_build:
     name: "Docker: Build and scan"
     needs: changes
@@ -505,9 +454,6 @@ jobs:
           path: trivy-${{ matrix.service }}.txt
           if-no-files-found: ignore
 
-  # --------------------------------------------------
-  # SonarCloud - optional GitHub-hosted quality gate
-  # --------------------------------------------------
   sonarcloud:
     name: SonarCloud
     needs: changes
@@ -584,9 +530,6 @@ jobs:
             -Dsonar.exclusions=**/target/**,**/node_modules/**,**/dist/**,**/.terraform/**
             -Dsonar.qualitygate.wait=true
 
-  # --------------------------------------------------
-  # Status gate - single check for branch protection
-  # --------------------------------------------------
   ci_status:
     name: CI Status
     if: always()
