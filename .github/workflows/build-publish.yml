@@ -99,6 +99,10 @@ jobs:
       - name: Check registry configuration
         run: |
           missing=0
+          if [[ -z "$REGISTRY_HOST" ]]; then
+            echo "Missing GitHub Environment variable: REGISTRY_HOST"
+            missing=1
+          fi
           if [[ -z "$REGISTRY_NAMESPACE" ]]; then
             echo "Missing GitHub Environment variable: REGISTRY_NAMESPACE"
             missing=1
