@@ -76,17 +76,17 @@ Trạng thái HTTPS:
 
 Trạng thái deploy app hiện tại:
 
-- Overlay đang dùng để deploy tạm: `infra/k8s/devsecops/apps-artifact-registry`
-- Registry tạm cho app images: `asia-southeast1-docker.pkg.dev/sagelms/sagelms-app`
-- Web image hiện tại: `asia-southeast1-docker.pkg.dev/sagelms/sagelms-app/web:gke-temp-7b2ae13`
-- Các deployment app hiện tại đều `1/1 Running`, restart `0`: `web`, `gateway`, `auth-service`, `course-service`, `content-service`, `progress-service`, `assessment-service`, `challenge-service`.
-- `worker` đang được loại khỏi overlay tạm bằng patch delete trong `apps-artifact-registry/kustomization.yaml`; chưa coi worker là workload bàn giao cho demo web chính.
+- Overlay đang dùng: `infra/k8s/devsecops/apps`
+- Registry cho app images: `harbor.sagelms.id.vn/sagelms-app`
+- App overlay hiện pin Harbor image bằng digest trong `apps/kustomization.yaml`.
+- Các deployment app hiện tại đều `1/1 Running`: `web`, `gateway`, `auth-service`, `course-service`, `content-service`, `progress-service`, `assessment-service`, `challenge-service`.
+- `worker` đang được loại khỏi overlay app chính bằng patch delete; chưa coi worker là workload bàn giao cho demo web chính.
 
 Trạng thái Harbor:
 
 - Harbor runtime hiện đã có trong namespace `harbor`, các deployment/statefulset chính đang Running.
 - `harbor-pull-secret` trong namespace `sagelms-devsecops` đã được ESO đồng bộ và test pull image Harbor đã có sự kiện pull thành công.
-- App workload hiện tại vẫn chưa chuyển sang Harbor làm registry chính; đang dùng Artifact Registry tạm. Phần chuyển image sang Harbor, pin digest, Trivy image scan, SBOM và Cosign signing là phần bàn giao tiếp cho Member 2/Member 1.
+- App workload hiện tại dùng Harbor làm registry chính và pin image bằng digest trong overlay app. Phần Trivy image scan, SBOM và Cosign signing là phần bàn giao tiếp cho Member 2/Member 1.
 
 ## Mạng
 
@@ -255,7 +255,7 @@ Namespace `sagelms-devsecops`:
 
 Manifest Kubernetes foundation:
 
-- `infra/k8s/devsecops/cnpg-foundation.yaml`
+- `infra/k8s/devsecops/cloudnativepg/cnpg-foundation.yaml`
 - `infra/k8s/devsecops/apps/app-shared-externalsecret.yaml`
 
 Các ExternalSecret mới đã apply và đồng bộ:
@@ -285,8 +285,8 @@ Chưa đồng bộ vì source secret chưa có value thật:
 - Phần Cloud/IaC foundation của Thắng đã đủ để bàn giao: OpenTofu validate được, Checkov không còn failed check trong `infra/opentofu`, GKE chạy được app workloads, ESO sync secret, CloudNativePG healthy và backup đã completed.
 - Web app đã chạy được qua HTTPS tại `https://sagelms.id.vn`; `ManagedCertificate` đã Active.
 - HTTP vẫn còn được allow trên Ingress để tiện debug; nên giao Member 3 quyết định redirect/tắt HTTP trong bước hardening.
-- GitOps/FluxCD final còn pending: workload hiện đang được apply bằng Kustomize overlay, chưa thấy FluxCD reconcile app runtime.
-- Harbor final còn pending: Harbor đã có runtime và pull secret, nhưng app deployment hiện vẫn dùng Artifact Registry tạm; cần Member 2/Member 1 chuyển sang Harbor image digest, SBOM, Cosign và workflow build/publish chính thức.
+- GitOps/FluxCD đang có manifests reconcile app runtime từ `infra/k8s/devsecops/apps` và Harbor từ `infra/k8s/devsecops/harbor`.
+- Harbor là registry chính cho app runtime; Member 2/Member 1 vẫn cần hoàn thiện SBOM, Cosign và workflow build/publish chính thức.
 - Thành viên 1 có thể dùng project, region, tên GKE cluster, WIF provider, GitHub Actions GSA, OpenTofu path và endpoint web hiện tại để hoàn thiện CI/CD workflow, infra plan/apply approval và smoke test.
 - Thành viên 2 cần tiếp tục phần Harbor/supply-chain: Harbor project/robot account/retention, push image chính thức, resolve digest, Trivy image scan, SBOM, Cosign signing và cập nhật overlay/GitOps theo digest.
 - Thành viên 3 có thể dùng GKE cluster, namespaces, ESO mapping, ClusterSecretStore, CloudNativePG runtime manifests, `sagelms-postgres-rw` service, backup/WAL archive và app overlay hiện tại để GitOps hóa runtime, hardening Ingress/HTTPS, Kyverno, observability và runbook.
