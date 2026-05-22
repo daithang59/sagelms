@@ -12,22 +12,18 @@ progress_service:
   - "services/progress-service/**"
 assessment_service:
   - "services/assessment-service/**"
+ai_tutor_service:
+  - "services/ai-tutor-service/**"
 worker:
   - "services/worker/**"
 frontend:
   - "apps/web/**"
 infra:
   - "infra/**"
-  - "deploy/**"
-  - "charts/**"
-  - "platform/**"
+github:
   - ".github/workflows/**"
 docker:
   - "apps/web/Dockerfile"
   - "apps/web/.dockerignore"
   - "apps/web/nginx.conf"
   - "services/*/Dockerfile"
-  - "services/*/.dockerignore"
-  - "infra/docker/**"
-  - "scripts/docker/**"
-  - "docs/docker-images.md"

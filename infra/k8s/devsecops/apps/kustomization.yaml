@@ -4,6 +4,7 @@ kind: Kustomization
 namespace: sagelms-devsecops
 
 resources:
+  - namespace.yaml
   - ../../base/apps
   - app-shared-externalsecret.yaml
   - harbor-pull-externalsecret.yaml
@@ -58,6 +59,24 @@ patches:
         path: /metadata/annotations
         value:
           cloud.google.com/neg: '{"ingress": true}'
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: worker
+      $patch: delete
+  - patch: |-
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: worker-config
+      $patch: delete
+  - patch: |-
+      apiVersion: v1
+      kind: ServiceAccount
+      metadata:
+        name: worker
+      $patch: delete
   - target:
       kind: ConfigMap
       name: assessment-service-config

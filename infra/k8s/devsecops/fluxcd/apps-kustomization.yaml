@@ -1,0 +1,15 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: sagelms-devsecops-apps
+  namespace: fluxcd
+spec:
+  interval: 1m
+  path: ./infra/k8s/devsecops/apps
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: sagelms
+  targetNamespace: sagelms-devsecops
+  timeout: 5m
+  wait: true

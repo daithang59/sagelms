@@ -1,0 +1,305 @@
+name: CD - Build Scan Push Deploy PR
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "infra/k8s/devsecops/apps/kustomization.yaml"
+      - "reports/**"
+  workflow_dispatch:
+    inputs:
+      services:
+        description: "Comma-separated services to build, or all. Deployable values: web,gateway,auth-service,course-service,content-service,progress-service,assessment-service,challenge-service."
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+  pull-requests: write
+  security-events: write
+
+env:
+  KUSTOMIZATION_FILE: infra/k8s/devsecops/apps/kustomization.yaml
+
+concurrency:
+  group: cd-main-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  detect:
+    name: Detect changed services
+    runs-on: ubuntu-latest
+    outputs:
+      gateway: ${{ steps.filter.outputs.gateway }}
+      auth_service: ${{ steps.filter.outputs.auth_service }}
+      course_service: ${{ steps.filter.outputs.course_service }}
+      content_service: ${{ steps.filter.outputs.content_service }}
+      progress_service: ${{ steps.filter.outputs.progress_service }}
+      assessment_service: ${{ steps.filter.outputs.assessment_service }}
+      challenge_service: ${{ steps.filter.outputs.challenge_service }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      ai_tutor_service: ${{ steps.filter.outputs.ai_tutor_service }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect paths
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: .github/path-filters.yml
+
+  build-scan-push:
+    name: Build, scan, push, and open deploy PR
+    runs-on: ubuntu-latest
+    needs: detect
+    env:
+      IMAGE_TAG: ${{ github.sha }}
+      CHANGED_GATEWAY: ${{ needs.detect.outputs.gateway }}
+      CHANGED_AUTH: ${{ needs.detect.outputs.auth_service }}
+      CHANGED_COURSE: ${{ needs.detect.outputs.course_service }}
+      CHANGED_CONTENT: ${{ needs.detect.outputs.content_service }}
+      CHANGED_PROGRESS: ${{ needs.detect.outputs.progress_service }}
+      CHANGED_ASSESSMENT: ${{ needs.detect.outputs.assessment_service }}
+      CHANGED_CHALLENGE: ${{ needs.detect.outputs.challenge_service }}
+      CHANGED_WEB: ${{ needs.detect.outputs.frontend }}
+      CHANGED_AI_TUTOR: ${{ needs.detect.outputs.ai_tutor_service }}
+      DISPATCH_SERVICES: ${{ github.event.inputs.services }}
+      EVENT_NAME: ${{ github.event_name }}
+      REGISTRY_HOST: ${{ vars.REGISTRY_HOST }}
+      REGISTRY_NAMESPACE: ${{ vars.REGISTRY_NAMESPACE }}
+      REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
+      REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Plan deploy services
+        id: plan
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          services=()
+          add_service() {
+            services+=("$1|$2|$3")
+          }
+
+          selected() {
+            local service="$1"
+            local changed="$2"
+
+            if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+              local requested="${DISPATCH_SERVICES// /}"
+              if [[ -z "$requested" || "$requested" == "all" ]]; then
+                return 0
+              fi
+
+              IFS=',' read -ra items <<< "$requested"
+              for item in "${items[@]}"; do
+                [[ "$item" == "$service" ]] && return 0
+              done
+              return 1
+            fi
+
+            [[ "$changed" == "true" ]]
+          }
+
+          selected "gateway" "$CHANGED_GATEWAY" && add_service "gateway" "services/gateway" "java"
+          selected "auth-service" "$CHANGED_AUTH" && add_service "auth-service" "services/auth-service" "java"
+          selected "course-service" "$CHANGED_COURSE" && add_service "course-service" "services/course-service" "java"
+          selected "content-service" "$CHANGED_CONTENT" && add_service "content-service" "services/content-service" "java"
+          selected "progress-service" "$CHANGED_PROGRESS" && add_service "progress-service" "services/progress-service" "java"
+          selected "assessment-service" "$CHANGED_ASSESSMENT" && add_service "assessment-service" "services/assessment-service" "java"
+          selected "challenge-service" "$CHANGED_CHALLENGE" && add_service "challenge-service" "services/challenge-service" "java"
+          selected "web" "$CHANGED_WEB" && add_service "web" "apps/web" "frontend"
+
+          if [[ "$CHANGED_AI_TUTOR" == "true" ]]; then
+            {
+              echo "### ai-tutor-service"
+              echo "ai-tutor-service changed, but it is intentionally excluded from GKE deployment in this phase."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          printf "%s\n" "${services[@]}" > /tmp/deploy-services.txt
+          echo "services_count=${#services[@]}" >> "$GITHUB_OUTPUT"
+
+          if [[ "${#services[@]}" -eq 0 ]]; then
+            echo "No deployable service changes were detected." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          {
+            echo "### Deployable services"
+            printf -- "- %s\n" "${services[@]}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Check registry configuration
+        if: steps.plan.outputs.services_count != '0'
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=0
+          if [[ -z "$REGISTRY_HOST" ]]; then
+            echo "Missing repository variable: REGISTRY_HOST"
+            missing=1
+          fi
+          if [[ -z "$REGISTRY_NAMESPACE" ]]; then
+            echo "Missing repository variable: REGISTRY_NAMESPACE"
+            missing=1
+          fi
+          if [[ -z "$REGISTRY_USERNAME" ]]; then
+            echo "Missing repository secret: REGISTRY_USERNAME"
+            missing=1
+          fi
+          if [[ -z "$REGISTRY_PASSWORD" ]]; then
+            echo "Missing repository secret: REGISTRY_PASSWORD"
+            missing=1
+          fi
+          if [[ $missing -ne 0 ]]; then
+            exit 1
+          fi
+
+      - name: Set up JDK
+        if: steps.plan.outputs.services_count != '0'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+
+      - name: Set up Node
+        if: steps.plan.outputs.services_count != '0'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Set up Docker Buildx
+        if: steps.plan.outputs.services_count != '0'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Install Trivy
+        if: steps.plan.outputs.services_count != '0'
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y wget apt-transport-https gnupg lsb-release
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo gpg --dearmor -o /usr/share/keyrings/trivy.gpg
+          echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb generic main" | sudo tee /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update
+          sudo apt-get install -y trivy
+
+      - name: Install yq
+        if: steps.plan.outputs.services_count != '0'
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+
+      - name: Run service checks
+        if: steps.plan.outputs.services_count != '0'
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS='|' read -r service context kind; do
+            [[ -z "$service" ]] && continue
+            echo "::group::Check $service"
+            if [[ "$kind" == "java" ]]; then
+              pushd "$context" >/dev/null
+              chmod +x mvnw
+              ./mvnw -B test
+              popd >/dev/null
+            elif [[ "$kind" == "frontend" ]]; then
+              pushd "$context" >/dev/null
+              npm ci --legacy-peer-deps
+              npm run typecheck
+              npm run lint
+              npm test -- --run
+              npm run build
+              popd >/dev/null
+            fi
+            echo "::endgroup::"
+          done < /tmp/deploy-services.txt
+
+      - name: Login to Harbor
+        if: steps.plan.outputs.services_count != '0'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY_HOST }}
+          username: ${{ env.REGISTRY_USERNAME }}
+          password: ${{ env.REGISTRY_PASSWORD }}
+
+      - name: Build, scan, push images, and update manifest
+        if: steps.plan.outputs.services_count != '0'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p reports/trivy "reports/sbom/$IMAGE_TAG"
+          digest_report="reports/image-digests-$IMAGE_TAG.md"
+          pr_body="reports/deploy-pr-body-$IMAGE_TAG.md"
+
+          {
+            echo "# Image digests for $IMAGE_TAG"
+            echo
+            echo "| Service | Image | Digest |"
+            echo "| --- | --- | --- |"
+          } > "$digest_report"
+
+          {
+            echo "# Deploy images to $IMAGE_TAG"
+            echo
+            echo "| Service | Image | Digest | Trivy | SBOM |"
+            echo "| --- | --- | --- | --- | --- |"
+          } > "$pr_body"
+
+          while IFS='|' read -r service context kind; do
+            [[ -z "$service" ]] && continue
+            image="$REGISTRY_HOST/$REGISTRY_NAMESPACE/$service:$IMAGE_TAG"
+            image_name="$REGISTRY_HOST/$REGISTRY_NAMESPACE/$service"
+            trivy_report="reports/trivy/trivy-$service.txt"
+            sbom_report="reports/sbom/$IMAGE_TAG/$service-sbom.cdx.json"
+
+            echo "::group::Docker build $service"
+            docker build -t "$image" "$context"
+            echo "::endgroup::"
+
+            echo "::group::Trivy scan $service"
+            trivy image --severity HIGH,CRITICAL --exit-code 1 --format table --output "$trivy_report" "$image"
+            trivy image --format cyclonedx --output "$sbom_report" "$image"
+            echo "::endgroup::"
+
+            docker push "$image"
+            digest="$(docker buildx imagetools inspect "$image" --format '{{.Manifest.Digest}}')"
+
+            echo "| $service | \`$image\` | \`$digest\` | PASS | \`$sbom_report\` |" >> "$pr_body"
+            echo "| $service | \`$image\` | \`$digest\` |" >> "$digest_report"
+
+            export IMAGE_NAME="$image_name"
+            yq -i '(.images[] | select(.newName == env(IMAGE_NAME)) | .newTag) = env(IMAGE_TAG)' "$KUSTOMIZATION_FILE"
+          done < /tmp/deploy-services.txt
+
+      - name: Create deploy PR
+        if: steps.plan.outputs.services_count != '0'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ github.token }}
+          branch: chore/deploy-${{ env.IMAGE_TAG }}
+          delete-branch: true
+          title: "chore(deploy): update images to ${{ env.IMAGE_TAG }} [skip ci]"
+          body-path: reports/deploy-pr-body-${{ env.IMAGE_TAG }}.md
+          commit-message: "chore(deploy): update images to ${{ env.IMAGE_TAG }} [skip ci]"
+          add-paths: |
+            infra/k8s/devsecops/apps/kustomization.yaml
+            reports/image-digests-${{ env.IMAGE_TAG }}.md
+            reports/trivy/*.txt
+            reports/sbom/${{ env.IMAGE_TAG }}/*.json
