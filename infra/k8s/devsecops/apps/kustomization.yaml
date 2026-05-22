@@ -33,11 +33,6 @@ images:
   - name: harbor.sagelms.id.vn/sagelms-app/challenge-service
     newName: harbor.sagelms.id.vn/sagelms-app/challenge-service
     digest: sha256:5632ea69a8985763123cef2a41c883650a8732575218d1221eac4fab561899a9
-  # TODO(member-runtime): worker is pending supply-chain evidence.
-  # Do not pin a digest until its Harbor image, Trivy report, and SBOM are produced.
-  - name: harbor.sagelms.id.vn/sagelms-app/worker
-    newName: harbor.sagelms.id.vn/sagelms-app/worker
-    newTag: dev
   - name: harbor.sagelms.id.vn/sagelms-app/web
     newName: harbor.sagelms.id.vn/sagelms-app/web
     digest: sha256:c036536d20f592b02b630cafb5e607f12e65ab814b12c4bde0028209bb96903f
@@ -59,24 +54,6 @@ patches:
         path: /metadata/annotations
         value:
           cloud.google.com/neg: '{"ingress": true}'
-  - patch: |-
-      apiVersion: apps/v1
-      kind: Deployment
-      metadata:
-        name: worker
-      $patch: delete
-  - patch: |-
-      apiVersion: v1
-      kind: ConfigMap
-      metadata:
-        name: worker-config
-      $patch: delete
-  - patch: |-
-      apiVersion: v1
-      kind: ServiceAccount
-      metadata:
-        name: worker
-      $patch: delete
   - target:
       kind: ConfigMap
       name: assessment-service-config
@@ -87,33 +64,6 @@ patches:
       - op: add
         path: /data/SPRING_JPA_HIBERNATE_DDL_AUTO
         value: "update"
-  - target:
-      kind: ServiceAccount
-      name: worker
-    patch: |-
-      $patch: delete
-      apiVersion: v1
-      kind: ServiceAccount
-      metadata:
-        name: worker
-  - target:
-      kind: ConfigMap
-      name: worker-config
-    patch: |-
-      $patch: delete
-      apiVersion: v1
-      kind: ConfigMap
-      metadata:
-        name: worker-config
-  - target:
-      kind: Deployment
-      name: worker
-    patch: |-
-      $patch: delete
-      apiVersion: apps/v1
-      kind: Deployment
-      metadata:
-        name: worker
   - target:
       kind: Service
       name: web

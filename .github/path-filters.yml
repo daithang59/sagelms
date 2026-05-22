@@ -14,8 +14,6 @@ assessment_service:
   - "services/assessment-service/**"
 ai_tutor_service:
   - "services/ai-tutor-service/**"
-worker:
-  - "services/worker/**"
 frontend:
   - "apps/web/**"
 infra:

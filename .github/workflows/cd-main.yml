@@ -57,12 +57,13 @@ jobs:
         with:
           filters: .github/path-filters.yml
 
-  build-scan-push:
-    name: Build, scan, push, and open deploy PR
+  plan:
+    name: Plan deploy services
     runs-on: ubuntu-latest
     needs: detect
+    outputs:
+      services_count: ${{ steps.plan.outputs.services_count }}
     env:
-      IMAGE_TAG: ${{ github.sha }}
       CHANGED_GATEWAY: ${{ needs.detect.outputs.gateway }}
       CHANGED_AUTH: ${{ needs.detect.outputs.auth_service }}
       CHANGED_COURSE: ${{ needs.detect.outputs.course_service }}
@@ -77,17 +78,13 @@ jobs:
       REGISTRY_HOST: ${{ vars.REGISTRY_HOST }}
       REGISTRY_NAMESPACE: ${{ vars.REGISTRY_NAMESPACE }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
       - name: Plan deploy services
         id: plan
         shell: bash
         run: |
           set -euo pipefail
 
+          mkdir -p reports
           services=()
           add_service() {
             services+=("$1|$2|$3")
@@ -129,7 +126,7 @@ jobs:
             } >> "$GITHUB_STEP_SUMMARY"
           fi
 
-          printf "%s\n" "${services[@]}" > /tmp/deploy-services.txt
+          printf "%s\n" "${services[@]}" > reports/deploy-services.txt
           echo "services_count=${#services[@]}" >> "$GITHUB_OUTPUT"
 
           if [[ "${#services[@]}" -eq 0 ]]; then
@@ -142,8 +139,35 @@ jobs:
             printf -- "- %s\n" "${services[@]}"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Check registry and GCP Secret Manager configuration
+      - name: Upload deploy plan
         if: steps.plan.outputs.services_count != '0'
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-services
+          path: reports/deploy-services.txt
+          retention-days: 7
+
+  validate:
+    name: Validate deploy services
+    runs-on: ubuntu-latest
+    needs: plan
+    if: needs.plan.outputs.services_count != '0'
+    env:
+      REGISTRY_HOST: ${{ vars.REGISTRY_HOST }}
+      REGISTRY_NAMESPACE: ${{ vars.REGISTRY_NAMESPACE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download deploy plan
+        uses: actions/download-artifact@v4
+        with:
+          name: deploy-services
+          path: reports
+
+      - name: Check registry configuration
         shell: bash
         run: |
           set -euo pipefail
@@ -177,18 +201,27 @@ jobs:
           fi
 
       - name: Authenticate to Google Cloud
-        if: steps.plan.outputs.services_count != '0'
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ env.GCP_SERVICE_ACCOUNT }}
 
       - name: Setup gcloud
-        if: steps.plan.outputs.services_count != '0'
         uses: google-github-actions/setup-gcloud@v2
 
+      - name: Verify Harbor robot secret access
+        shell: bash
+        run: |
+          set -euo pipefail
+          harbor_robot_json="$(gcloud secrets versions access latest --secret "$GCP_SECRET_HARBOR_ROBOT_CI_PUSH" --project "$GCP_PROJECT_ID")"
+          if [[ -z "$harbor_robot_json" ]]; then
+            echo "::error::Secret $GCP_SECRET_HARBOR_ROBOT_CI_PUSH has an empty latest version"
+            exit 1
+          fi
+          echo "::add-mask::$harbor_robot_json"
+          echo "Harbor robot secret is available."
+
       - name: Set up JDK
-        if: steps.plan.outputs.services_count != '0'
         uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -196,39 +229,13 @@ jobs:
           cache: maven
 
       - name: Set up Node
-        if: steps.plan.outputs.services_count != '0'
         uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: npm
           cache-dependency-path: apps/web/package-lock.json
 
-      - name: Set up Docker Buildx
-        if: steps.plan.outputs.services_count != '0'
-        uses: docker/setup-buildx-action@v3
-
-      - name: Install Trivy
-        if: steps.plan.outputs.services_count != '0'
-        shell: bash
-        run: |
-          set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install -y wget apt-transport-https gnupg lsb-release
-          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo gpg --dearmor -o /usr/share/keyrings/trivy.gpg
-          echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb generic main" | sudo tee /etc/apt/sources.list.d/trivy.list
-          sudo apt-get update
-          sudo apt-get install -y trivy
-
-      - name: Install yq
-        if: steps.plan.outputs.services_count != '0'
-        shell: bash
-        run: |
-          set -euo pipefail
-          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64
-          sudo chmod +x /usr/local/bin/yq
-
       - name: Run service checks
-        if: steps.plan.outputs.services_count != '0'
         shell: bash
         run: |
           set -euo pipefail
@@ -250,10 +257,55 @@ jobs:
               popd >/dev/null
             fi
             echo "::endgroup::"
-          done < /tmp/deploy-services.txt
+          done < reports/deploy-services.txt
+
+  build_scan_push:
+    name: Build, scan, and push images
+    runs-on: ubuntu-latest
+    needs:
+      - plan
+      - validate
+    if: needs.plan.outputs.services_count != '0'
+    env:
+      IMAGE_TAG: ${{ github.sha }}
+      REGISTRY_HOST: ${{ vars.REGISTRY_HOST }}
+      REGISTRY_NAMESPACE: ${{ vars.REGISTRY_NAMESPACE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download deploy plan
+        uses: actions/download-artifact@v4
+        with:
+          name: deploy-services
+          path: reports
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Install Trivy
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y wget apt-transport-https gnupg lsb-release
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo gpg --dearmor -o /usr/share/keyrings/trivy.gpg
+          echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb generic main" | sudo tee /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update
+          sudo apt-get install -y trivy
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_SERVICE_ACCOUNT }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
 
       - name: Login to Harbor
-        if: steps.plan.outputs.services_count != '0'
         shell: bash
         run: |
           set -euo pipefail
@@ -280,7 +332,6 @@ jobs:
           printf '%s' "$registry_password" | docker login "$REGISTRY_HOST" --username "$registry_username" --password-stdin
 
       - name: Prepare deploy reports
-        if: steps.plan.outputs.services_count != '0'
         shell: bash
         run: |
           set -euo pipefail
@@ -321,7 +372,6 @@ jobs:
           } > "$summary_report"
 
       - name: Build Docker images
-        if: steps.plan.outputs.services_count != '0'
         shell: bash
         run: |
           set -euo pipefail
@@ -333,10 +383,9 @@ jobs:
             echo "::group::Docker build $service"
             docker build -t "$image" "$context"
             echo "::endgroup::"
-          done < /tmp/deploy-services.txt
+          done < reports/deploy-services.txt
 
       - name: Scan images and generate SBOM
-        if: steps.plan.outputs.services_count != '0'
         shell: bash
         run: |
           set -euo pipefail
@@ -356,10 +405,9 @@ jobs:
             fi
             trivy image --format cyclonedx --output "$sbom_report" "$image"
             echo "::endgroup::"
-          done < /tmp/deploy-services.txt
+          done < reports/deploy-services.txt
 
       - name: Push images and record digests
-        if: steps.plan.outputs.services_count != '0'
         shell: bash
         run: |
           set -euo pipefail
@@ -379,10 +427,65 @@ jobs:
             echo "| $service | \`$image\` | \`$digest\` | PASS | \`$sbom_report\` |" >> "$pr_body"
             echo "| $service | \`$image\` | \`$digest\` | PASS | \`$sbom_report\` |" >> "$summary_report"
             echo "| $service | \`$image\` | \`$digest\` |" >> "$digest_report"
-          done < /tmp/deploy-services.txt
+          done < reports/deploy-services.txt
+
+      - name: Publish GitHub job summary
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          summary_report="reports/deploy-summary-$IMAGE_TAG.md"
+          cat "$summary_report" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload deploy evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-evidence
+          path: |
+            reports/image-digests-${{ env.IMAGE_TAG }}.md
+            reports/deploy-pr-body-${{ env.IMAGE_TAG }}.md
+            reports/deploy-summary-${{ env.IMAGE_TAG }}.md
+            reports/trivy/*.txt
+            reports/sbom/${{ env.IMAGE_TAG }}/*.json
+          retention-days: 14
+
+  deploy_pr:
+    name: Open deploy PR
+    runs-on: ubuntu-latest
+    needs:
+      - plan
+      - build_scan_push
+    if: needs.plan.outputs.services_count != '0'
+    env:
+      IMAGE_TAG: ${{ github.sha }}
+      REGISTRY_HOST: ${{ vars.REGISTRY_HOST }}
+      REGISTRY_NAMESPACE: ${{ vars.REGISTRY_NAMESPACE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download deploy plan
+        uses: actions/download-artifact@v4
+        with:
+          name: deploy-services
+          path: reports
+
+      - name: Download deploy evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: deploy-evidence
+          path: reports
+
+      - name: Install yq
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
 
       - name: Update deployment manifest image tags
-        if: steps.plan.outputs.services_count != '0'
         shell: bash
         run: |
           set -euo pipefail
@@ -392,10 +495,9 @@ jobs:
             image_name="$REGISTRY_HOST/$REGISTRY_NAMESPACE/$service"
             export IMAGE_NAME="$image_name"
             yq -i '(.images[] | select(.newName == env(IMAGE_NAME)) | .newTag) = env(IMAGE_TAG)' "$KUSTOMIZATION_FILE"
-          done < /tmp/deploy-services.txt
+          done < reports/deploy-services.txt
 
       - name: Publish GitHub job summary
-        if: steps.plan.outputs.services_count != '0'
         shell: bash
         run: |
           set -euo pipefail
@@ -410,7 +512,6 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Create deploy PR
-        if: steps.plan.outputs.services_count != '0'
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ github.token }}
