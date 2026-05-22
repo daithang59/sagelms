@@ -35,7 +35,7 @@ Tạo image pull secret tạm cho demo:
 ```powershell
 kubectl create secret docker-registry harbor-pull-secret `
   --namespace sagelms-devsecops `
-  --docker-server=harbor.sagelms.dev `
+  --docker-server=harbor.sagelms.id.vn `
   --docker-username="<robot-account>" `
   --docker-password="<robot-password>"
 ```

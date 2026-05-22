@@ -10,28 +10,28 @@ resources:
   - managed-certificate.yaml
 
 images:
-  - name: harbor.sagelms.dev/sagelms-app/gateway
+  - name: harbor.sagelms.id.vn/sagelms-app/gateway
     newName: asia-southeast1-docker.pkg.dev/sagelms/sagelms-app/gateway
     newTag: gke-temp-7b2ae13-rbac-r2
-  - name: harbor.sagelms.dev/sagelms-app/auth-service
+  - name: harbor.sagelms.id.vn/sagelms-app/auth-service
     newName: asia-southeast1-docker.pkg.dev/sagelms/sagelms-app/auth-service
     newTag: gke-temp-7b2ae13-secret-trim
-  - name: harbor.sagelms.dev/sagelms-app/course-service
+  - name: harbor.sagelms.id.vn/sagelms-app/course-service
     newName: asia-southeast1-docker.pkg.dev/sagelms/sagelms-app/course-service
     newTag: gke-temp-7b2ae13-secret-trim
-  - name: harbor.sagelms.dev/sagelms-app/content-service
+  - name: harbor.sagelms.id.vn/sagelms-app/content-service
     newName: asia-southeast1-docker.pkg.dev/sagelms/sagelms-app/content-service
     newTag: gke-temp-7b2ae13-secret-trim
-  - name: harbor.sagelms.dev/sagelms-app/progress-service
+  - name: harbor.sagelms.id.vn/sagelms-app/progress-service
     newName: asia-southeast1-docker.pkg.dev/sagelms/sagelms-app/progress-service
     newTag: gke-temp-7b2ae13
-  - name: harbor.sagelms.dev/sagelms-app/assessment-service
+  - name: harbor.sagelms.id.vn/sagelms-app/assessment-service
     newName: asia-southeast1-docker.pkg.dev/sagelms/sagelms-app/assessment-service
     newTag: gke-temp-7b2ae13-secret-trim
-  - name: harbor.sagelms.dev/sagelms-app/challenge-service
+  - name: harbor.sagelms.id.vn/sagelms-app/challenge-service
     newName: asia-southeast1-docker.pkg.dev/sagelms/sagelms-app/challenge-service
     newTag: gke-temp-7b2ae13-challenge-r2
-  - name: harbor.sagelms.dev/sagelms-app/web
+  - name: harbor.sagelms.id.vn/sagelms-app/web
     newName: asia-southeast1-docker.pkg.dev/sagelms/sagelms-app/web
     newTag: gke-temp-7b2ae13
 

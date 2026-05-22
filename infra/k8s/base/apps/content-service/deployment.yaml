@@ -24,7 +24,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: content-service
-          image: harbor.sagelms.dev/sagelms-app/content-service:dev
+          image: harbor.sagelms.id.vn/sagelms-app/content-service:dev
           imagePullPolicy: IfNotPresent
           ports:
             - name: http

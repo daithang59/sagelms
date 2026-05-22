@@ -24,7 +24,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: course-service
-          image: harbor.sagelms.dev/sagelms-app/course-service:dev
+          image: harbor.sagelms.id.vn/sagelms-app/course-service:dev
           imagePullPolicy: IfNotPresent
           ports:
             - name: http

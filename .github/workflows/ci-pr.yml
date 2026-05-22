@@ -497,6 +497,7 @@ jobs:
 
       - name: Check SonarCloud configuration
         run: |
+          set -euo pipefail
           missing=0
           if [[ -z "$SONAR_TOKEN" ]]; then
             echo "Missing repository secret: SONAR_TOKEN"
@@ -516,6 +517,7 @@ jobs:
 
       - name: Compile Java services for SonarCloud
         run: |
+          set -euo pipefail
           for pom in services/*/pom.xml; do
             service_dir="$(dirname "$pom")"
             echo "Compiling ${service_dir}"
@@ -530,6 +532,7 @@ jobs:
       - name: Prepare SonarCloud Java binaries
         id: sonar_java
         run: |
+          set -euo pipefail
           binaries="$(find services -path '*/target/classes' -type d | paste -sd, -)"
           if [[ -z "$binaries" ]]; then
             echo "No Java binaries found under services/*/target/classes"
@@ -548,7 +551,7 @@ jobs:
             -Dsonar.host.url=https://sonarcloud.io
             -Dsonar.sources=apps/web,services,contracts,infra
             -Dsonar.java.binaries=${{ steps.sonar_java.outputs.binaries }}
-            -Dsonar.exclusions=**/target/**,**/node_modules/**,**/dist/**,**/.terraform/**
+            -Dsonar.exclusions=**/target/**,**/node_modules/**,**/dist/**,**/.terraform/**,**/venv/**,**/__pycache__/**,**/*.pyc
             -Dsonar.qualitygate.wait=true
 
   # --------------------------------------------------

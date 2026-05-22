@@ -24,7 +24,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: gateway
-          image: harbor.sagelms.dev/sagelms-app/gateway:dev
+          image: harbor.sagelms.id.vn/sagelms-app/gateway:dev
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
