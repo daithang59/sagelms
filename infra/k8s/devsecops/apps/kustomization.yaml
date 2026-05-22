@@ -1,8 +1,6 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-
 namespace: sagelms-devsecops
-
 resources:
   - namespace.yaml
   - ../../base/apps
@@ -10,33 +8,39 @@ resources:
   - harbor-pull-externalsecret.yaml
   - ingress.yaml
   - managed-certificate.yaml
-
 images:
   - name: harbor.sagelms.id.vn/sagelms-app/gateway
     newName: harbor.sagelms.id.vn/sagelms-app/gateway
     digest: sha256:4d22b51746180f49dfc8fb12f8377b6baf5e471e6c0b3010b3f2ee1a7699679b
+    newTag: 9623b0ff0be1eb191d1f130791ea1e0c369b031c
   - name: harbor.sagelms.id.vn/sagelms-app/auth-service
     newName: harbor.sagelms.id.vn/sagelms-app/auth-service
     digest: sha256:8d339d78ead645c3669f8a5cddd81f2e56d5e1d196c3bdd783221fb24dea04ec
+    newTag: 9623b0ff0be1eb191d1f130791ea1e0c369b031c
   - name: harbor.sagelms.id.vn/sagelms-app/course-service
     newName: harbor.sagelms.id.vn/sagelms-app/course-service
     digest: sha256:398f4264573142879529a8b772e849c50d653c21e3149baace7880e04646e290
+    newTag: 9623b0ff0be1eb191d1f130791ea1e0c369b031c
   - name: harbor.sagelms.id.vn/sagelms-app/content-service
     newName: harbor.sagelms.id.vn/sagelms-app/content-service
     digest: sha256:bd65d530daeb221f59114885ced3a2e8c2f5f5ab37b37ac6b7e0979bf4bff8b8
+    newTag: 9623b0ff0be1eb191d1f130791ea1e0c369b031c
   - name: harbor.sagelms.id.vn/sagelms-app/progress-service
     newName: harbor.sagelms.id.vn/sagelms-app/progress-service
     digest: sha256:9cea71cd02ebf3dd182a83f310336bf84e6f263445ecc8352b618b5b8af5057c
+    newTag: 9623b0ff0be1eb191d1f130791ea1e0c369b031c
   - name: harbor.sagelms.id.vn/sagelms-app/assessment-service
     newName: harbor.sagelms.id.vn/sagelms-app/assessment-service
     digest: sha256:bcd19726f0110b17e11a3ffea2b71d02ff3ae2587a5f33d2c280cfb423adea28
+    newTag: 9623b0ff0be1eb191d1f130791ea1e0c369b031c
   - name: harbor.sagelms.id.vn/sagelms-app/challenge-service
     newName: harbor.sagelms.id.vn/sagelms-app/challenge-service
     digest: sha256:5632ea69a8985763123cef2a41c883650a8732575218d1221eac4fab561899a9
+    newTag: 9623b0ff0be1eb191d1f130791ea1e0c369b031c
   - name: harbor.sagelms.id.vn/sagelms-app/web
     newName: harbor.sagelms.id.vn/sagelms-app/web
     digest: sha256:c036536d20f592b02b630cafb5e607f12e65ab814b12c4bde0028209bb96903f
-
+    newTag: 9623b0ff0be1eb191d1f130791ea1e0c369b031c
 patches:
   - target:
       kind: ServiceAccount
