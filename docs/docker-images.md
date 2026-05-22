@@ -131,6 +131,15 @@ New-Item -ItemType Directory -Force reports/sbom | Out-Null
 trivy image --format cyclonedx --output reports/sbom/auth-service.cdx.json sagelms/auth-service:dev
 ```
 
+The GitHub Actions publish workflow also generates CycloneDX SBOMs after image push and uploads them as workflow artifacts.
+It additionally creates a signed Cosign SBOM attestation against the pushed image digest.
+
+Harbor UI note:
+
+- GitHub artifact uploads do not automatically appear in Harbor.
+- Cosign attestations are stored in the registry as related supply-chain metadata.
+- Harbor's built-in SBOM details view requires Harbor SBOM generation to be enabled on the project, or the SBOM to be generated manually from the Harbor UI.
+
 ## Digest
 
 After push, resolve image digest:
@@ -159,11 +168,30 @@ The current P1 workflow is report-only because existing base and framework depen
 
 ## Cosign
 
-Cosign signing is blocked until the team finalizes registry and key strategy.
+Cosign signing is used after the image has been pushed and resolved to an immutable digest.
+Sign the digest, not the mutable tag.
 
-Expected flow later:
+Expected flow:
 
 ```powershell
 cosign sign harbor.example.com/sagelms/auth-service@sha256:<digest>
 cosign verify harbor.example.com/sagelms/auth-service@sha256:<digest>
+```
+
+Sign all P0 images that are already pushed or pulled locally:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\docker\sign-images.ps1 -RegistryPrefix harbor.example.com/sagelms -Tag <git-sha>
+```
+
+Sign all P0 images and attach signed CycloneDX SBOM attestations:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\docker\sign-images.ps1 -RegistryPrefix harbor.example.com/sagelms -Tag <git-sha> -SbomDir reports/sbom -AttestSbom
+```
+
+If keyless signing is not desired, pass a Cosign key:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\docker\sign-images.ps1 -RegistryPrefix harbor.example.com/sagelms -Tag <git-sha> -Key cosign.key -AttestSbom
 ```
