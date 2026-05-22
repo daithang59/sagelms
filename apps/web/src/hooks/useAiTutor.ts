@@ -8,6 +8,11 @@ import type {
   AiTutorStoredMessage,
 } from '@/types/ai-tutor';
 
+type AiTutorLearningContext = {
+  courseId?: string | null;
+  challengeId?: string | null;
+};
+
 function createOptimisticMessage(role: AiTutorChatMessage['role'], content: string): AiTutorChatMessage {
   return {
     id: crypto.randomUUID(),
@@ -28,6 +33,12 @@ function getAiTutorErrorMessage(error: unknown) {
   if (code === 'CONVERSATION_NOT_FOUND') {
     return 'Không tìm thấy cuộc trò chuyện này.';
   }
+  if (code === 'LEARNING_CONTEXT_FORBIDDEN') {
+    return 'Bạn không có quyền truy cập ngữ cảnh học tập này.';
+  }
+  if (code === 'LEARNING_CONTEXT_NOT_FOUND') {
+    return 'Không tìm thấy ngữ cảnh học tập này.';
+  }
   return 'Không thể nhận phản hồi từ AI Tutor.';
 }
 
@@ -39,6 +50,7 @@ export function useAiTutor() {
   const [loadingConversations, setLoadingConversations] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastPrompt, setLastPrompt] = useState<string | null>(null);
+  const [lastContext, setLastContext] = useState<AiTutorLearningContext | null>(null);
 
   const loadConversations = useCallback(async () => {
     await Promise.resolve();
@@ -65,6 +77,7 @@ export function useAiTutor() {
       setConversationId(id);
       setMessages(response);
       setLastPrompt(null);
+      setLastContext(null);
     } catch (err) {
       setError(getAiTutorErrorMessage(err));
     } finally {
@@ -77,6 +90,7 @@ export function useAiTutor() {
     setConversationId(null);
     setError(null);
     setLastPrompt(null);
+    setLastContext(null);
   }, []);
 
   const deleteConversation = useCallback(async (id: string) => {
@@ -87,7 +101,21 @@ export function useAiTutor() {
     }
   }, [conversationId, newConversation]);
 
-  const sendMessage = useCallback(async (rawMessage: string) => {
+  const renameConversation = useCallback(async (id: string, rawTitle: string) => {
+    const title = rawTitle.trim();
+    if (!title) return null;
+
+    try {
+      const response = await api.put<AiTutorConversationSummary>(`/ai/conversations/${id}`, { title });
+      setConversations((items) => [response, ...items.filter((item) => item.id !== id)]);
+      return response;
+    } catch (err) {
+      setError(getAiTutorErrorMessage(err));
+      return null;
+    }
+  }, []);
+
+  const sendMessage = useCallback(async (rawMessage: string, context?: AiTutorLearningContext) => {
     const message = rawMessage.trim();
     if (!message || loading) return;
 
@@ -96,11 +124,13 @@ export function useAiTutor() {
     setLoading(true);
     setError(null);
     setLastPrompt(message);
+    setLastContext(context ?? null);
 
     const payload: AiTutorChatRequest = {
       message,
       conversationId,
-      courseId: null,
+      courseId: context?.courseId ?? null,
+      challengeId: context?.challengeId ?? null,
     };
 
     try {
@@ -116,6 +146,7 @@ export function useAiTutor() {
         },
       ]);
       setLastPrompt(null);
+      setLastContext(null);
       void loadConversations();
     } catch (err) {
       setError(getAiTutorErrorMessage(err));
@@ -134,7 +165,8 @@ export function useAiTutor() {
       const response = await api.post<AiTutorChatResponse>('/ai/chat', {
         message: lastPrompt,
         conversationId,
-        courseId: null,
+        courseId: lastContext?.courseId ?? null,
+        challengeId: lastContext?.challengeId ?? null,
       });
       setConversationId(response.conversationId);
       setMessages((items) => [
@@ -147,13 +179,14 @@ export function useAiTutor() {
         },
       ]);
       setLastPrompt(null);
+      setLastContext(null);
       void loadConversations();
     } catch (err) {
       setError(getAiTutorErrorMessage(err));
     } finally {
       setLoading(false);
     }
-  }, [conversationId, lastPrompt, loadConversations, loading]);
+  }, [conversationId, lastContext, lastPrompt, loadConversations, loading]);
 
   return {
     messages,
@@ -166,6 +199,7 @@ export function useAiTutor() {
     loadConversations,
     loadConversation,
     deleteConversation,
+    renameConversation,
     newConversation,
     sendMessage,
     retryLastMessage,

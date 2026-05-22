@@ -25,6 +25,7 @@ export interface AiTutorStoredMessage {
 export interface AiTutorChatRequest {
   message: string;
   courseId: string | null;
+  challengeId?: string | null;
   conversationId?: string | null;
 }
 
