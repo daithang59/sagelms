@@ -4,3 +4,4 @@ kind: Kustomization
 resources:
   - namespaces.yaml
   - cnpg-foundation.yaml
+  - harbor-registry-foundation.yaml

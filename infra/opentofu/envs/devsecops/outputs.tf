@@ -51,6 +51,18 @@ output "cnpg_backup" {
   } : null
 }
 
+output "harbor_registry_storage" {
+  description = "Harbor registry GCS bucket and Workload Identity handoff."
+  value = var.enable_harbor_registry_storage ? {
+    bucket_name              = module.harbor_registry_storage[0].bucket_name
+    bucket_url               = module.harbor_registry_storage[0].bucket_url
+    service_account_email    = module.harbor_registry_storage[0].service_account_email
+    workload_identity_member = module.harbor_registry_storage[0].workload_identity_member
+    ksa_namespace            = module.harbor_registry_storage[0].ksa_namespace
+    ksa_name                 = module.harbor_registry_storage[0].ksa_name
+  } : null
+}
+
 output "redis_instance_name" {
   description = "Redis instance name."
   value       = module.redis.instance_name
@@ -73,9 +85,14 @@ output "service_account_emails" {
     github_actions = module.iam.github_actions_service_account_email
     eso            = module.iam.eso_service_account_email
     cnpg_backup    = var.enable_cnpg_backup ? module.cnpg_backup[0].service_account_email : null
-    flux           = module.iam.flux_service_account_email
-    app_runtime    = module.iam.app_runtime_service_account_email
-    gke_nodes      = module.gke.node_service_account_email
+    harbor_registry = (
+      var.enable_harbor_registry_storage
+      ? module.harbor_registry_storage[0].service_account_email
+      : null
+    )
+    flux        = module.iam.flux_service_account_email
+    app_runtime = module.iam.app_runtime_service_account_email
+    gke_nodes   = module.gke.node_service_account_email
   }
 }
 
