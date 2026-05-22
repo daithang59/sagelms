@@ -75,6 +75,7 @@ docker-data/
 # Misc
 # ========================
 coverage/
+reports/
 .terraform/
 *.tfstate
 *.tfstate.*

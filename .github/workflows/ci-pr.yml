@@ -128,6 +128,7 @@ jobs:
           AUTH_SERVICE: ${{ steps.filter.outputs.auth_service }}
           COURSE_SERVICE: ${{ steps.filter.outputs.course_service }}
           CONTENT_SERVICE: ${{ steps.filter.outputs.content_service }}
+          CHALLENGE_SERVICE: ${{ steps.filter.outputs.challenge_service }}
           PROGRESS_SERVICE: ${{ steps.filter.outputs.progress_service }}
           ASSESSMENT_SERVICE: ${{ steps.filter.outputs.assessment_service }}
           WORKER: ${{ steps.filter.outputs.worker }}
@@ -143,7 +144,13 @@ jobs:
           }
 
           add_docker() {
-            docker_images+=("{\"service\":\"$1\",\"context\":\"services/$1\"}")
+            service="$1"
+            context="${2:-services/$1}"
+            docker_images+=("{\"service\":\"${service}\",\"context\":\"${context}\"}")
+          }
+
+          add_web_docker() {
+            add_docker "web" "apps/web"
           }
 
           if [[ "$GATEWAY" == "true" ]]; then add_java "gateway"; add_docker "gateway"; fi
@@ -151,8 +158,20 @@ jobs:
           if [[ "$COURSE_SERVICE" == "true" ]]; then add_java "course-service"; add_docker "course-service"; fi
           if [[ "$CONTENT_SERVICE" == "true" ]]; then add_java "content-service"; add_docker "content-service"; fi
           if [[ "$PROGRESS_SERVICE" == "true" ]]; then add_java "progress-service"; fi
-          if [[ "$ASSESSMENT_SERVICE" == "true" ]]; then add_java "assessment-service"; fi
+          if [[ "$ASSESSMENT_SERVICE" == "true" ]]; then add_java "assessment-service"; add_docker "assessment-service"; fi
+          if [[ "$CHALLENGE_SERVICE" == "true" ]]; then add_java "challenge-service"; add_docker "challenge-service"; fi
           if [[ "$WORKER" == "true" ]]; then add_java "worker"; fi
+          if [[ "$FRONTEND" == "true" ]]; then add_web_docker; fi
+
+          if [[ "$DOCKER" == "true" && ${#docker_images[@]} -eq 0 ]]; then
+            add_web_docker
+            add_docker "gateway"
+            add_docker "auth-service"
+            add_docker "course-service"
+            add_docker "content-service"
+            add_docker "assessment-service"
+            add_docker "challenge-service"
+          fi
 
           {
             printf "java_services=[%s]\n" "$(IFS=,; echo "${java_services[*]}")"
@@ -343,7 +362,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Run Checkov on infra
-        uses: bridgecrewio/checkov-action@master
+        uses: bridgecrewio/checkov-action@v12.1347.0
         with:
           directory: infra
 
@@ -355,7 +374,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Run Checkov on GitHub workflows
-        uses: bridgecrewio/checkov-action@master
+        uses: bridgecrewio/checkov-action@v12.1347.0
         with:
           directory: .github/workflows
 
@@ -381,10 +400,50 @@ jobs:
         run: tofu -chdir=infra/opentofu/envs/devsecops validate
 
   # --------------------------------------------------
-  # Docker - Build smoke test (no push)
+  # Dockerfile - lint and static config scan
+  # --------------------------------------------------
+  dockerfile_lint:
+    name: "Dockerfile: Hadolint"
+    needs: changes
+    if: needs.changes.outputs.docker == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        dockerfile:
+          - apps/web/Dockerfile
+          - services/gateway/Dockerfile
+          - services/auth-service/Dockerfile
+          - services/course-service/Dockerfile
+          - services/content-service/Dockerfile
+          - services/assessment-service/Dockerfile
+          - services/challenge-service/Dockerfile
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Hadolint
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: ${{ matrix.dockerfile }}
+
+  dockerfile_checkov:
+    name: "Checkov: Dockerfiles"
+    needs: changes
+    if: needs.changes.outputs.docker == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Checkov on Dockerfiles
+        uses: bridgecrewio/checkov-action@v12.1347.0
+        with:
+          directory: .
+          framework: dockerfile
+          soft_fail: true
+
+  # --------------------------------------------------
+  # Docker - Build and image scan smoke test (no push)
   # --------------------------------------------------
   docker_build:
-    name: "Docker: Build"
+    name: "Docker: Build and scan"
     needs: changes
     if: needs.changes.outputs.docker_images != '[]'
     runs-on: ubuntu-latest
@@ -396,30 +455,101 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build Docker image
         run: docker build -t sagelms-${{ matrix.service }}:ci-test ${{ matrix.context }}
+      - name: Trivy image vulnerability scan
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: sagelms-${{ matrix.service }}:ci-test
+          format: table
+          output: trivy-${{ matrix.service }}.txt
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+      - name: Upload Trivy image scan report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trivy-image-scan-${{ matrix.service }}
+          path: trivy-${{ matrix.service }}.txt
+          if-no-files-found: ignore
 
   # --------------------------------------------------
-  # SonarQube - optional self-hosted job, disabled by default
+  # SonarCloud - optional GitHub-hosted quality gate
   # --------------------------------------------------
-  sonar_optional:
-    name: SonarQube (optional self-hosted)
+  sonarcloud:
+    name: SonarCloud
     needs: changes
-    if: ${{ vars.ENABLE_SONAR == 'true' && needs.changes.outputs.any_relevant == 'true' }}
-    runs-on: [self-hosted, devsecops, security]
+    if: ${{ vars.ENABLE_SONARCLOUD == 'true' && needs.changes.outputs.any_relevant == 'true' }}
+    runs-on: ubuntu-latest
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY }}
+      SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: SonarScanner
-        env:
-          SONAR_HOST_URL: ${{ vars.SONAR_HOST_URL }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY }}
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: maven
+
+      - name: Check SonarCloud configuration
         run: |
-          sonar-scanner \
-            -Dsonar.host.url="$SONAR_HOST_URL" \
-            -Dsonar.token="$SONAR_TOKEN" \
-            -Dsonar.projectKey="$SONAR_PROJECT_KEY" \
+          missing=0
+          if [[ -z "$SONAR_TOKEN" ]]; then
+            echo "Missing repository secret: SONAR_TOKEN"
+            missing=1
+          fi
+          if [[ -z "$SONAR_PROJECT_KEY" ]]; then
+            echo "Missing repository variable: SONAR_PROJECT_KEY"
+            missing=1
+          fi
+          if [[ -z "$SONAR_ORGANIZATION" ]]; then
+            echo "Missing repository variable: SONAR_ORGANIZATION"
+            missing=1
+          fi
+          if [[ $missing -ne 0 ]]; then
+            exit 1
+          fi
+
+      - name: Compile Java services for SonarCloud
+        run: |
+          for pom in services/*/pom.xml; do
+            service_dir="$(dirname "$pom")"
+            echo "Compiling ${service_dir}"
+            if [[ -f "${service_dir}/mvnw" ]]; then
+              chmod +x "${service_dir}/mvnw"
+              (cd "${service_dir}" && ./mvnw -B compile -DskipTests --no-transfer-progress)
+            else
+              mvn -B -f "$pom" compile -DskipTests --no-transfer-progress
+            fi
+          done
+
+      - name: Prepare SonarCloud Java binaries
+        id: sonar_java
+        run: |
+          binaries="$(find services -path '*/target/classes' -type d | paste -sd, -)"
+          if [[ -z "$binaries" ]]; then
+            echo "No Java binaries found under services/*/target/classes"
+            exit 1
+          fi
+          echo "binaries=${binaries}" >> "$GITHUB_OUTPUT"
+
+      - name: SonarCloud scan
+        uses: SonarSource/sonarqube-scan-action@7006c4492b2e0ee0f816d36501671557c97f5995
+        env:
+          SONAR_TOKEN: ${{ env.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }}
+            -Dsonar.organization=${{ env.SONAR_ORGANIZATION }}
+            -Dsonar.host.url=https://sonarcloud.io
             -Dsonar.sources=apps/web,services,contracts,infra
+            -Dsonar.java.binaries=${{ steps.sonar_java.outputs.binaries }}
+            -Dsonar.exclusions=**/target/**,**/node_modules/**,**/dist/**,**/.terraform/**
+            -Dsonar.qualitygate.wait=true
 
   # --------------------------------------------------
   # Status gate - single check for branch protection
@@ -443,8 +573,10 @@ jobs:
       - checkov_infra
       - checkov_workflows
       - infra_validate
+      - dockerfile_lint
+      - dockerfile_checkov
       - docker_build
-      - sonar_optional
+      - sonarcloud
     runs-on: ubuntu-latest
     steps:
       - name: Check all job statuses
@@ -466,8 +598,10 @@ jobs:
             "checkov_infra:${{ needs.checkov_infra.result }}"
             "checkov_workflows:${{ needs.checkov_workflows.result }}"
             "infra_validate:${{ needs.infra_validate.result }}"
+            "dockerfile_lint:${{ needs.dockerfile_lint.result }}"
+            "dockerfile_checkov:${{ needs.dockerfile_checkov.result }}"
             "docker_build:${{ needs.docker_build.result }}"
-            "sonar_optional:${{ needs.sonar_optional.result }}"
+            "sonarcloud:${{ needs.sonarcloud.result }}"
           )
           failed=0
           for r in "${results[@]}"; do

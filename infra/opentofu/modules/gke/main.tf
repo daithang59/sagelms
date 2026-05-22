@@ -18,6 +18,9 @@ resource "google_project_iam_member" "node_roles" {
 }
 
 resource "google_container_cluster" "main" {
+  #checkov:skip=CKV_GCP_13:Client certificates are legacy; access is controlled with Google IAM, Kubernetes RBAC, and authorized networks.
+  #checkov:skip=CKV_GCP_24:PodSecurityPolicy was removed from Kubernetes 1.25; runtime policy is handled with Pod Security Admission and Kyverno policies.
+  #checkov:skip=CKV_GCP_67:The default node pool is removed; the managed node pool disables legacy metadata endpoints explicitly.
   #checkov:skip=CKV_GCP_66:Binary Authorization requires a project policy and attestors owned by the supply-chain workstream; Kyverno/Cosign integration is handled separately.
   #checkov:skip=CKV_GCP_65:Google Groups for GKE RBAC requires an organization group address that is not available in the student project.
   #checkov:skip=CKV_GCP_69:The default node pool is removed; the managed node pool enables GKE_METADATA explicitly.

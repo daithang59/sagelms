@@ -6,6 +6,7 @@ resource "google_compute_network" "main" {
 }
 
 resource "google_compute_subnetwork" "main" {
+  #checkov:skip=CKV_GCP_76:This subnet is IPv4-only; Private Google Access for IPv4 is enabled with private_ip_google_access.
   project                  = var.project_id
   name                     = "${var.name_prefix}-subnet"
   region                   = var.region

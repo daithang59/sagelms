@@ -6,12 +6,12 @@ course_service:
   - "services/course-service/**"
 content_service:
   - "services/content-service/**"
+challenge_service:
+  - "services/challenge-service/**"
 progress_service:
   - "services/progress-service/**"
 assessment_service:
   - "services/assessment-service/**"
-challenge_service:
-  - "services/challenge-service/**"
 ai_tutor_service:
   - "services/ai-tutor-service/**"
 worker:
@@ -21,4 +21,7 @@ frontend:
 github:
   - ".github/workflows/**"
 docker:
+  - "apps/web/Dockerfile"
+  - "apps/web/.dockerignore"
+  - "apps/web/nginx.conf"
   - "services/*/Dockerfile"

@@ -1,4 +1,12 @@
 node_modules
 dist
 coverage
+.npm-cache
+.vite
+.omc
+.claude
 *.log
+qa_*.cjs
+qa_*.js
+.env
+.env.*
