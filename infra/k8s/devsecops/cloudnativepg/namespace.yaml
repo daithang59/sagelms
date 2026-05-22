@@ -13,11 +13,3 @@ metadata:
   labels:
     app.kubernetes.io/part-of: sagelms
     sagelms.io/environment: devsecops
----
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: harbor
-  labels:
-    app.kubernetes.io/part-of: sagelms
-    sagelms.io/environment: devsecops
