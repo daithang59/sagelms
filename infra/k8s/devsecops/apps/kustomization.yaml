@@ -11,28 +11,28 @@ resources:
 images:
   - name: harbor.sagelms.id.vn/sagelms-app/gateway
     newName: harbor.sagelms.id.vn/sagelms-app/gateway
-    newTag: 1b21116f523c3e40c4c223988b88c73f55cfebf0
+    newTag: 9e7f182295fc07bc3d0eca1550ccb9d54883d306
   - name: harbor.sagelms.id.vn/sagelms-app/auth-service
     newName: harbor.sagelms.id.vn/sagelms-app/auth-service
-    newTag: 1b21116f523c3e40c4c223988b88c73f55cfebf0
+    newTag: 9e7f182295fc07bc3d0eca1550ccb9d54883d306
   - name: harbor.sagelms.id.vn/sagelms-app/course-service
     newName: harbor.sagelms.id.vn/sagelms-app/course-service
-    newTag: 1b21116f523c3e40c4c223988b88c73f55cfebf0
+    newTag: 9e7f182295fc07bc3d0eca1550ccb9d54883d306
   - name: harbor.sagelms.id.vn/sagelms-app/content-service
     newName: harbor.sagelms.id.vn/sagelms-app/content-service
-    newTag: 1b21116f523c3e40c4c223988b88c73f55cfebf0
+    newTag: 9e7f182295fc07bc3d0eca1550ccb9d54883d306
   - name: harbor.sagelms.id.vn/sagelms-app/progress-service
     newName: harbor.sagelms.id.vn/sagelms-app/progress-service
-    newTag: 1b21116f523c3e40c4c223988b88c73f55cfebf0
+    newTag: 9e7f182295fc07bc3d0eca1550ccb9d54883d306
   - name: harbor.sagelms.id.vn/sagelms-app/assessment-service
     newName: harbor.sagelms.id.vn/sagelms-app/assessment-service
-    newTag: 1b21116f523c3e40c4c223988b88c73f55cfebf0
+    newTag: 9e7f182295fc07bc3d0eca1550ccb9d54883d306
   - name: harbor.sagelms.id.vn/sagelms-app/challenge-service
     newName: harbor.sagelms.id.vn/sagelms-app/challenge-service
-    newTag: 1b21116f523c3e40c4c223988b88c73f55cfebf0
+    newTag: 9e7f182295fc07bc3d0eca1550ccb9d54883d306
   - name: harbor.sagelms.id.vn/sagelms-app/web
     newName: harbor.sagelms.id.vn/sagelms-app/web
-    newTag: 1b21116f523c3e40c4c223988b88c73f55cfebf0
+    newTag: 9e7f182295fc07bc3d0eca1550ccb9d54883d306
 patches:
   - target:
       kind: ServiceAccount
