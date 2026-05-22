@@ -1,0 +1,21 @@
+## CD Deploy Summary
+
+| Field | Value |
+| --- | --- |
+| Commit | `1b21116f523c3e40c4c223988b88c73f55cfebf0` |
+| Registry | `harbor.sagelms.id.vn` |
+| Namespace | `sagelms-app` |
+| Manifest | `infra/k8s/devsecops/apps/kustomization.yaml` |
+
+### Images
+
+| Service | Image | Digest | Trivy | SBOM |
+| --- | --- | --- | --- | --- |
+| gateway | `harbor.sagelms.id.vn/sagelms-app/gateway:1b21116f523c3e40c4c223988b88c73f55cfebf0` | `sha256:307e44040368731071870f822cef79ef4a36ef1e771954edd1528b790594527b` | PASS | `reports/sbom/1b21116f523c3e40c4c223988b88c73f55cfebf0/gateway-sbom.cdx.json` |
+| auth-service | `harbor.sagelms.id.vn/sagelms-app/auth-service:1b21116f523c3e40c4c223988b88c73f55cfebf0` | `sha256:f044e196b46226a0b76b5058e1d0075dc8def4394b0d43c0a60cbfb1b98072f4` | PASS | `reports/sbom/1b21116f523c3e40c4c223988b88c73f55cfebf0/auth-service-sbom.cdx.json` |
+| course-service | `harbor.sagelms.id.vn/sagelms-app/course-service:1b21116f523c3e40c4c223988b88c73f55cfebf0` | `sha256:d4af697f4bdffcc94a5090dc2a5d41c0ba74f96aef4110a6acf0f530ea5540c5` | PASS | `reports/sbom/1b21116f523c3e40c4c223988b88c73f55cfebf0/course-service-sbom.cdx.json` |
+| content-service | `harbor.sagelms.id.vn/sagelms-app/content-service:1b21116f523c3e40c4c223988b88c73f55cfebf0` | `sha256:c403b4f2d1330fb288a295050c4a72922be9091eea2301d3044b9e2cbb8f8cd6` | PASS | `reports/sbom/1b21116f523c3e40c4c223988b88c73f55cfebf0/content-service-sbom.cdx.json` |
+| progress-service | `harbor.sagelms.id.vn/sagelms-app/progress-service:1b21116f523c3e40c4c223988b88c73f55cfebf0` | `sha256:ef6abea0731fe9f007e54426ee7f0fb261f40a9c189256a59373f09973c58c1f` | PASS | `reports/sbom/1b21116f523c3e40c4c223988b88c73f55cfebf0/progress-service-sbom.cdx.json` |
+| assessment-service | `harbor.sagelms.id.vn/sagelms-app/assessment-service:1b21116f523c3e40c4c223988b88c73f55cfebf0` | `sha256:a82e4b01fa26699efaf07ff4cd3d1a71a4434fbb9b7c7905d62b47e21c2e57e9` | PASS | `reports/sbom/1b21116f523c3e40c4c223988b88c73f55cfebf0/assessment-service-sbom.cdx.json` |
+| challenge-service | `harbor.sagelms.id.vn/sagelms-app/challenge-service:1b21116f523c3e40c4c223988b88c73f55cfebf0` | `sha256:384d61045a74d4c1224eb12940638348f62afd68a1fa5072f970a682294d2eb8` | PASS | `reports/sbom/1b21116f523c3e40c4c223988b88c73f55cfebf0/challenge-service-sbom.cdx.json` |
+| web | `harbor.sagelms.id.vn/sagelms-app/web:1b21116f523c3e40c4c223988b88c73f55cfebf0` | `sha256:fc5dc4b9295dbffc5bb45dc148489788de5c6bf3c843aaa76ae1d7466524a5ce` | PASS | `reports/sbom/1b21116f523c3e40c4c223988b88c73f55cfebf0/web-sbom.cdx.json` |
