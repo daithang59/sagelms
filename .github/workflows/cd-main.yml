@@ -238,7 +238,7 @@ jobs:
           username: ${{ env.REGISTRY_USERNAME }}
           password: ${{ env.REGISTRY_PASSWORD }}
 
-      - name: Build, scan, push images, and update manifest
+      - name: Prepare deploy reports
         if: steps.plan.outputs.services_count != '0'
         shell: bash
         run: |
@@ -247,6 +247,7 @@ jobs:
           mkdir -p reports/trivy "reports/sbom/$IMAGE_TAG"
           digest_report="reports/image-digests-$IMAGE_TAG.md"
           pr_body="reports/deploy-pr-body-$IMAGE_TAG.md"
+          summary_report="reports/deploy-summary-$IMAGE_TAG.md"
 
           {
             echo "# Image digests for $IMAGE_TAG"
@@ -262,31 +263,110 @@ jobs:
             echo "| --- | --- | --- | --- | --- |"
           } > "$pr_body"
 
+          {
+            echo "## CD Deploy Summary"
+            echo
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            echo "| Commit | \`$IMAGE_TAG\` |"
+            echo "| Registry | \`$REGISTRY_HOST\` |"
+            echo "| Namespace | \`$REGISTRY_NAMESPACE\` |"
+            echo "| Manifest | \`$KUSTOMIZATION_FILE\` |"
+            echo
+            echo "### Images"
+            echo
+            echo "| Service | Image | Digest | Trivy | SBOM |"
+            echo "| --- | --- | --- | --- | --- |"
+          } > "$summary_report"
+
+      - name: Build Docker images
+        if: steps.plan.outputs.services_count != '0'
+        shell: bash
+        run: |
+          set -euo pipefail
+
           while IFS='|' read -r service context kind; do
             [[ -z "$service" ]] && continue
             image="$REGISTRY_HOST/$REGISTRY_NAMESPACE/$service:$IMAGE_TAG"
-            image_name="$REGISTRY_HOST/$REGISTRY_NAMESPACE/$service"
-            trivy_report="reports/trivy/trivy-$service.txt"
-            sbom_report="reports/sbom/$IMAGE_TAG/$service-sbom.cdx.json"
 
             echo "::group::Docker build $service"
             docker build -t "$image" "$context"
             echo "::endgroup::"
+          done < /tmp/deploy-services.txt
+
+      - name: Scan images and generate SBOM
+        if: steps.plan.outputs.services_count != '0'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          while IFS='|' read -r service context kind; do
+            [[ -z "$service" ]] && continue
+            image="$REGISTRY_HOST/$REGISTRY_NAMESPACE/$service:$IMAGE_TAG"
+            trivy_report="reports/trivy/trivy-$service.txt"
+            sbom_report="reports/sbom/$IMAGE_TAG/$service-sbom.cdx.json"
 
             echo "::group::Trivy scan $service"
-            trivy image --severity HIGH,CRITICAL --exit-code 1 --format table --output "$trivy_report" "$image"
+            if ! trivy image --severity HIGH,CRITICAL --exit-code 1 --format table --output "$trivy_report" "$image"; then
+              echo "Trivy found HIGH or CRITICAL vulnerabilities in $service."
+              echo
+              cat "$trivy_report"
+              exit 1
+            fi
             trivy image --format cyclonedx --output "$sbom_report" "$image"
             echo "::endgroup::"
+          done < /tmp/deploy-services.txt
+
+      - name: Push images and record digests
+        if: steps.plan.outputs.services_count != '0'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          digest_report="reports/image-digests-$IMAGE_TAG.md"
+          pr_body="reports/deploy-pr-body-$IMAGE_TAG.md"
+          summary_report="reports/deploy-summary-$IMAGE_TAG.md"
+
+          while IFS='|' read -r service context kind; do
+            [[ -z "$service" ]] && continue
+            image="$REGISTRY_HOST/$REGISTRY_NAMESPACE/$service:$IMAGE_TAG"
+            sbom_report="reports/sbom/$IMAGE_TAG/$service-sbom.cdx.json"
 
             docker push "$image"
             digest="$(docker buildx imagetools inspect "$image" --format '{{.Manifest.Digest}}')"
 
             echo "| $service | \`$image\` | \`$digest\` | PASS | \`$sbom_report\` |" >> "$pr_body"
+            echo "| $service | \`$image\` | \`$digest\` | PASS | \`$sbom_report\` |" >> "$summary_report"
             echo "| $service | \`$image\` | \`$digest\` |" >> "$digest_report"
+          done < /tmp/deploy-services.txt
 
+      - name: Update deployment manifest image tags
+        if: steps.plan.outputs.services_count != '0'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          while IFS='|' read -r service context kind; do
+            [[ -z "$service" ]] && continue
+            image_name="$REGISTRY_HOST/$REGISTRY_NAMESPACE/$service"
             export IMAGE_NAME="$image_name"
             yq -i '(.images[] | select(.newName == env(IMAGE_NAME)) | .newTag) = env(IMAGE_TAG)' "$KUSTOMIZATION_FILE"
           done < /tmp/deploy-services.txt
+
+      - name: Publish GitHub job summary
+        if: steps.plan.outputs.services_count != '0'
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          summary_report="reports/deploy-summary-$IMAGE_TAG.md"
+          {
+            cat "$summary_report"
+            echo
+            echo "### Deploy PR"
+            echo
+            echo "A deploy PR will update \`$KUSTOMIZATION_FILE\` to image tag \`$IMAGE_TAG\`."
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Create deploy PR
         if: steps.plan.outputs.services_count != '0'
