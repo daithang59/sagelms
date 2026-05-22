@@ -16,7 +16,7 @@ infra/k8s/devsecops/
 │   ├── app-shared-externalsecret.yaml
 │   ├── ingress.yaml
 │   └── README.md
-└── cloudnativepg-runtime/
+└── cloudnativepg/
     ├── kustomization.yaml
     ├── objectstore.yaml
     ├── cluster.yaml
@@ -28,9 +28,9 @@ infra/k8s/devsecops/
 1. `namespaces.yaml` tạo namespace nền cho operator và database.
 2. `cnpg-foundation.yaml` tạo Kubernetes ServiceAccount và các ExternalSecret cần cho CloudNativePG.
 3. External Secrets Operator đọc secret từ Google Secret Manager và tạo Kubernetes Secret.
-4. `cloudnativepg-runtime/objectstore.yaml` khai báo nơi lưu backup/WAL trên Google Cloud Storage.
-5. `cloudnativepg-runtime/cluster.yaml` tạo PostgreSQL cluster bằng CloudNativePG operator.
-6. `cloudnativepg-runtime/scheduledbackup.yaml` tạo lịch base backup định kỳ.
+4. `cloudnativepg/objectstore.yaml` khai báo nơi lưu backup/WAL trên Google Cloud Storage.
+5. `cloudnativepg/cluster.yaml` tạo PostgreSQL cluster bằng CloudNativePG operator.
+6. `cloudnativepg/scheduledbackup.yaml` tạo lịch base backup định kỳ.
 7. Barman Cloud Plugin dùng Workload Identity để ghi WAL/base backup lên GCS.
 8. `apps/` deploy web, gateway, backend services và worker vào namespace `sagelms-devsecops` sau khi foundation/database/secret store đã sẵn sàng.
 
@@ -164,12 +164,12 @@ sagelms-devsecops/db-app-secret
 - Hiện cùng dùng user MVP `sagelms_app`.
 - App sẽ kết hợp secret này với `db-common-secret` để có đủ `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`.
 
-## `cloudnativepg-runtime/kustomization.yaml`
+## `cloudnativepg/kustomization.yaml`
 
 File:
 
 ```text
-infra/k8s/devsecops/cloudnativepg-runtime/kustomization.yaml
+infra/k8s/devsecops/cloudnativepg/kustomization.yaml
 ```
 
 Ý nghĩa:
@@ -182,13 +182,13 @@ infra/k8s/devsecops/cloudnativepg-runtime/kustomization.yaml
 Lệnh dry-run:
 
 ```powershell
-kubectl apply --dry-run=server -k infra\k8s\devsecops\cloudnativepg-runtime
+kubectl apply --dry-run=server -k infra\k8s\devsecops\cloudnativepg
 ```
 
 Lệnh apply:
 
 ```powershell
-kubectl apply -k infra\k8s\devsecops\cloudnativepg-runtime
+kubectl apply -k infra\k8s\devsecops\cloudnativepg
 ```
 
 ## `objectstore.yaml`
@@ -453,8 +453,8 @@ kubectl get secret -n sagelms-data sagelms-postgres-superuser-secret
 Apply runtime:
 
 ```powershell
-kubectl apply --dry-run=server -k infra\k8s\devsecops\cloudnativepg-runtime
-kubectl apply -k infra\k8s\devsecops\cloudnativepg-runtime
+kubectl apply --dry-run=server -k infra\k8s\devsecops\cloudnativepg
+kubectl apply -k infra\k8s\devsecops\cloudnativepg
 ```
 
 Kiểm tra runtime:
