@@ -41,7 +41,8 @@ images:
     digest: sha256:1f683777a6c061e6e1f74795cb449530be5411e9d6034892a35d6bd10f419c04
   - name: harbor.sagelms.id.vn/sagelms-app/ai-tutor-service
     newName: harbor.sagelms.id.vn/sagelms-app/ai-tutor-service
-    newTag: dev
+    newTag: 9920bba6770cae59ec4b7fb5fe55fdfe8614f9a6
+    digest: sha256:c7472623f5dd7f92885299e4568338e04c18922d49ee2e133ca44c342cc0c382
   - name: harbor.sagelms.id.vn/sagelms-app/web
     newName: harbor.sagelms.id.vn/sagelms-app/web
     newTag: 9229a5baad32c94d5f355c98329b7d149af4e587
