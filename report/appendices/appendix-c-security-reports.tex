@@ -1,0 +1,22 @@
+\chapter{Bằng chứng bảo mật và supply chain}
+\label{appendix:security-reports}
+
+\section{Trivy reports}
+
+Các report Trivy nằm trong \path{reports/trivy}. Khi hoàn thiện báo cáo, nhóm nên chèn ảnh hoặc bảng tóm tắt từ các file:
+
+\begin{itemize}
+  \item \path{reports/trivy/trivy-auth-service.txt}
+  \item \path{reports/trivy/trivy-course-service.txt}
+  \item \path{reports/trivy/trivy-content-service.txt}
+  \item \path{reports/trivy/trivy-gateway.txt}
+  \item \path{reports/trivy/trivy-web.txt}
+\end{itemize}
+
+\section{SBOM}
+
+SBOM CycloneDX được lưu dưới \path{reports/sbom/<git-sha>}. Mỗi service có một file \path{*-sbom.cdx.json}. Trong bản nộp cuối, không nên paste toàn bộ SBOM vì rất dài; chỉ cần chèn metadata, đường dẫn artifact và giải thích SBOM dùng để truy vết thành phần phần mềm.
+
+\section{Image digest}
+
+Image digest report nằm ở \path{reports/image-digests-1b21116f523c3e40c4c223988b88c73f55cfebf0.md}. Đây là bằng chứng rằng image đã được định danh bằng digest SHA256 thay vì chỉ dùng tag.

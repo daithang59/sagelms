@@ -6,7 +6,6 @@ resource "google_service_account" "nodes" {
 
 resource "google_project_iam_member" "node_roles" {
   for_each = toset([
-    "roles/artifactregistry.reader",
     "roles/logging.logWriter",
     "roles/monitoring.metricWriter",
     "roles/monitoring.viewer",

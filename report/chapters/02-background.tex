@@ -1,0 +1,44 @@
+\chapter{Cơ sở lý thuyết và công nghệ}
+\label{chap:background}
+
+\section{Microservices và API Gateway}
+
+Microservices là cách chia hệ thống thành nhiều dịch vụ nhỏ, mỗi dịch vụ đảm nhiệm một năng lực nghiệp vụ tương đối độc lập. Trong SageLMS, các service như \texttt{auth-service}, \texttt{course-service}, \texttt{content-service}, \texttt{assessment-service} và \texttt{challenge-service} có ranh giới chức năng riêng, đồng thời sở hữu schema dữ liệu riêng trong PostgreSQL. Cách chia này giúp nhóm phát triển song song và giảm phụ thuộc giữa các module, nhưng cũng đặt ra yêu cầu cao hơn đối với tích hợp, kiểm thử và triển khai.
+
+API Gateway là điểm vào duy nhất của client. Gateway chịu trách nhiệm xác thực JWT, áp dụng RBAC, gắn correlation ID và định tuyến request đến service đích. Với kiến trúc này, frontend không cần biết trực tiếp vị trí nội bộ của từng service, còn backend service có thể được triển khai, scale hoặc thay đổi riêng trong cluster.
+
+\section{CI/CD và DevSecOps}
+
+Continuous Integration giúp phát hiện lỗi sớm khi có thay đổi mã nguồn. Trong đồ án, CI bao gồm kiểm tra convention, lint, test, typecheck, build thử, secret scan, dependency scan và IaC scan. Continuous Delivery/Deployment mở rộng quy trình này sang đóng gói artifact, đưa artifact vào registry, cập nhật manifest và triển khai lên môi trường chạy.
+
+DevSecOps bổ sung yêu cầu bảo mật vào từng giai đoạn thay vì chỉ kiểm tra ở cuối. Với SageLMS, bảo mật được đưa vào PR bằng Gitleaks, Trivy, Checkov, Hadolint và SonarCloud; được đưa vào build bằng Trivy image scan, SBOM và Cosign; được đưa vào runtime bằng secret management, namespace isolation, securityContext và định hướng Kyverno policy.
+
+\section{Container supply chain security}
+
+Khi ứng dụng được đóng gói thành Docker image, image trở thành artifact trung tâm của quá trình triển khai. Một image an toàn cần được build từ source đã kiểm tra, scan lỗ hổng, gắn tag bất biến, resolve digest, tạo SBOM và ký theo digest. Digest là định danh nội dung của image, giúp tránh rủi ro tag bị ghi đè hoặc trỏ đến phiên bản khác.
+
+Trong đồ án, Trivy được dùng để quét dependency, filesystem và container image \cite{trivy}. SBOM được tạo theo định dạng CycloneDX để liệt kê thành phần phần mềm trong image. Cosign được dùng để ký image digest và tạo attestation \cite{cosign}. Harbor đóng vai trò private registry, quản lý project \texttt{sagelms-app}, robot account, quyền push/pull và vòng đời artifact \cite{harbor}.
+
+\section{GitOps}
+
+GitOps sử dụng Git làm nguồn trạng thái mong muốn của hệ thống runtime. Thay vì để CI gọi \texttt{kubectl apply} trực tiếp vào cluster, pipeline chỉ tạo artifact và cập nhật manifest trong Git. FluxCD theo dõi repository, render manifest và reconcile trạng thái vào Kubernetes \cite{fluxcd}. Cách làm này giúp mọi thay đổi runtime đều có lịch sử commit, review, approval và rollback bằng cách revert Git commit.
+
+Với SageLMS, GitOps phù hợp vì nhóm cần chứng minh luồng triển khai an toàn trong môi trường dùng chung. CI/CD tạo deploy PR để cập nhật Kustomize overlay, còn FluxCD chịu trách nhiệm đưa trạng thái đã được duyệt vào GKE.
+
+\section{Infrastructure as Code}
+
+Infrastructure as Code quản lý hạ tầng bằng mã nguồn, giúp hạ tầng có thể review, tái lập và kiểm tra tự động. Trong đồ án, OpenTofu được dùng để quản lý GCP project services, VPC, GKE, IAM, Workload Identity, Secret Manager metadata, Cloud Storage, CloudNativePG backup foundation và Redis \cite{opentofu}. Thay đổi hạ tầng phải đi qua \texttt{tofu fmt}, \texttt{tofu validate}, \texttt{tofu plan} và Checkov scan.
+
+Remote state được đặt trong GCS bucket để chia sẻ trạng thái giữa các lần chạy và giữa các thành viên có quyền phù hợp. Các giá trị bí mật không được đưa trực tiếp vào state nếu có thể tránh được; secret value thật được nhập ngoài OpenTofu và đồng bộ xuống Kubernetes qua External Secrets Operator.
+
+\section{Kubernetes runtime security}
+
+Kubernetes là môi trường chạy chính của Shared Cloud DevSecOps Environment \cite{kubernetes}. Một workload Kubernetes an toàn cần có namespace rõ ràng, ServiceAccount riêng, resource requests/limits, readiness/liveness probes, securityContext hạn chế quyền và imagePullSecret phù hợp. Với SageLMS, các manifest base định nghĩa cấu trúc chung, còn overlay \texttt{devsecops} chỉnh namespace, image, secret, ingress và pull secret cho môi trường cloud.
+
+Runtime security còn bao gồm admission policy. Trong thiết kế production-oriented, Kyverno có thể enforce các chính sách như chỉ cho pull image từ registry tin cậy, yêu cầu probes/resources, chặn privileged container, chặn plaintext secret trong manifest và xác minh chữ ký image.
+
+\section{Database và observability}
+
+SageLMS dùng PostgreSQL 16, có pgvector để hỗ trợ AI Tutor theo mô hình RAG. Trong môi trường GKE, database baseline chuyển sang CloudNativePG, giúp vận hành PostgreSQL bằng Kubernetes custom resources và hỗ trợ backup/WAL archive ra GCS \cite{cloudnativepg}. Redis được dùng cho cache hoặc queue theo yêu cầu của các tác vụ bất đồng bộ.
+
+Observability trong thiết kế gồm metrics, logs, traces và alerting. Trong phạm vi đồ án, phần quan trọng là chứng minh có định hướng và cấu trúc để thu thập trạng thái rollout, health check, database status, backup status và kết quả smoke test. Các dashboard và alert rule đầy đủ có thể được xem là hướng phát triển tiếp theo nếu chưa có đủ thời gian hoàn thiện.

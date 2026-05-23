@@ -1,0 +1,60 @@
+\chapter{Giới thiệu}
+\label{chap:introduction}
+
+\section{Bối cảnh}
+
+Các hệ thống web hiện đại thường không còn chỉ là một ứng dụng đơn khối được build và deploy thủ công. Khi hệ thống mở rộng thành nhiều dịch vụ, nhiều ngôn ngữ lập trình, nhiều loại artifact và nhiều môi trường chạy, nhóm phát triển phải kiểm soát đồng thời chất lượng mã nguồn, bảo mật phụ thuộc, cấu hình hạ tầng, container image, secret, quy trình triển khai và khả năng rollback. Nếu không có pipeline phù hợp, mỗi lần thay đổi đều có nguy cơ tạo ra lỗi tích hợp, lộ secret, đưa image có lỗ hổng lên môi trường chạy hoặc làm lệch trạng thái hạ tầng so với tài liệu.
+
+SageLMS được xây dựng như một nền tảng quản lý học tập có nhiều module: xác thực và phân quyền, quản lý khóa học, nội dung bài học, theo dõi tiến độ, bài kiểm tra, thử thách và trợ lý học tập AI. Kiến trúc microservices giúp các module có ranh giới rõ hơn, nhưng cũng làm tăng độ phức tạp của quá trình tích hợp và triển khai. Vì vậy, trọng tâm của đồ án không chỉ là xây dựng ứng dụng web, mà còn là thiết kế một pipeline DevSecOps đủ chặt chẽ để hỗ trợ phát triển, kiểm thử, phát hành và vận hành hệ thống này.
+
+\section{Vấn đề cần giải quyết}
+
+Nếu chỉ triển khai SageLMS theo cách thủ công, nhóm có thể chạy được demo ngắn hạn nhưng khó chứng minh tính lặp lại và an toàn của quy trình. Một số vấn đề điển hình gồm:
+
+\begin{itemize}
+  \item Pull request có thể được merge dù chưa chạy đủ kiểm thử hoặc chưa kiểm tra lỗi bảo mật cơ bản.
+  \item Secret hoặc credential có thể bị commit nhầm vào repository.
+  \item Docker image có thể chứa lỗ hổng mức cao nhưng vẫn được đẩy lên registry.
+  \item Artifact được deploy bằng tag mutable như \texttt{latest}, gây khó truy vết và rollback.
+  \item Hạ tầng cloud có thể bị tạo thủ công, khó review, khó tái lập và dễ bị drift.
+  \item Deployment trực tiếp từ CI vào cluster làm mờ ranh giới giữa tạo artifact và thay đổi trạng thái runtime.
+\end{itemize}
+
+Do đó, đồ án cần một pipeline có các điểm kiểm soát rõ ràng từ source code đến runtime, đồng thời có bằng chứng để bảo vệ trước giảng viên: workflow, report, SBOM, digest, log triển khai và trạng thái cloud.
+
+\section{Mục tiêu đồ án}
+
+Đồ án đặt ra bốn mục tiêu chính:
+
+\begin{enumerate}
+  \item Xây dựng SageLMS theo kiến trúc web microservices, có frontend, gateway, backend services, database và cache/queue.
+  \item Thiết kế pipeline DevSecOps cho mono-repo nhiều công nghệ, bao gồm PR validation, build, scan, publish, GitOps deployment và post-deploy check.
+  \item Triển khai một Shared Cloud DevSecOps Environment trên GCP/GKE bằng Infrastructure as Code để kiểm thử và trình diễn pipeline end-to-end.
+  \item Thu thập evidence đủ rõ để chứng minh các gate quan trọng: code quality, secret scan, dependency scan, image scan, SBOM, image digest, signing, IaC validation, Kubernetes rollout và cloud runtime.
+\end{enumerate}
+
+\section{Phạm vi}
+
+Trong phạm vi báo cáo, nhóm tập trung vào các thành phần có liên quan trực tiếp đến pipeline DevSecOps:
+
+\begin{itemize}
+  \item Ứng dụng SageLMS: frontend React/Vite, Spring Boot Gateway, các service backend chính và AI Tutor FastAPI.
+  \item CI/CD: GitHub Actions workflows cho PR validation, CD build/scan/push/deploy PR, OpenTofu plan và post-deploy smoke test.
+  \item Supply chain security: Harbor registry, Trivy image scan, SBOM CycloneDX, Cosign signing/attestation theo image digest.
+  \item Cloud runtime: GKE, CloudNativePG, Redis, Google Secret Manager, External Secrets Operator, Kustomize overlay và FluxCD manifests.
+\end{itemize}
+
+Nhóm không triển khai đầy đủ nhiều môi trường dev/staging/production riêng biệt do giới hạn chi phí và thời gian. Thay vào đó, một Shared Cloud DevSecOps Environment được dùng làm môi trường chính để chứng minh các thực hành production-oriented ở mức phù hợp với đồ án môn học.
+
+\section{Đóng góp chính}
+
+Báo cáo này trình bày các đóng góp sau:
+
+\begin{itemize}
+  \item Thiết kế kiến trúc SageLMS theo hướng microservices, có API Gateway và schema-per-service.
+  \item Xây dựng pipeline PR validation có path filter và nhiều lớp kiểm tra chất lượng, bảo mật.
+  \item Chuẩn hóa luồng container artifact từ build, Trivy scan, tạo SBOM, push, resolve digest, ký image, tạo SBOM attestation và verify signature/attestation.
+  \item Áp dụng GitOps để tách CI khỏi hành động deploy trực tiếp lên Kubernetes.
+  \item Quản lý hạ tầng GCP/GKE bằng OpenTofu và kiểm tra cấu hình bằng Checkov.
+  \item Tổ chức evidence phục vụ bảo vệ đồ án: workflow logs, reports, SBOM, digest và cloud outputs.
+\end{itemize}

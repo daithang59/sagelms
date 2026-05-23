@@ -1,0 +1,123 @@
+\chapter{Đánh giá, kiểm thử và bằng chứng}
+\label{chap:evaluation}
+
+\section{Phương pháp đánh giá}
+
+Đồ án được đánh giá theo hai lớp: lớp ứng dụng và lớp pipeline. Lớp ứng dụng chứng minh SageLMS có thể build, test và chạy các service chính. Lớp pipeline chứng minh quy trình DevSecOps có thể kiểm soát thay đổi từ pull request đến runtime trên GKE.
+
+Các nhóm evidence chính gồm:
+
+\begin{itemize}
+  \item GitHub Actions workflow logs.
+  \item Trivy image scan reports.
+  \item CycloneDX SBOM files.
+  \item Image digest reports.
+  \item Deploy summary và deploy PR body.
+  \item OpenTofu/Checkov validation evidence.
+  \item GKE, CloudNativePG, Redis và ESO status.
+  \item Post-deploy rollout và smoke test artifacts.
+\end{itemize}
+
+\section{Kết quả PR validation}
+
+Workflow PR validation kiểm tra nhiều loại thay đổi khác nhau. Với thay đổi ứng dụng, pipeline chạy test theo service, frontend lint/typecheck/test/build và dependency scan. Với thay đổi hạ tầng, pipeline chạy OpenTofu validate và Checkov. Với Dockerfile, pipeline chạy Hadolint, Checkov và Docker build thử. Cách tổ chức này giúp giảm thời gian chạy nhờ path filter nhưng vẫn giữ coverage theo vùng thay đổi.
+
+Khi viết bản nộp cuối, nhóm nên chèn ảnh GitHub Actions của một PR pass đầy đủ và một ví dụ fail nếu muốn minh họa tác dụng gate. Ảnh nên thể hiện tên workflow, commit, danh sách job và trạng thái pass/fail.
+
+\section{Kết quả image build, scan, SBOM và digest}
+
+Repo hiện có reports cho commit \texttt{1b21116f523c3e40c4c223988b88c73f55cfebf0}. Các report này cho thấy pipeline đã build nhiều image, scan Trivy PASS, tạo SBOM và ghi digest. Đây là evidence quan trọng nhất cho supply chain security.
+
+\begin{table}[H]
+\centering
+\caption{Nguồn evidence supply chain}
+\label{tab:supply-chain-evidence}
+\begin{tabularx}{\textwidth}{p{0.30\textwidth}Y}
+\toprule
+\textbf{Evidence} & \textbf{Đường dẫn} \\
+\midrule
+Deploy summary & \path{reports/deploy-summary-1b21116f523c3e40c4c223988b88c73f55cfebf0.md} \\
+Deploy PR body & \path{reports/deploy-pr-body-1b21116f523c3e40c4c223988b88c73f55cfebf0.md} \\
+Image digest table & \path{reports/image-digests-1b21116f523c3e40c4c223988b88c73f55cfebf0.md} \\
+Trivy reports & \path{reports/trivy/*.txt} \\
+SBOM files & \path{reports/sbom/1b21116f523c3e40c4c223988b88c73f55cfebf0/*-sbom.cdx.json} \\
+Cosign automation evidence & \path{reports/deploy-summary-a8a0b63d1568f0c356d10a22fcb89abad429ef52.md} và workflow run \texttt{26303390987}. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Kết quả Cosign verification mới nhất}
+
+Sau khi bổ sung bước verify cho Cosign, nhóm chạy \texttt{workflow\_dispatch} trên branch \texttt{main} cho \texttt{auth-service}. Evidence mới nhất:
+
+\begin{table}[H]
+\centering
+\caption{Evidence Cosign automation cho auth-service}
+\label{tab:cosign-verification-evidence}
+\begin{tabularx}{\textwidth}{p{0.30\textwidth}Y}
+\toprule
+\textbf{Trường} & \textbf{Giá trị} \\
+\midrule
+Run & \texttt{26303390987} \\
+Branch & \texttt{main} \\
+Image & \path{harbor.sagelms.id.vn/sagelms-app/auth-service:a8a0b63d1568f0c356d10a22fcb89abad429ef52} \\
+Digest & \path{sha256:9e436d64f9a39a65d8052c57d9da5abbf285f5b400f4c94610311fe543efa35d} \\
+Verify Cosign & PASS \\
+Verify SBOM attestation & PASS \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Kết quả này bổ sung cho evidence multi-service ở commit \texttt{1b21116f523c3e40c4c223988b88c73f55cfebf0}. Commit \texttt{1b21116f} vẫn dùng để chứng minh pipeline xử lý nhiều service; commit \texttt{a8a0b63d1568f0c356d10a22fcb89abad429ef52} dùng để chứng minh automation mới đã verify image signature và CycloneDX SBOM attestation thành công trước khi mở deploy PR.
+
+\section{Kết quả cloud foundation}
+
+Evidence trong \path{docs/evidence/devsecops-cloud-foundation-evidence.md} và \path{infra/opentofu/outputs.md} cho thấy cloud foundation đã đạt nhiều tiêu chí quan trọng:
+
+\begin{itemize}
+  \item Remote state bucket \texttt{sagelms-devsecops-tofu-state} đã bật versioning, uniform bucket-level access và public access prevention.
+  \item GKE cluster \texttt{sagelms-devsecops-gke} chạy trong \texttt{asia-southeast1}.
+  \item Node pool \texttt{sagelms-devsecops-main-pool} có 2 node Ready.
+  \item CloudNativePG cluster \texttt{sagelms-data/sagelms-postgres} ở trạng thái Ready.
+  \item WAL archive có condition \texttt{ContinuousArchiving=True}.
+  \item Manual backup đã completed và object tồn tại trong GCS.
+  \item Memorystore Redis ở trạng thái READY, bật AUTH và transit encryption.
+  \item ClusterSecretStore \texttt{gcpsm-sagelms-devsecops} Valid, Ready=True.
+  \item ExternalSecrets đã đồng bộ secret DB, Redis, JWT và gateway shared secret.
+\end{itemize}
+
+\section{Kết quả deployment và smoke test}
+
+Workflow \path{post-deploy-check.yml} tách riêng bước kiểm tra sau triển khai. Workflow này không thay FluxCD và không cập nhật manifest; nó chỉ xác thực trạng thái runtime sau khi GitOps reconcile. Hai job chính là:
+
+\begin{itemize}
+  \item \textbf{GKE rollout status}: lấy kubeconfig, kiểm tra rollout của gateway, auth-service và web trong namespace \texttt{sagelms-devsecops}, lưu pod/ingress report.
+  \item \textbf{Public endpoint smoke test}: gọi web health endpoint và API health endpoint, lưu header/body evidence.
+\end{itemize}
+
+Trong bản báo cáo hoàn chỉnh, nhóm nên thêm ảnh workflow run post-deploy pass và trích bảng rollout report ở phụ lục.
+
+\section{Đối chiếu KPI và Definition of Done}
+
+\begin{table}[H]
+\centering
+\caption{Đối chiếu kết quả với Definition of Done DevSecOps}
+\label{tab:dod-evaluation}
+\begin{tabularx}{\textwidth}{p{0.34\textwidth}p{0.18\textwidth}Y}
+\toprule
+\textbf{Tiêu chí} & \textbf{Trạng thái} & \textbf{Evidence/Ghi chú} \\
+\midrule
+PR validation có lint/test/scan & Đạt & \path{ci-pr.yml}, quality gates docs. \\
+Image scan trước deploy & Đạt & \path{reports/trivy/*.txt}, deploy summary PASS. \\
+Image có digest & Đạt & \path{reports/image-digests-*.md}. \\
+Image có SBOM & Đạt & \path{reports/sbom/**}. \\
+Cosign verify và verify-attestation & Đạt với evidence mới & Run \texttt{26303390987}, image \texttt{auth-service}, verify signature và SBOM attestation đều PASS. \\
+Hạ tầng bằng OpenTofu & Đạt & \path{infra/opentofu/**}, outputs. \\
+Checkov không failed trong infra & Đạt theo evidence & 109 passed, 0 failed, 18 skipped. \\
+CloudNativePG backup/WAL & Đạt mức foundation & WAL archive và manual backup đã kiểm chứng. \\
+Restore drill CloudNativePG & Cần bổ sung & Evidence hiện tại ghi rõ chưa chạy restore drill. \\
+FluxCD/GitOps runtime & Đạt một phần/đang hoàn thiện & Có manifests và handoff, cần chèn evidence reconcile cuối cùng. \\
+Observability đầy đủ & Cần mở rộng & Có định hướng, dashboard/alert có thể là future work. \\
+\bottomrule
+\end{tabularx}
+\end{table}

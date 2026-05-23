@@ -18,7 +18,6 @@ Bao gồm các nhóm chính:
 - Private Service Access: `servicenetworking.googleapis.com`
 - Storage: `storage.googleapis.com`
 - Logging/Monitoring: `logging.googleapis.com`, `monitoring.googleapis.com`
-- Artifact Registry fallback: `artifactregistry.googleapis.com`
 
 ## Input chính
 

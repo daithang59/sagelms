@@ -1,0 +1,73 @@
+\chapter{Kiến trúc hệ thống SageLMS}
+\label{chap:system-architecture}
+
+\section{Tổng quan kiến trúc}
+
+SageLMS được tổ chức theo kiến trúc microservices. Frontend là ứng dụng React 18, Vite và TypeScript. Client gửi request đến API Gateway, Gateway xác thực JWT, áp dụng RBAC, gắn correlation ID và định tuyến đến service backend phù hợp. Các service backend chính dùng Spring Boot 3.x và Java 17, riêng AI Tutor dùng FastAPI và Python 3.11 để thuận tiện tích hợp LangChain và các thư viện AI.
+
+Database chính là PostgreSQL 16. Trong giai đoạn MVP, các service có schema riêng trong cùng một instance PostgreSQL để giảm chi phí vận hành nhưng vẫn giữ ranh giới dữ liệu theo service. Redis 7 được dùng cho cache hoặc queue khi cần xử lý tác vụ bất đồng bộ.
+
+\placeholderfigure{Sơ đồ kiến trúc microservices SageLMS}{Thay placeholder này bằng hình vẽ từ README hoặc bản vẽ draw.io/TikZ: Frontend, Gateway, Auth, Course, Content, Progress, Assessment, Challenge, AI Tutor, PostgreSQL và Redis.}
+\label{fig:microservices-architecture}
+
+\section{Danh sách service}
+
+\begin{table}[H]
+\centering
+\caption{Các service chính của SageLMS}
+\label{tab:services}
+\begin{tabularx}{\textwidth}{p{0.24\textwidth}p{0.12\textwidth}Y}
+\toprule
+\textbf{Service} & \textbf{Port} & \textbf{Vai trò} \\
+\midrule
+Web frontend & 3000 & Giao diện người dùng, gọi API qua Gateway. \\
+Gateway & 8080 & Entry point, JWT, RBAC, correlation ID và routing. \\
+Auth Service & 8081 & Đăng ký, đăng nhập, JWT, user profile và vai trò. \\
+Course Service & 8082 & Quản lý khóa học và ghi danh. \\
+Content Service & 8083 & Quản lý lesson, tài liệu và metadata nội dung. \\
+Progress Service & 8084 & Theo dõi tiến độ học của sinh viên. \\
+Assessment Service & 8085 & Bài kiểm tra, câu hỏi, attempt và chấm điểm. \\
+Challenge Service & \textit{Theo cấu hình} & Bài thử thách, leaderboard và kết quả. \\
+AI Tutor Service & 8086 & Hỏi đáp dựa trên RAG và nội dung học tập. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Luồng xử lý request}
+
+Luồng request cơ bản diễn ra như sau:
+
+\begin{enumerate}
+  \item Người dùng thao tác trên frontend.
+  \item Frontend gửi request đến Gateway.
+  \item Gateway kiểm tra JWT, phân quyền theo RBAC và gắn correlation ID.
+  \item Gateway định tuyến request đến service phù hợp.
+  \item Service xử lý nghiệp vụ, truy cập PostgreSQL hoặc Redis khi cần.
+  \item Response trả về theo đường ngược lại qua Gateway.
+\end{enumerate}
+
+\placeholderfigure{Luồng request qua API Gateway}{Thay placeholder này bằng sequence diagram: Client -> Gateway -> Service -> PostgreSQL/Redis -> Service -> Gateway -> Client.}
+\label{fig:request-flow}
+
+\section{Kiến trúc dữ liệu}
+
+Mỗi service sở hữu schema riêng trong PostgreSQL. Cách này giúp tách ranh giới dữ liệu ở mức logic, đồng thời vẫn đơn giản hơn so với việc vận hành nhiều database riêng trong phạm vi môn học. Các service Spring Boot dùng Flyway để quản lý migration, còn AI Tutor dùng Alembic. Database runtime trên GKE dùng CloudNativePG với PostgreSQL 16 và hỗ trợ backup/WAL archive ra GCS.
+
+Với AI Tutor, pgvector được dùng để lưu embedding phục vụ truy vấn theo ngữ nghĩa. Dòng xử lý RAG gồm ingestion, chunking, embedding, vector search, gọi mô hình ngôn ngữ và trả về câu trả lời kèm nguồn tham chiếu.
+
+\section{Repository architecture}
+
+Mono-repo SageLMS được chia thành các nhóm thư mục chính:
+
+\begin{itemize}
+  \item \path{apps/web}: frontend React/Vite.
+  \item \path{services}: backend microservices và AI Tutor.
+  \item \path{contracts}: OpenAPI và AsyncAPI contracts.
+  \item \path{infra/docker}: Docker Compose và runtime local.
+  \item \path{infra/k8s}: Kubernetes base manifests và DevSecOps overlay.
+  \item \path{infra/opentofu}: Infrastructure as Code cho GCP/GKE.
+  \item \path{.github/workflows}: CI/CD pipelines.
+  \item \path{reports}: evidence từ build, scan, SBOM, digest và deploy.
+\end{itemize}
+
+Cấu trúc này hỗ trợ path filter trong CI/CD: thay đổi frontend chỉ chạy các job liên quan đến frontend; thay đổi service chỉ chạy test/build/scan service đó; thay đổi hạ tầng kích hoạt OpenTofu và Checkov.

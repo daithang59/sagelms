@@ -7,6 +7,8 @@ resources:
   - app-shared-externalsecret.yaml
   - harbor-pull-externalsecret.yaml
   - ingress.yaml
+  - managed-certificate.yaml
+  - post-deploy-checker-rbac.yaml
 images:
   - name: harbor.sagelms.id.vn/sagelms-app/gateway
     newName: harbor.sagelms.id.vn/sagelms-app/gateway
