@@ -22,7 +22,7 @@
         <java.version>17</java.version>
         <netty.version>4.1.133.Final</netty.version>
         <bouncycastle.version>1.84</bouncycastle.version>
-        <spring-cloud-gateway.version>4.3.2</spring-cloud-gateway.version>
+        <spring-cloud-gateway.version>4.3.4</spring-cloud-gateway.version>
     </properties>
 
     <dependencies>
