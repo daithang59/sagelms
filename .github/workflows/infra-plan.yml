@@ -7,6 +7,12 @@ on:
       - "infra/opentofu/**"
       - ".github/workflows/infra-plan.yml"
   workflow_dispatch:
+    inputs:
+      apply:
+        description: "Apply the generated OpenTofu plan after approval"
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -112,3 +118,57 @@ jobs:
           name: devsecops-tfplan
           path: ${{ env.TOFU_WORKDIR }}/tfplan
           if-no-files-found: error
+
+  apply:
+    name: OpenTofu remote apply
+    needs:
+      - plan
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.apply && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    environment: devsecops-infra-apply
+    env:
+      GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+      GCP_SERVICE_ACCOUNT: ${{ vars.GCP_SERVICE_ACCOUNT }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check required environment configuration
+        run: |
+          missing=0
+          if [[ -z "$GCP_WORKLOAD_IDENTITY_PROVIDER" ]]; then
+            echo "Missing repository variable: GCP_WORKLOAD_IDENTITY_PROVIDER"
+            missing=1
+          fi
+          if [[ -z "$GCP_SERVICE_ACCOUNT" ]]; then
+            echo "Missing repository variable: GCP_SERVICE_ACCOUNT"
+            missing=1
+          fi
+          if [[ $missing -ne 0 ]]; then
+            exit 1
+          fi
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_SERVICE_ACCOUNT }}
+
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: ${{ env.TOFU_VERSION }}
+
+      - name: Download plan artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: devsecops-tfplan
+          path: ${{ env.TOFU_WORKDIR }}
+
+      - name: Init remote backend
+        run: tofu -chdir=${{ env.TOFU_WORKDIR }} init
+
+      - name: Show plan before apply
+        run: tofu -chdir=${{ env.TOFU_WORKDIR }} show -no-color tfplan
+
+      - name: Apply plan
+        run: tofu -chdir=${{ env.TOFU_WORKDIR }} apply -input=false -no-color tfplan
