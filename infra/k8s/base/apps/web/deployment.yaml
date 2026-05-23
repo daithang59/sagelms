@@ -24,7 +24,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: web
-          image: harbor.sagelms.dev/sagelms-app/web:dev
+          image: harbor.sagelms.id.vn/sagelms-app/web:dev
           imagePullPolicy: IfNotPresent
           ports:
             - name: http

@@ -9,5 +9,4 @@ resources:
   - progress-service
   - assessment-service
   - challenge-service
-  - worker
   - web

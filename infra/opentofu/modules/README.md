@@ -13,6 +13,7 @@ Thư mục này chứa các module OpenTofu tái sử dụng cho môi trường 
 | `secret-manager` | Tạo Secret Manager metadata và IAM cho ESO đọc secret |
 | `storage` | Tạo non-state GCS buckets cho app/demo/evidence |
 | `cnpg-backup` | Tạo GCS bucket, GSA và Workload Identity cho CloudNativePG backup/WAL |
+| `harbor-registry-storage` | Tạo GCS bucket, GSA và Workload Identity cho Harbor registry blobs |
 | `redis` | Tạo Memorystore Redis 7 Standard HA private IP |
 
 ## Quy tắc thiết kế

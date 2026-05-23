@@ -75,7 +75,15 @@ docker-data/
 # Misc
 # ========================
 coverage/
-reports/
+reports/*
+!reports/image-digests-*.md
+!reports/deploy-pr-body-*.md
+!reports/deploy-summary-*.md
+!reports/trivy/
+!reports/trivy/*.txt
+!reports/sbom/
+!reports/sbom/**/
+!reports/sbom/**/*.json
 .terraform/
 *.tfstate
 *.tfstate.*

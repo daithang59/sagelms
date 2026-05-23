@@ -20,6 +20,8 @@ spring:
     schemas: challenge
     default-schema: challenge
 
-app:
-  internal:
-    secret: ${INTERNAL_API_SECRET:sagelms-dev-internal-secret}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus

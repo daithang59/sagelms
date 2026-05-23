@@ -277,7 +277,39 @@ Sau khi FluxCD deploy, workflow hoặc runbook cần kiểm tra:
 - Endpoint health trả về thành công.
 - Không có pod `CrashLoopBackOff` hoặc rollout stuck.
 
-Post-deploy smoke test để sau khi GitOps/FluxCD flow hoàn chỉnh.
+Workflow `.github/workflows/post-deploy-check.yml` đã được tách riêng để chạy sau khi GitOps/FluxCD reconcile xong.
+Workflow này không cập nhật manifest và không thay FluxCD owner; nó kiểm tra rollout GKE bằng `kubectl`, kiểm tra endpoint public và lưu smoke-test evidence.
+
+Trigger hiện tại:
+
+```text
+workflow_dispatch
+workflow_call
+```
+
+`workflow_dispatch` không nhận input để tránh Checkov rule `CKV_GHA_7`. Nếu cần đổi endpoint, cấu hình bằng repository/environment variables:
+
+```text
+POST_DEPLOY_BASE_URL=https://sagelms.id.vn
+POST_DEPLOY_NAMESPACE=sagelms-devsecops
+POST_DEPLOY_WEB_HEALTH_PATH=/health
+POST_DEPLOY_WEB_EXPECTED_STATUS=200
+POST_DEPLOY_WEB_EXPECTED_BODY=ok
+POST_DEPLOY_API_HEALTH_PATH=/api/actuator/health
+POST_DEPLOY_API_EXPECTED_STATUSES=200,401
+```
+
+Workflow cần các repository variables GCP theo hướng dẫn Member 1:
+
+```text
+GCP_PROJECT_ID=sagelms
+GCP_REGION=asia-southeast1
+GKE_CLUSTER=sagelms-devsecops-gke
+GCP_WORKLOAD_IDENTITY_PROVIDER=projects/384858175117/locations/global/workloadIdentityPools/sagelms-devsecops-github-pool/providers/github
+GCP_SERVICE_ACCOUNT=sagelms-devsecops-gha-sa@sagelms.iam.gserviceaccount.com
+```
+
+Sau khi GitOps workflow của Member 3 hoàn chỉnh, workflow đó có thể gọi `post-deploy-check.yml` bằng `workflow_call`.
 
 ## Rollback
 

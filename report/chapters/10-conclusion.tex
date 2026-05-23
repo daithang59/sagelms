@@ -1,0 +1,8 @@
+\chapter{Kết luận}
+\label{chap:conclusion}
+
+Đồ án đã xây dựng SageLMS theo kiến trúc web microservices và thiết kế pipeline DevSecOps để hỗ trợ quá trình phát triển, kiểm thử, đóng gói, phát hành và vận hành hệ thống. Thay vì chỉ tập trung vào tính năng của ứng dụng, nhóm đặt trọng tâm vào vòng đời phần mềm: từ pull request, quality gate, security scan, image build, SBOM, signing, Harbor registry, GitOps deployment đến kiểm tra trạng thái sau triển khai.
+
+Việc sử dụng một Shared Cloud DevSecOps Environment trên GCP/GKE giúp nhóm cân bằng giữa tính thực tế và giới hạn của đồ án môn học. Môi trường này không phải production đầy đủ, nhưng đủ để chứng minh các thực hành production-oriented như Infrastructure as Code, secret management, Kubernetes runtime, CloudNativePG backup foundation, registry governance và evidence-driven deployment.
+
+Kết quả đạt được cho thấy pipeline DevSecOps là một phần quan trọng khi phát triển hệ thống microservices. Với các bằng chứng như workflow, Trivy reports, SBOM, image digest, deploy summary và cloud outputs, nhóm có thể trình bày rõ quá trình kiểm soát chất lượng và bảo mật từ source code đến runtime. Các hạn chế còn lại như restore drill, observability đầy đủ, policy enforce và multi-environment deployment là hướng phát triển hợp lý nếu đồ án tiếp tục được mở rộng.

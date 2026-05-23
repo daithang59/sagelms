@@ -11,3 +11,5 @@ data:
   DB_HOST: "sagelms-postgres-rw.sagelms-data.svc.cluster.local"
   DB_PORT: "5432"
   DB_NAME: "sagelms"
+  AUTH_SERVICE_HOST: "auth-service"
+  AUTH_SERVICE_PORT: "8081"

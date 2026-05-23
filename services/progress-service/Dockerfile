@@ -10,7 +10,7 @@ RUN mvn package -DskipTests -B
 FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
 RUN addgroup -S -g 10001 sagelms && adduser -S -D -H -u 10001 -G sagelms sagelms
-COPY --from=build --chown=10001:10001 /app/target/*.jar app.jar
+COPY --from=build --chmod=0444 /app/target/*.jar app.jar
 USER 10001:10001
 EXPOSE 8084
 ENTRYPOINT ["java", "-jar", "app.jar"]

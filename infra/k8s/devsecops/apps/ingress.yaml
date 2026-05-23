@@ -1,15 +1,17 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: sagelms-ingress
+  name: sagelms-app
+  namespace: sagelms-devsecops
   annotations:
-    kubernetes.io/ingress.allow-http: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
 spec:
-  ingressClassName: gce
+  ingressClassName: nginx
   rules:
-    - http:
+    - host: sagelms.id.vn
+      http:
         paths:
-          - path: /api
+          - path: /api/v1
             pathType: Prefix
             backend:
               service:

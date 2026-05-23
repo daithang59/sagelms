@@ -1,0 +1,16 @@
+# Use this as a Helm overlay with:
+# helm upgrade harbor harbor/harbor -n harbor --version 1.19.0 --reuse-values -f infra/k8s/devsecops/harbor/values-gcs.yaml
+#
+# Do not install with this file alone. --reuse-values preserves existing domain,
+# TLS, generated secrets and admin password from the current Harbor release.
+registry:
+  serviceAccountName: harbor-registry
+  automountServiceAccountToken: true
+
+persistence:
+  imageChartStorage:
+    type: gcs
+    disableredirect: false
+    gcs:
+      bucket: sagelms-devsecops-harbor-registry
+      useWorkloadIdentity: true

@@ -1,0 +1,20 @@
+\chapter{API contracts}
+\label{appendix:api-contracts}
+
+Các OpenAPI contracts hiện có trong thư mục \path{contracts/openapi}. Đây là bằng chứng cho việc các service có contract rõ ràng và có thể được dùng để sinh tài liệu API, mock hoặc contract testing trong các bước mở rộng.
+
+\begin{longtable}{p{0.32\textwidth}p{0.58\textwidth}}
+\toprule
+\textbf{Contract} & \textbf{Đường dẫn} \\
+\midrule
+Gateway & \path{contracts/openapi/gateway.yaml} \\
+Auth & \path{contracts/openapi/auth.yaml} \\
+Course & \path{contracts/openapi/course.yaml} \\
+Content & \path{contracts/openapi/content.yaml} \\
+Progress & \path{contracts/openapi/progress.yaml} \\
+Assessment & \path{contracts/openapi/assessment.yaml} \\
+AI Tutor & \path{contracts/openapi/ai-tutor.yaml} \\
+\bottomrule
+\end{longtable}
+
+Trong bản báo cáo hoàn chỉnh, nhóm có thể bổ sung một bảng tóm tắt endpoint chính theo từng service thay vì đưa toàn bộ OpenAPI YAML vào phụ lục.

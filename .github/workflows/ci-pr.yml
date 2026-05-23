@@ -1,22 +1,27 @@
-name: PR Validation (Hybrid)
+name: CI - Validation PR
 
 on:
   pull_request:
     branches: ["main"]
     types: [opened, reopened, synchronize, edited, ready_for_review]
+  workflow_dispatch:
 
 permissions:
   contents: read
   pull-requests: read
+  id-token: write
+
+env:
+  GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+  GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+  GCP_SERVICE_ACCOUNT: ${{ vars.GCP_SERVICE_ACCOUNT }}
+  GCP_SECRET_SONAR_TOKEN: ${{ vars.GCP_SECRET_SONAR_TOKEN || 'sagelms-devsecops-sonarcloud-token' }}
 
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  # --------------------------------------------------
-  # Secret scan - always runs
-  # --------------------------------------------------
   secret_scan:
     runs-on: ubuntu-latest
     steps:
@@ -30,13 +35,11 @@ jobs:
           tar -xzf gitleaks.tar.gz gitleaks
           sudo mv gitleaks /usr/local/bin/gitleaks
       - name: Run gitleaks
-        run: gitleaks detect --source . --no-git --redact
+        run: gitleaks detect --source . --no-git --redact --config .gitleaks.toml
 
-  # --------------------------------------------------
-  # Conventions: PR Title
-  # --------------------------------------------------
   pr_title:
     name: Validate PR title
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: amannn/action-semantic-pull-request@v5
@@ -56,16 +59,14 @@ jobs:
             style
             revert
 
-  # --------------------------------------------------
-  # Conventions: Branch Naming
-  # --------------------------------------------------
   conventions_branch:
     name: Validate branch name
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - name: Check branch naming
         env:
-          BRANCH: ${{ github.head_ref }}
+          BRANCH: ${{ github.head_ref || github.ref_name }}
         run: |
           echo "Branch: $BRANCH"
           if [[ "$BRANCH" == dependabot/* ]]; then
@@ -77,11 +78,9 @@ jobs:
           fi
           echo "[OK] Branch name OK"
 
-  # --------------------------------------------------
-  # Conventions: Commit Messages
-  # --------------------------------------------------
   conventions_commits:
     name: Validate commit messages
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -103,19 +102,16 @@ jobs:
           echo "Head: $HEAD"
           npx commitlint --from "$BASE" --to "$HEAD" --verbose
 
-  # --------------------------------------------------
-  # Path filter - detect which areas changed
-  # --------------------------------------------------
   changes:
     runs-on: ubuntu-latest
     outputs:
       java_services: ${{ steps.matrices.outputs.java_services }}
       docker_images: ${{ steps.matrices.outputs.docker_images }}
-      frontend: ${{ steps.filter.outputs.frontend }}
-      ai_tutor_service: ${{ steps.filter.outputs.ai_tutor_service }}
-      infra: ${{ steps.filter.outputs.infra }}
-      github: ${{ steps.filter.outputs.github }}
-      docker: ${{ steps.filter.outputs.docker }}
+      frontend: ${{ steps.matrices.outputs.frontend }}
+      ai_tutor_service: ${{ steps.matrices.outputs.ai_tutor_service }}
+      infra: ${{ steps.matrices.outputs.infra }}
+      github: ${{ steps.matrices.outputs.github }}
+      docker: ${{ steps.matrices.outputs.docker }}
       any_relevant: ${{ steps.matrices.outputs.any_relevant }}
     steps:
       - uses: actions/checkout@v4
@@ -126,6 +122,7 @@ jobs:
       - name: Build service matrices
         id: matrices
         env:
+          EVENT_NAME: ${{ github.event_name }}
           GATEWAY: ${{ steps.filter.outputs.gateway }}
           AUTH_SERVICE: ${{ steps.filter.outputs.auth_service }}
           COURSE_SERVICE: ${{ steps.filter.outputs.course_service }}
@@ -134,7 +131,6 @@ jobs:
           ASSESSMENT_SERVICE: ${{ steps.filter.outputs.assessment_service }}
           CHALLENGE_SERVICE: ${{ steps.filter.outputs.challenge_service }}
           AI_TUTOR_SERVICE: ${{ steps.filter.outputs.ai_tutor_service }}
-          WORKER: ${{ steps.filter.outputs.worker }}
           FRONTEND: ${{ steps.filter.outputs.frontend }}
           INFRA: ${{ steps.filter.outputs.infra }}
           GITHUB_WORKFLOWS: ${{ steps.filter.outputs.github }}
@@ -142,6 +138,11 @@ jobs:
         run: |
           java_services=()
           docker_images=()
+          frontend="$FRONTEND"
+          ai_tutor_service="$AI_TUTOR_SERVICE"
+          infra="$INFRA"
+          github_workflows="$GITHUB_WORKFLOWS"
+          docker="$DOCKER"
 
           add_java() {
             java_services+=("\"$1\"")
@@ -157,41 +158,114 @@ jobs:
             add_docker "web" "apps/web"
           }
 
-          if [[ "$GATEWAY" == "true" ]]; then add_java "gateway"; add_docker "gateway"; fi
-          if [[ "$AUTH_SERVICE" == "true" ]]; then add_java "auth-service"; add_docker "auth-service"; fi
-          if [[ "$COURSE_SERVICE" == "true" ]]; then add_java "course-service"; add_docker "course-service"; fi
-          if [[ "$CONTENT_SERVICE" == "true" ]]; then add_java "content-service"; add_docker "content-service"; fi
-          if [[ "$PROGRESS_SERVICE" == "true" ]]; then add_java "progress-service"; add_docker "progress-service"; fi
-          if [[ "$ASSESSMENT_SERVICE" == "true" ]]; then add_java "assessment-service"; add_docker "assessment-service"; fi
-          if [[ "$CHALLENGE_SERVICE" == "true" ]]; then add_java "challenge-service"; add_docker "challenge-service"; fi
-          if [[ "$WORKER" == "true" ]]; then add_java "worker"; fi
-          if [[ "$FRONTEND" == "true" ]]; then add_web_docker; fi
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            add_java "gateway"
+            add_java "auth-service"
+            add_java "course-service"
+            add_java "content-service"
+            add_java "progress-service"
+            add_java "assessment-service"
+            add_java "challenge-service"
+            frontend="true"
+            ai_tutor_service="true"
+            infra="false"
+            github_workflows="false"
+            docker="false"
+          else
+            if [[ "$GATEWAY" == "true" ]]; then add_java "gateway"; add_docker "gateway"; fi
+            if [[ "$AUTH_SERVICE" == "true" ]]; then add_java "auth-service"; add_docker "auth-service"; fi
+            if [[ "$COURSE_SERVICE" == "true" ]]; then add_java "course-service"; add_docker "course-service"; fi
+            if [[ "$CONTENT_SERVICE" == "true" ]]; then add_java "content-service"; add_docker "content-service"; fi
+            if [[ "$PROGRESS_SERVICE" == "true" ]]; then add_java "progress-service"; add_docker "progress-service"; fi
+            if [[ "$ASSESSMENT_SERVICE" == "true" ]]; then add_java "assessment-service"; add_docker "assessment-service"; fi
+            if [[ "$CHALLENGE_SERVICE" == "true" ]]; then add_java "challenge-service"; add_docker "challenge-service"; fi
+            if [[ "$FRONTEND" == "true" ]]; then add_web_docker; fi
 
-          if [[ "$DOCKER" == "true" && ${#docker_images[@]} -eq 0 ]]; then
-            add_web_docker
-            add_docker "gateway"
-            add_docker "auth-service"
-            add_docker "course-service"
-            add_docker "content-service"
-            add_docker "progress-service"
-            add_docker "assessment-service"
-            add_docker "challenge-service"
+            if [[ "$DOCKER" == "true" && ${#docker_images[@]} -eq 0 ]]; then
+              add_web_docker
+              add_docker "gateway"
+              add_docker "auth-service"
+              add_docker "course-service"
+              add_docker "content-service"
+              add_docker "progress-service"
+              add_docker "assessment-service"
+              add_docker "challenge-service"
+            fi
           fi
 
           {
             printf "java_services=[%s]\n" "$(IFS=,; echo "${java_services[*]}")"
             printf "docker_images=[%s]\n" "$(IFS=,; echo "${docker_images[*]}")"
+            printf "frontend=%s\n" "$frontend"
+            printf "ai_tutor_service=%s\n" "$ai_tutor_service"
+            printf "infra=%s\n" "$infra"
+            printf "github=%s\n" "$github_workflows"
+            printf "docker=%s\n" "$docker"
           } >> "$GITHUB_OUTPUT"
 
-          if [[ ${#java_services[@]} -gt 0 || ${#docker_images[@]} -gt 0 || "$FRONTEND" == "true" || "$AI_TUTOR_SERVICE" == "true" || "$INFRA" == "true" || "$GITHUB_WORKFLOWS" == "true" || "$DOCKER" == "true" ]]; then
+          if [[ ${#java_services[@]} -gt 0 || ${#docker_images[@]} -gt 0 || "$frontend" == "true" || "$ai_tutor_service" == "true" || "$infra" == "true" || "$github_workflows" == "true" || "$docker" == "true" ]]; then
             echo "any_relevant=true" >> "$GITHUB_OUTPUT"
           else
             echo "any_relevant=false" >> "$GITHUB_OUTPUT"
           fi
 
-  # --------------------------------------------------
-  # AI Tutor service - Python tests/lint
-  # --------------------------------------------------
+  gcp_secret_context:
+    name: GCP Secret Manager context
+    needs: changes
+    if: ${{ vars.ENABLE_GCP_SECRET_CONTEXT == 'true' && github.event_name == 'workflow_dispatch' && needs.changes.outputs.any_relevant == 'true' }}
+    runs-on: ubuntu-latest
+    env:
+      GCP_PROJECT_ID: "${{ vars.GCP_PROJECT_ID }}"
+      GCP_WORKLOAD_IDENTITY_PROVIDER: "${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}"
+      GCP_SERVICE_ACCOUNT: "${{ vars.GCP_SERVICE_ACCOUNT }}"
+    steps:
+      - name: Check GCP workflow configuration
+        run: |
+          set -euo pipefail
+          missing=0
+          if [[ -z "$GCP_PROJECT_ID" ]]; then
+            echo "Missing repository variable: GCP_PROJECT_ID"
+            missing=1
+          fi
+          if [[ -z "$GCP_WORKLOAD_IDENTITY_PROVIDER" ]]; then
+            echo "Missing repository variable: GCP_WORKLOAD_IDENTITY_PROVIDER"
+            missing=1
+          fi
+          if [[ -z "$GCP_SERVICE_ACCOUNT" ]]; then
+            echo "Missing repository variable: GCP_SERVICE_ACCOUNT"
+            missing=1
+          fi
+          if [[ $missing -ne 0 ]]; then
+            exit 1
+          fi
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_SERVICE_ACCOUNT }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Verify CI Secret Manager access
+        run: |
+          set -euo pipefail
+          secrets=(
+            "$GCP_SECRET_SONAR_TOKEN"
+          )
+
+          for secret in "${secrets[@]}"; do
+            echo "Checking ${secret}"
+            value="$(gcloud secrets versions access latest --secret "$secret" --project "$GCP_PROJECT_ID")"
+            if [[ -z "$value" ]]; then
+              echo "::error::${secret} has an empty latest version"
+              exit 1
+            fi
+            echo "::add-mask::$value"
+            echo "${secret}: available"
+          done
+
   test_ai_tutor:
     name: "AI Tutor: tests"
     needs: changes
@@ -214,9 +288,6 @@ jobs:
       - name: Run pytest
         run: python -m pytest
 
-  # --------------------------------------------------
-  # Java services - unit tests
-  # --------------------------------------------------
   test_java:
     needs: changes
     if: needs.changes.outputs.java_services != '[]'
@@ -243,9 +314,6 @@ jobs:
             mvn -B test --no-transfer-progress
           fi
 
-  # --------------------------------------------------
-  # Java services - package smoke build
-  # --------------------------------------------------
   build_java:
     needs:
       - changes
@@ -274,9 +342,6 @@ jobs:
             mvn -B package -DskipTests --no-transfer-progress
           fi
 
-  # --------------------------------------------------
-  # Frontend - ESLint
-  # --------------------------------------------------
   lint_frontend:
     name: "Frontend: ESLint"
     needs: changes
@@ -295,9 +360,6 @@ jobs:
       - run: npm ci --legacy-peer-deps
       - run: npm run lint
 
-  # --------------------------------------------------
-  # Frontend - TypeScript Type Check
-  # --------------------------------------------------
   typecheck_frontend:
     name: "Frontend: TypeScript"
     needs: changes
@@ -316,9 +378,6 @@ jobs:
       - run: npm ci --legacy-peer-deps
       - run: npm run typecheck
 
-  # --------------------------------------------------
-  # Frontend - Unit Tests (Vitest)
-  # --------------------------------------------------
   test_frontend:
     name: "Frontend: Tests"
     needs: changes
@@ -337,9 +396,6 @@ jobs:
       - run: npm ci --legacy-peer-deps
       - run: npm test -- --run
 
-  # --------------------------------------------------
-  # Frontend - Production Build
-  # --------------------------------------------------
   build_frontend:
     name: "Frontend: Build"
     needs:
@@ -360,9 +416,6 @@ jobs:
       - run: npm ci --legacy-peer-deps
       - run: npm run build
 
-  # --------------------------------------------------
-  # Dependency scan - report-first on GitHub-hosted
-  # --------------------------------------------------
   dependency_scan:
     name: Dependency scan
     needs: changes
@@ -381,9 +434,6 @@ jobs:
           exit-code: '0'
           ignore-unfixed: true
 
-  # --------------------------------------------------
-  # IaC / workflow scan - Checkov
-  # --------------------------------------------------
   checkov_infra:
     name: "Checkov: infra"
     needs: changes
@@ -408,9 +458,6 @@ jobs:
         with:
           directory: .github/workflows
 
-  # --------------------------------------------------
-  # OpenTofu validation - GitHub-hosted
-  # --------------------------------------------------
   infra_validate:
     name: OpenTofu validate
     needs: changes
@@ -421,7 +468,7 @@ jobs:
       - name: Setup OpenTofu
         uses: opentofu/setup-opentofu@v1
         with:
-          tofu_version: 1.9.0
+          tofu_version: 1.12.0
       - name: Init
         run: tofu -chdir=infra/opentofu/envs/devsecops init -backend=false
       - name: Format check
@@ -429,9 +476,6 @@ jobs:
       - name: Validate
         run: tofu -chdir=infra/opentofu/envs/devsecops validate
 
-  # --------------------------------------------------
-  # Dockerfile - lint and static config scan
-  # --------------------------------------------------
   dockerfile_lint:
     name: "Dockerfile: Hadolint"
     needs: changes
@@ -450,7 +494,6 @@ jobs:
           - services/assessment-service/Dockerfile
           - services/challenge-service/Dockerfile
           - services/ai-tutor-service/Dockerfile
-          - services/worker/Dockerfile
     steps:
       - uses: actions/checkout@v4
       - name: Run Hadolint
@@ -472,9 +515,6 @@ jobs:
           framework: dockerfile
           soft_fail: true
 
-  # --------------------------------------------------
-  # Docker - Build smoke test (no push)
-  # --------------------------------------------------
   docker_build:
     name: "Docker: Build and scan"
     needs: changes
@@ -505,16 +545,12 @@ jobs:
           path: trivy-${{ matrix.service }}.txt
           if-no-files-found: ignore
 
-  # --------------------------------------------------
-  # SonarCloud - optional GitHub-hosted quality gate
-  # --------------------------------------------------
   sonarcloud:
     name: SonarCloud
     needs: changes
     if: ${{ vars.ENABLE_SONARCLOUD == 'true' && needs.changes.outputs.any_relevant == 'true' }}
     runs-on: ubuntu-latest
     env:
-      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       SONAR_PROJECT_KEY: ${{ vars.SONAR_PROJECT_KEY }}
       SONAR_ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
     steps:
@@ -528,13 +564,10 @@ jobs:
           java-version: 17
           cache: maven
 
-      - name: Check SonarCloud configuration
+      - name: Check SonarCloud and GCP Secret Manager configuration
         run: |
+          set -euo pipefail
           missing=0
-          if [[ -z "$SONAR_TOKEN" ]]; then
-            echo "Missing repository secret: SONAR_TOKEN"
-            missing=1
-          fi
           if [[ -z "$SONAR_PROJECT_KEY" ]]; then
             echo "Missing repository variable: SONAR_PROJECT_KEY"
             missing=1
@@ -543,12 +576,53 @@ jobs:
             echo "Missing repository variable: SONAR_ORGANIZATION"
             missing=1
           fi
+          if [[ -z "$GCP_PROJECT_ID" ]]; then
+            echo "Missing repository variable: GCP_PROJECT_ID"
+            missing=1
+          fi
+          if [[ -z "$GCP_WORKLOAD_IDENTITY_PROVIDER" ]]; then
+            echo "Missing repository variable: GCP_WORKLOAD_IDENTITY_PROVIDER"
+            missing=1
+          fi
+          if [[ -z "$GCP_SERVICE_ACCOUNT" ]]; then
+            echo "Missing repository variable: GCP_SERVICE_ACCOUNT"
+            missing=1
+          fi
+          if [[ -z "$GCP_SECRET_SONAR_TOKEN" ]]; then
+            echo "Missing repository variable: GCP_SECRET_SONAR_TOKEN"
+            missing=1
+          fi
           if [[ $missing -ne 0 ]]; then
             exit 1
           fi
 
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_SERVICE_ACCOUNT }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Read SonarCloud token from Secret Manager
+        run: |
+          set -euo pipefail
+          sonar_token="$(gcloud secrets versions access latest --secret "$GCP_SECRET_SONAR_TOKEN" --project "$GCP_PROJECT_ID")"
+          if [[ -z "$sonar_token" ]]; then
+            echo "::error::Secret $GCP_SECRET_SONAR_TOKEN has an empty latest version"
+            exit 1
+          fi
+          echo "::add-mask::$sonar_token"
+          {
+            echo "SONAR_TOKEN<<EOF"
+            printf '%s\n' "$sonar_token"
+            echo "EOF"
+          } >> "$GITHUB_ENV"
+
       - name: Compile Java services for SonarCloud
         run: |
+          set -euo pipefail
           for pom in services/*/pom.xml; do
             service_dir="$(dirname "$pom")"
             echo "Compiling ${service_dir}"
@@ -563,6 +637,7 @@ jobs:
       - name: Prepare SonarCloud Java binaries
         id: sonar_java
         run: |
+          set -euo pipefail
           binaries="$(find services -path '*/target/classes' -type d | paste -sd, -)"
           if [[ -z "$binaries" ]]; then
             echo "No Java binaries found under services/*/target/classes"
@@ -572,8 +647,6 @@ jobs:
 
       - name: SonarCloud scan
         uses: SonarSource/sonarqube-scan-action@7006c4492b2e0ee0f816d36501671557c97f5995
-        env:
-          SONAR_TOKEN: ${{ env.SONAR_TOKEN }}
         with:
           args: >
             -Dsonar.projectKey=${{ env.SONAR_PROJECT_KEY }}
@@ -581,12 +654,9 @@ jobs:
             -Dsonar.host.url=https://sonarcloud.io
             -Dsonar.sources=apps/web,services,contracts,infra
             -Dsonar.java.binaries=${{ steps.sonar_java.outputs.binaries }}
-            -Dsonar.exclusions=**/target/**,**/node_modules/**,**/dist/**,**/.terraform/**
+            -Dsonar.exclusions=**/target/**,**/node_modules/**,**/dist/**,**/.terraform/**,**/venv/**,**/__pycache__/**,**/*.pyc
             -Dsonar.qualitygate.wait=true
 
-  # --------------------------------------------------
-  # Status gate - single check for branch protection
-  # --------------------------------------------------
   ci_status:
     name: CI Status
     if: always()
@@ -610,6 +680,7 @@ jobs:
       - dockerfile_lint
       - dockerfile_checkov
       - docker_build
+      - gcp_secret_context
       - sonarcloud
     runs-on: ubuntu-latest
     steps:
@@ -636,6 +707,7 @@ jobs:
             "dockerfile_lint:${{ needs.dockerfile_lint.result }}"
             "dockerfile_checkov:${{ needs.dockerfile_checkov.result }}"
             "docker_build:${{ needs.docker_build.result }}"
+            "gcp_secret_context:${{ needs.gcp_secret_context.result }}"
             "sonarcloud:${{ needs.sonarcloud.result }}"
           )
           failed=0

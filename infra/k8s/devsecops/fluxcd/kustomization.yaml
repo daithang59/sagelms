@@ -2,6 +2,12 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
+  - namespace.yaml
   - gitrepository.yaml
   - apps-kustomization.yaml
+  - harbor-kustomization.yaml
+  - kyverno-kustomization.yaml
+  - kyverno-policies-kustomization.yaml
+  - monitoring-kustomization.yaml
+  - monitoring-targets-kustomization.yaml
   - fluxcd-web-ui.yaml

@@ -1,0 +1,31 @@
+\chapter{Bằng chứng cloud foundation}
+\label{appendix:cloud-outputs}
+
+\section{GKE}
+
+Theo \path{infra/opentofu/outputs.md}, môi trường DevSecOps dùng GKE cluster:
+
+\begin{itemize}
+  \item Cluster: \texttt{sagelms-devsecops-gke}.
+  \item Region: \texttt{asia-southeast1}.
+  \item Node pool: \texttt{sagelms-devsecops-main-pool}.
+  \item Số node Ready hiện tại: 2.
+  \item Workload Identity pool: \texttt{sagelms.svc.id.goog}.
+\end{itemize}
+
+\section{CloudNativePG}
+
+Database baseline dùng CloudNativePG:
+
+\begin{itemize}
+  \item Namespace: \texttt{sagelms-data}.
+  \item Cluster: \texttt{sagelms-postgres}.
+  \item RW service: \path{sagelms-postgres-rw.sagelms-data.svc.cluster.local:5432}.
+  \item Status: \texttt{Ready=True}, cluster healthy.
+  \item WAL archive: \texttt{ContinuousArchiving=True}.
+  \item Manual backup đã completed và object đã có trong GCS.
+\end{itemize}
+
+\section{Secret và registry}
+
+External Secrets Operator đã đồng bộ các secret cần thiết vào namespace runtime. Harbor registry cho app images là \path{harbor.sagelms.id.vn/sagelms-app}. Pull secret runtime đã được ESO đồng bộ và test pull image Harbor có sự kiện pull thành công theo outputs hiện tại.

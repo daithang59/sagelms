@@ -1,0 +1,199 @@
+name: Post Deploy Check
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: post-deploy-check-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID || 'sagelms' }}
+  GCP_REGION: ${{ vars.GCP_REGION || 'asia-southeast1' }}
+  GKE_CLUSTER: ${{ vars.GKE_CLUSTER || 'sagelms-devsecops-gke' }}
+  GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+  GCP_SERVICE_ACCOUNT: ${{ vars.GCP_SERVICE_ACCOUNT }}
+  POST_DEPLOY_NAMESPACE: ${{ vars.POST_DEPLOY_NAMESPACE || 'sagelms-devsecops' }}
+  POST_DEPLOY_BASE_URL: ${{ vars.POST_DEPLOY_BASE_URL || 'https://sagelms.id.vn' }}
+  POST_DEPLOY_WEB_HEALTH_PATH: ${{ vars.POST_DEPLOY_WEB_HEALTH_PATH || '/health' }}
+  POST_DEPLOY_WEB_EXPECTED_STATUS: ${{ vars.POST_DEPLOY_WEB_EXPECTED_STATUS || '200' }}
+  POST_DEPLOY_WEB_EXPECTED_BODY: ${{ vars.POST_DEPLOY_WEB_EXPECTED_BODY || 'ok' }}
+  POST_DEPLOY_API_HEALTH_PATH: ${{ vars.POST_DEPLOY_API_HEALTH_PATH || '/api/v1/actuator/health' }}
+  POST_DEPLOY_API_EXPECTED_STATUSES: ${{ vars.POST_DEPLOY_API_EXPECTED_STATUSES || '200,401' }}
+
+jobs:
+  rollout:
+    name: GKE rollout status
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check GCP configuration
+        run: |
+          set -euo pipefail
+          missing=0
+          if [[ -z "$GCP_WORKLOAD_IDENTITY_PROVIDER" ]]; then
+            echo "Missing repository variable: GCP_WORKLOAD_IDENTITY_PROVIDER"
+            missing=1
+          fi
+          if [[ -z "$GCP_SERVICE_ACCOUNT" ]]; then
+            echo "Missing repository variable: GCP_SERVICE_ACCOUNT"
+            missing=1
+          fi
+          if [[ $missing -ne 0 ]]; then
+            exit 1
+          fi
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_SERVICE_ACCOUNT }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          install_components: gke-gcloud-auth-plugin
+
+      - name: Get GKE credentials
+        run: |
+          gcloud container clusters get-credentials "$GKE_CLUSTER" \
+            --region "$GCP_REGION" \
+            --project "$GCP_PROJECT_ID"
+
+      - name: Check rollout status
+        run: |
+          set -euo pipefail
+          mkdir -p reports/post-deploy
+          report="reports/post-deploy/rollout-report.md"
+          {
+            echo "# GKE Rollout Status"
+            echo
+            echo "| Deployment | Namespace | Result |"
+            echo "| --- | --- | --- |"
+          } > "$report"
+
+          deployments=(
+            gateway
+            auth-service
+            course-service
+            content-service
+            progress-service
+            assessment-service
+            challenge-service
+            web
+          )
+
+          for deployment in "${deployments[@]}"; do
+            echo "Checking rollout for ${deployment}"
+            kubectl rollout status "deployment/${deployment}" \
+              -n "$POST_DEPLOY_NAMESPACE" \
+              --timeout=180s
+            echo "| ${deployment} | ${POST_DEPLOY_NAMESPACE} | pass |" >> "$report"
+          done
+
+          kubectl get pods -n "$POST_DEPLOY_NAMESPACE" -o wide > reports/post-deploy/pods.txt
+          kubectl get ingress -n "$POST_DEPLOY_NAMESPACE" -o wide > reports/post-deploy/ingress.txt
+          cat "$report"
+
+      - name: Upload rollout evidence
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: post-deploy-rollout-report
+          path: reports/post-deploy/
+          if-no-files-found: error
+
+  smoke:
+    name: Public endpoint smoke test
+    needs: rollout
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run smoke checks
+        run: |
+          set -euo pipefail
+
+          mkdir -p reports/post-deploy
+          report="reports/post-deploy/smoke-report.md"
+          base_url="${POST_DEPLOY_BASE_URL%/}"
+
+          {
+            echo "# Post Deploy Smoke Test"
+            echo
+            echo "| Check | URL | Expected | Actual | Result |"
+            echo "| --- | --- | --- | --- | --- |"
+          } > "$report"
+
+          check_status() {
+            name="$1"
+            url="$2"
+            expected_statuses="$3"
+            expected_body="${4:-}"
+            body_file="reports/post-deploy/${name}.body.txt"
+            header_file="reports/post-deploy/${name}.headers.txt"
+
+            status="$(curl \
+              --silent \
+              --show-error \
+              --location \
+              --retry 5 \
+              --retry-delay 5 \
+              --retry-all-errors \
+              --connect-timeout 10 \
+              --max-time 30 \
+              --dump-header "$header_file" \
+              --output "$body_file" \
+              --write-out "%{http_code}" \
+              "$url")"
+
+            result="fail"
+            IFS=',' read -ra allowed <<< "$expected_statuses"
+            for allowed_status in "${allowed[@]}"; do
+              allowed_status="$(echo "$allowed_status" | xargs)"
+              if [[ "$status" == "$allowed_status" ]]; then
+                result="pass"
+                break
+              fi
+            done
+
+            if [[ "$result" == "pass" && -n "$expected_body" ]]; then
+              if ! grep -Fq "$expected_body" "$body_file"; then
+                result="fail"
+              fi
+            fi
+
+            echo "| ${name} | \`${url}\` | \`${expected_statuses}\` | \`${status}\` | ${result} |" >> "$report"
+
+            if [[ "$result" != "pass" ]]; then
+              echo "::error::${name} failed. URL=${url}, expected=${expected_statuses}, actual=${status}"
+              echo "Response headers:"
+              cat "$header_file"
+              echo "Response body:"
+              cat "$body_file"
+              return 1
+            fi
+          }
+
+          check_status \
+            "web-health" \
+            "${base_url}${POST_DEPLOY_WEB_HEALTH_PATH}" \
+            "$POST_DEPLOY_WEB_EXPECTED_STATUS" \
+            "$POST_DEPLOY_WEB_EXPECTED_BODY"
+
+          check_status \
+            "api-health-route" \
+            "${base_url}${POST_DEPLOY_API_HEALTH_PATH}" \
+            "$POST_DEPLOY_API_EXPECTED_STATUSES"
+
+          cat "$report"
+
+      - name: Upload smoke test evidence
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: post-deploy-smoke-report
+          path: reports/post-deploy/
+          if-no-files-found: error

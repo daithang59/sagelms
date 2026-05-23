@@ -7,7 +7,6 @@ variable "services" {
   description = "Project APIs required by the SageLMS DevSecOps environment."
   type        = set(string)
   default = [
-    "artifactregistry.googleapis.com",
     "cloudresourcemanager.googleapis.com",
     "compute.googleapis.com",
     "container.googleapis.com",

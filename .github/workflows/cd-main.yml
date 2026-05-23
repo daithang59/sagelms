@@ -18,9 +18,14 @@ permissions:
   contents: write
   pull-requests: write
   security-events: write
+  id-token: write
 
 env:
   KUSTOMIZATION_FILE: infra/k8s/devsecops/apps/kustomization.yaml
+  GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+  GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+  GCP_SERVICE_ACCOUNT: ${{ vars.GCP_SERVICE_ACCOUNT }}
+  GCP_SECRET_HARBOR_ROBOT_CI_PUSH: ${{ vars.GCP_SECRET_HARBOR_ROBOT_CI_PUSH || 'sagelms-devsecops-harbor-robot-ci-push' }}
 
 concurrency:
   group: cd-main-${{ github.ref }}
@@ -52,12 +57,13 @@ jobs:
         with:
           filters: .github/path-filters.yml
 
-  build-scan-push:
-    name: Build, scan, push, and open deploy PR
+  plan:
+    name: Plan deploy services
     runs-on: ubuntu-latest
     needs: detect
+    outputs:
+      services_count: ${{ steps.plan.outputs.services_count }}
     env:
-      IMAGE_TAG: ${{ github.sha }}
       CHANGED_GATEWAY: ${{ needs.detect.outputs.gateway }}
       CHANGED_AUTH: ${{ needs.detect.outputs.auth_service }}
       CHANGED_COURSE: ${{ needs.detect.outputs.course_service }}
@@ -71,20 +77,14 @@ jobs:
       EVENT_NAME: ${{ github.event_name }}
       REGISTRY_HOST: ${{ vars.REGISTRY_HOST }}
       REGISTRY_NAMESPACE: ${{ vars.REGISTRY_NAMESPACE }}
-      REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME }}
-      REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
       - name: Plan deploy services
         id: plan
         shell: bash
         run: |
           set -euo pipefail
 
+          mkdir -p reports
           services=()
           add_service() {
             services+=("$1|$2|$3")
@@ -126,7 +126,7 @@ jobs:
             } >> "$GITHUB_STEP_SUMMARY"
           fi
 
-          printf "%s\n" "${services[@]}" > /tmp/deploy-services.txt
+          printf "%s\n" "${services[@]}" > reports/deploy-services.txt
           echo "services_count=${#services[@]}" >> "$GITHUB_OUTPUT"
 
           if [[ "${#services[@]}" -eq 0 ]]; then
@@ -139,8 +139,35 @@ jobs:
             printf -- "- %s\n" "${services[@]}"
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Check registry configuration
+      - name: Upload deploy plan
         if: steps.plan.outputs.services_count != '0'
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-services
+          path: reports/deploy-services.txt
+          retention-days: 7
+
+  validate:
+    name: Validate deploy services
+    runs-on: ubuntu-latest
+    needs: plan
+    if: needs.plan.outputs.services_count != '0'
+    env:
+      REGISTRY_HOST: ${{ vars.REGISTRY_HOST }}
+      REGISTRY_NAMESPACE: ${{ vars.REGISTRY_NAMESPACE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download deploy plan
+        uses: actions/download-artifact@v4
+        with:
+          name: deploy-services
+          path: reports
+
+      - name: Check registry configuration
         shell: bash
         run: |
           set -euo pipefail
@@ -153,20 +180,48 @@ jobs:
             echo "Missing repository variable: REGISTRY_NAMESPACE"
             missing=1
           fi
-          if [[ -z "$REGISTRY_USERNAME" ]]; then
-            echo "Missing repository secret: REGISTRY_USERNAME"
+          if [[ -z "$GCP_PROJECT_ID" ]]; then
+            echo "Missing repository variable: GCP_PROJECT_ID"
             missing=1
           fi
-          if [[ -z "$REGISTRY_PASSWORD" ]]; then
-            echo "Missing repository secret: REGISTRY_PASSWORD"
+          if [[ -z "$GCP_WORKLOAD_IDENTITY_PROVIDER" ]]; then
+            echo "Missing repository variable: GCP_WORKLOAD_IDENTITY_PROVIDER"
+            missing=1
+          fi
+          if [[ -z "$GCP_SERVICE_ACCOUNT" ]]; then
+            echo "Missing repository variable: GCP_SERVICE_ACCOUNT"
+            missing=1
+          fi
+          if [[ -z "$GCP_SECRET_HARBOR_ROBOT_CI_PUSH" ]]; then
+            echo "Missing repository variable: GCP_SECRET_HARBOR_ROBOT_CI_PUSH"
             missing=1
           fi
           if [[ $missing -ne 0 ]]; then
             exit 1
           fi
 
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_SERVICE_ACCOUNT }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Verify Harbor robot secret access
+        shell: bash
+        run: |
+          set -euo pipefail
+          harbor_robot_json="$(gcloud secrets versions access latest --secret "$GCP_SECRET_HARBOR_ROBOT_CI_PUSH" --project "$GCP_PROJECT_ID")"
+          if [[ -z "$harbor_robot_json" ]]; then
+            echo "::error::Secret $GCP_SECRET_HARBOR_ROBOT_CI_PUSH has an empty latest version"
+            exit 1
+          fi
+          echo "::add-mask::$harbor_robot_json"
+          echo "Harbor robot secret is available."
+
       - name: Set up JDK
-        if: steps.plan.outputs.services_count != '0'
         uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -174,39 +229,13 @@ jobs:
           cache: maven
 
       - name: Set up Node
-        if: steps.plan.outputs.services_count != '0'
         uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: npm
           cache-dependency-path: apps/web/package-lock.json
 
-      - name: Set up Docker Buildx
-        if: steps.plan.outputs.services_count != '0'
-        uses: docker/setup-buildx-action@v3
-
-      - name: Install Trivy
-        if: steps.plan.outputs.services_count != '0'
-        shell: bash
-        run: |
-          set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install -y wget apt-transport-https gnupg lsb-release
-          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo gpg --dearmor -o /usr/share/keyrings/trivy.gpg
-          echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb generic main" | sudo tee /etc/apt/sources.list.d/trivy.list
-          sudo apt-get update
-          sudo apt-get install -y trivy
-
-      - name: Install yq
-        if: steps.plan.outputs.services_count != '0'
-        shell: bash
-        run: |
-          set -euo pipefail
-          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64
-          sudo chmod +x /usr/local/bin/yq
-
       - name: Run service checks
-        if: steps.plan.outputs.services_count != '0'
         shell: bash
         run: |
           set -euo pipefail
@@ -228,25 +257,99 @@ jobs:
               popd >/dev/null
             fi
             echo "::endgroup::"
-          done < /tmp/deploy-services.txt
+          done < reports/deploy-services.txt
+
+  build_scan_push:
+    name: Build, scan, and push images
+    runs-on: ubuntu-latest
+    needs:
+      - plan
+      - validate
+    if: needs.plan.outputs.services_count != '0'
+    env:
+      IMAGE_TAG: ${{ github.sha }}
+      REGISTRY_HOST: ${{ vars.REGISTRY_HOST }}
+      REGISTRY_NAMESPACE: ${{ vars.REGISTRY_NAMESPACE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download deploy plan
+        uses: actions/download-artifact@v4
+        with:
+          name: deploy-services
+          path: reports
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v4.1.2
+
+      - name: Install Trivy
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y wget apt-transport-https gnupg lsb-release
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo gpg --dearmor -o /usr/share/keyrings/trivy.gpg
+          echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb generic main" | sudo tee /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update
+          sudo apt-get install -y trivy
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_SERVICE_ACCOUNT }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
 
       - name: Login to Harbor
-        if: steps.plan.outputs.services_count != '0'
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY_HOST }}
-          username: ${{ env.REGISTRY_USERNAME }}
-          password: ${{ env.REGISTRY_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          harbor_robot_json="$(gcloud secrets versions access latest --secret "$GCP_SECRET_HARBOR_ROBOT_CI_PUSH" --project "$GCP_PROJECT_ID")"
+          if [[ -z "$harbor_robot_json" ]]; then
+            echo "::error::Secret $GCP_SECRET_HARBOR_ROBOT_CI_PUSH has an empty latest version"
+            exit 1
+          fi
 
-      - name: Build, scan, push images, and update manifest
-        if: steps.plan.outputs.services_count != '0'
+          registry_username="$(jq -r '.name // .username // .robot_name // empty' <<< "$harbor_robot_json")"
+          registry_password="$(jq -r '.secret // .token // .password // empty' <<< "$harbor_robot_json")"
+
+          if [[ -z "$registry_username" ]]; then
+            echo "::error::Secret $GCP_SECRET_HARBOR_ROBOT_CI_PUSH must contain one of: name, username, robot_name"
+            exit 1
+          fi
+          if [[ -z "$registry_password" ]]; then
+            echo "::error::Secret $GCP_SECRET_HARBOR_ROBOT_CI_PUSH must contain one of: secret, token, password"
+            exit 1
+          fi
+
+          echo "::add-mask::$registry_username"
+          echo "::add-mask::$registry_password"
+          printf '%s' "$registry_password" | docker login "$REGISTRY_HOST" --username "$registry_username" --password-stdin
+
+      - name: Prepare deploy reports
         shell: bash
         run: |
           set -euo pipefail
 
-          mkdir -p reports/trivy "reports/sbom/$IMAGE_TAG"
-          digest_report="reports/image-digests-$IMAGE_TAG.md"
-          pr_body="reports/deploy-pr-body-$IMAGE_TAG.md"
+          rm -rf reports/trivy reports/sbom reports/cosign
+          rm -f reports/image-digests*.md reports/image-digests*.tsv
+          rm -f reports/deploy-pr-body*.md reports/deploy-summary*.md
+
+          mkdir -p reports/trivy reports/sbom reports/cosign
+          digest_report="reports/image-digests.md"
+          digest_tsv="reports/image-digests.tsv"
+          pr_body="reports/deploy-pr-body.md"
+          summary_report="reports/deploy-summary.md"
+
+          printf "service\timage\tdigest\n" > "$digest_tsv"
 
           {
             echo "# Image digests for $IMAGE_TAG"
@@ -258,48 +361,217 @@ jobs:
           {
             echo "# Deploy images to $IMAGE_TAG"
             echo
-            echo "| Service | Image | Digest | Trivy | SBOM |"
-            echo "| --- | --- | --- | --- | --- |"
+            echo "| Service | Image | Digest | Trivy | SBOM | Cosign |"
+            echo "| --- | --- | --- | --- | --- | --- |"
           } > "$pr_body"
+
+          {
+            echo "## CD Deploy Summary"
+            echo
+            echo "| Field | Value |"
+            echo "| --- | --- |"
+            echo "| Commit | \`$IMAGE_TAG\` |"
+            echo "| Registry | \`$REGISTRY_HOST\` |"
+            echo "| Namespace | \`$REGISTRY_NAMESPACE\` |"
+            echo "| Manifest | \`$KUSTOMIZATION_FILE\` |"
+            echo
+            echo "### Images"
+            echo
+            echo "| Service | Image | Digest | Trivy | SBOM | Cosign |"
+            echo "| --- | --- | --- | --- | --- | --- |"
+          } > "$summary_report"
+
+      - name: Build Docker images
+        shell: bash
+        run: |
+          set -euo pipefail
 
           while IFS='|' read -r service context kind; do
             [[ -z "$service" ]] && continue
             image="$REGISTRY_HOST/$REGISTRY_NAMESPACE/$service:$IMAGE_TAG"
-            image_name="$REGISTRY_HOST/$REGISTRY_NAMESPACE/$service"
-            trivy_report="reports/trivy/trivy-$service.txt"
-            sbom_report="reports/sbom/$IMAGE_TAG/$service-sbom.cdx.json"
 
             echo "::group::Docker build $service"
             docker build -t "$image" "$context"
             echo "::endgroup::"
+          done < reports/deploy-services.txt
+
+      - name: Scan images and generate SBOM
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          while IFS='|' read -r service context kind; do
+            [[ -z "$service" ]] && continue
+            image="$REGISTRY_HOST/$REGISTRY_NAMESPACE/$service:$IMAGE_TAG"
+            trivy_report="reports/trivy/trivy-$service.txt"
+            sbom_report="reports/sbom/$service-sbom.cdx.json"
 
             echo "::group::Trivy scan $service"
-            trivy image --severity HIGH,CRITICAL --exit-code 1 --format table --output "$trivy_report" "$image"
+            if ! trivy image --severity HIGH,CRITICAL --exit-code 1 --format table --output "$trivy_report" "$image"; then
+              echo "Trivy found HIGH or CRITICAL vulnerabilities in $service."
+              echo
+              cat "$trivy_report"
+              exit 1
+            fi
             trivy image --format cyclonedx --output "$sbom_report" "$image"
             echo "::endgroup::"
+          done < reports/deploy-services.txt
+
+      - name: Push images and record digests
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          digest_report="reports/image-digests.md"
+          digest_tsv="reports/image-digests.tsv"
+          pr_body="reports/deploy-pr-body.md"
+          summary_report="reports/deploy-summary.md"
+
+          while IFS='|' read -r service context kind; do
+            [[ -z "$service" ]] && continue
+            image="$REGISTRY_HOST/$REGISTRY_NAMESPACE/$service:$IMAGE_TAG"
+            sbom_report="reports/sbom/$service-sbom.cdx.json"
 
             docker push "$image"
             digest="$(docker buildx imagetools inspect "$image" --format '{{.Manifest.Digest}}')"
+            digest_ref="$REGISTRY_HOST/$REGISTRY_NAMESPACE/$service@$digest"
 
-            echo "| $service | \`$image\` | \`$digest\` | PASS | \`$sbom_report\` |" >> "$pr_body"
+            cosign sign --yes "$digest_ref" 2>&1 | tee "reports/cosign/cosign-sign-$service.txt"
+
+            cosign attest --yes \
+              --predicate "$sbom_report" \
+              --type cyclonedx \
+              "$digest_ref" 2>&1 | tee "reports/cosign/cosign-attest-sbom-$service.txt"
+
+            identity="https://github.com/$GITHUB_REPOSITORY/.github/workflows/cd-main.yml@refs/heads/$GITHUB_REF_NAME"
+
+            cosign verify "$digest_ref" \
+              --certificate-identity "$identity" \
+              --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+              2>&1 | tee "reports/cosign/cosign-verify-$service.txt"
+
+            cosign verify-attestation "$digest_ref" \
+              --type cyclonedx \
+              --certificate-identity "$identity" \
+              --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+              2>&1 | tee "reports/cosign/cosign-verify-attestation-$service.txt"
+
+            echo "| $service | \`$image\` | \`$digest\` | PASS | \`$sbom_report\` | PASS |" >> "$pr_body"
+            echo "| $service | \`$image\` | \`$digest\` | PASS | \`$sbom_report\` | PASS |" >> "$summary_report"
             echo "| $service | \`$image\` | \`$digest\` |" >> "$digest_report"
+            printf "%s\t%s\t%s\n" "$service" "$image" "$digest" >> "$digest_tsv"
+          done < reports/deploy-services.txt
+
+      - name: Publish GitHub job summary
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          summary_report="reports/deploy-summary.md"
+          cat "$summary_report" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload deploy evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-evidence
+          path: |
+            reports/image-digests.md
+            reports/image-digests.tsv
+            reports/deploy-pr-body.md
+            reports/deploy-summary.md
+            reports/trivy/*.txt
+            reports/sbom/*.json
+            reports/cosign/*.txt
+          retention-days: 14
+
+  deploy_pr:
+    name: Open deploy PR
+    runs-on: ubuntu-latest
+    needs:
+      - plan
+      - build_scan_push
+    if: needs.plan.outputs.services_count != '0'
+    env:
+      IMAGE_TAG: ${{ github.sha }}
+      REGISTRY_HOST: ${{ vars.REGISTRY_HOST }}
+      REGISTRY_NAMESPACE: ${{ vars.REGISTRY_NAMESPACE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download deploy plan
+        uses: actions/download-artifact@v4
+        with:
+          name: deploy-services
+          path: reports
+
+      - name: Download deploy evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: deploy-evidence
+          path: reports
+
+      - name: Install yq
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+
+      - name: Update deployment manifest image tags and digests
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          digest_tsv="reports/image-digests.tsv"
+          if [[ ! -s "$digest_tsv" ]]; then
+            echo "::error::Missing digest map: $digest_tsv"
+            exit 1
+          fi
+
+          while IFS='|' read -r service context kind; do
+            [[ -z "$service" ]] && continue
+            image_name="$REGISTRY_HOST/$REGISTRY_NAMESPACE/$service"
+            image_digest="$(awk -F '\t' -v service="$service" 'NR > 1 && $1 == service { print $3; found=1 } END { if (!found) exit 1 }' "$digest_tsv" || true)"
+
+            if [[ -z "$image_digest" ]]; then
+              echo "::error::Missing digest for $service in $digest_tsv"
+              exit 1
+            fi
 
             export IMAGE_NAME="$image_name"
-            yq -i '(.images[] | select(.newName == env(IMAGE_NAME)) | .newTag) = env(IMAGE_TAG)' "$KUSTOMIZATION_FILE"
-          done < /tmp/deploy-services.txt
+            export IMAGE_DIGEST="$image_digest"
+            yq -i '
+              (.images[] | select(.newName == env(IMAGE_NAME)) | .newTag) = env(IMAGE_TAG) |
+              (.images[] | select(.newName == env(IMAGE_NAME)) | .digest) = env(IMAGE_DIGEST)
+            ' "$KUSTOMIZATION_FILE"
+          done < reports/deploy-services.txt
+
+      - name: Publish GitHub job summary
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          summary_report="reports/deploy-summary.md"
+          {
+            cat "$summary_report"
+            echo
+            echo "### Deploy PR"
+            echo
+            echo "A deploy PR will update \`$KUSTOMIZATION_FILE\` to image tag \`$IMAGE_TAG\` and pin the resolved image digests."
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Create deploy PR
-        if: steps.plan.outputs.services_count != '0'
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ github.token }}
           branch: chore/deploy-${{ env.IMAGE_TAG }}
           delete-branch: true
-          title: "chore(deploy): update images to ${{ env.IMAGE_TAG }}"
-          body-path: reports/deploy-pr-body-${{ env.IMAGE_TAG }}.md
-          commit-message: "chore(deploy): update images to ${{ env.IMAGE_TAG }}"
+          title: "chore(deploy): update images to ${{ env.IMAGE_TAG }} [skip ci]"
+          body-path: reports/deploy-pr-body.md
+          commit-message: "chore(deploy): update images to ${{ env.IMAGE_TAG }} [skip ci]"
           add-paths: |
             infra/k8s/devsecops/apps/kustomization.yaml
-            reports/image-digests-${{ env.IMAGE_TAG }}.md
-            reports/trivy/*.txt
-            reports/sbom/${{ env.IMAGE_TAG }}/*.json
+            reports

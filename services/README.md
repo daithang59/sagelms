@@ -14,14 +14,12 @@ Chứa mã nguồn của tất cả **backend microservices** trong SageLMS.
 | [content-service](./content-service/) | `8083` | Spring Boot | Quản lý nội dung bài giảng |
 | [progress-service](./progress-service/) | `8084` | Spring Boot | Theo dõi tiến trình học |
 | [assessment-service](./assessment-service/) | `8085` | Spring Boot | Quiz, chấm điểm |
-| [ai-tutor-service](./ai-tutor-service/) | `8087` | FastAPI | AI Tutor RAG |
-| [worker](./worker/) | — | Celery/BullMQ | Background jobs |
+| [ai-tutor-service](./ai-tutor-service/) | `8086` | FastAPI | AI Tutor RAG |
 
 ## Nguyên tắc
 
 - Mỗi service sở hữu **schema riêng** trong PostgreSQL.
 - Giao tiếp cross-service qua **REST API** (không join DB trực tiếp).
-- Tác vụ nặng gửi vào **Redis queue** → Worker xử lý.
 - Mọi API tuân thủ **OpenAPI 3.0** và **error format thống nhất**.
 
 ## Xem thêm

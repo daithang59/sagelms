@@ -80,6 +80,24 @@ module "cnpg_backup" {
   depends_on = [module.project_services]
 }
 
+module "harbor_registry_storage" {
+  count = var.enable_harbor_registry_storage ? 1 : 0
+
+  source             = "../../modules/harbor-registry-storage"
+  project_id         = var.project_id
+  region             = var.region
+  bucket_name        = var.harbor_registry_bucket_name
+  service_account_id = var.harbor_registry_service_account_id
+  ksa_namespace      = var.harbor_registry_ksa_namespace
+  ksa_name           = var.harbor_registry_ksa_name
+  versioning_enabled = var.harbor_registry_bucket_versioning_enabled
+  log_bucket_name    = var.harbor_registry_log_bucket_name
+  log_object_prefix  = var.harbor_registry_log_object_prefix
+  labels             = local.labels
+
+  depends_on = [module.project_services, module.gke]
+}
+
 module "redis" {
   source            = "../../modules/redis"
   enabled           = var.enable_managed_redis

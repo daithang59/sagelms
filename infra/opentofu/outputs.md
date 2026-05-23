@@ -51,37 +51,42 @@ $env:Path = "C:\Users\THANG\AppData\Local\Google\Cloud SDK\google-cloud-sdk\bin;
 ## Ứng Dụng Web Và Endpoint Public
 
 - Namespace workload ứng dụng: `sagelms-devsecops`
-- Public domain hiện tại: `http://sagelms.id.vn`
+- Public domain hiện tại: `https://sagelms.id.vn`
+- HTTP endpoint vẫn còn mở: `http://sagelms.id.vn`
 - Static IP đang dùng: `8.233.61.249`
 - Tên static IP trên GCP/GKE Ingress: `sagelms-web-ip`
 - Ingress: `sagelms-devsecops/sagelms-ingress`
 - Routing hiện tại:
   - `/` -> service `web:80`
   - `/api` -> service `gateway:8080`
-- Health check HTTP đã kiểm chứng: `http://sagelms.id.vn/health` trả `200 OK` với body `ok`.
-- API route đã kiểm chứng: `http://sagelms.id.vn/api/actuator/health` trả `401 Unauthorized`, xác nhận request đã đi tới `gateway`; endpoint này hiện bị bảo vệ bởi auth.
+- Health check HTTPS đã kiểm chứng: `https://sagelms.id.vn/health` trả `HTTP/2 200` với body `ok`.
+- Web route HTTPS đã kiểm chứng: `https://sagelms.id.vn/register` trả `HTTP/2 200`.
+- API route HTTP đã kiểm chứng: `http://sagelms.id.vn/api/actuator/health` trả `401 Unauthorized`, xác nhận request đã đi tới `gateway`; endpoint này hiện bị bảo vệ bởi auth.
 - DNS đã trỏ đúng: `sagelms.id.vn` resolve về `8.233.61.249`.
 
 Trạng thái HTTPS:
 
 - ManagedCertificate: `sagelms-devsecops/sagelms-web-cert`
 - Domain trong certificate: `sagelms.id.vn`
-- Trạng thái kiểm tra gần nhất: `certificateStatus=Provisioning`, `domainStatus=FailedNotVisible`
-- Kết luận bàn giao: HTTPS chưa Active, hiện chỉ dùng HTTP để demo kỹ thuật; không nhập credential thật qua HTTP cho đến khi certificate Active và truy cập `https://sagelms.id.vn` hoạt động.
+- Trạng thái kiểm tra gần nhất: `certificateStatus=Active`, `domainStatus=Active`
+- Certificate issuer kiểm chứng qua TLS: Google Trust Services, `CN=WR3`
+- Thời hạn certificate kiểm chứng: từ `2026-05-21 09:55:10 GMT` đến `2026-08-19 10:49:04 GMT`
+- Kết luận bàn giao: HTTPS đã Active và có thể dùng `https://sagelms.id.vn` làm URL demo chính.
+- Ghi chú còn lại: Ingress vẫn đang bật `kubernetes.io/ingress.allow-http: "true"`; nếu muốn hardening hơn, Member 3 có thể cấu hình redirect HTTP -> HTTPS hoặc tắt HTTP sau khi thống nhất.
 
 Trạng thái deploy app hiện tại:
 
-- Overlay đang dùng để deploy tạm: `infra/k8s/devsecops/apps-artifact-registry`
-- Registry tạm cho app images: `asia-southeast1-docker.pkg.dev/sagelms/sagelms-app`
-- Web image hiện tại: `asia-southeast1-docker.pkg.dev/sagelms/sagelms-app/web:gke-temp-7b2ae13`
-- Các deployment app hiện tại đều `1/1 Running`, restart `0`: `web`, `gateway`, `auth-service`, `course-service`, `content-service`, `progress-service`, `assessment-service`, `challenge-service`.
-- `worker` đang được loại khỏi overlay tạm bằng patch delete trong `apps-artifact-registry/kustomization.yaml`; chưa coi worker là workload bàn giao cho demo web chính.
+- Overlay đang dùng: `infra/k8s/devsecops/apps`
+- Registry cho app images: `harbor.sagelms.id.vn/sagelms-app`
+- App overlay hiện pin Harbor image bằng digest trong `apps/kustomization.yaml`.
+- Các deployment app hiện tại đều `1/1 Running`: `web`, `gateway`, `auth-service`, `course-service`, `content-service`, `progress-service`, `assessment-service`, `challenge-service`.
+- `worker` đang được loại khỏi overlay app chính bằng patch delete; chưa coi worker là workload bàn giao cho demo web chính.
 
 Trạng thái Harbor:
 
 - Harbor runtime hiện đã có trong namespace `harbor`, các deployment/statefulset chính đang Running.
 - `harbor-pull-secret` trong namespace `sagelms-devsecops` đã được ESO đồng bộ và test pull image Harbor đã có sự kiện pull thành công.
-- App workload hiện tại vẫn chưa chuyển sang Harbor làm registry chính; đang dùng Artifact Registry tạm. Phần chuyển image sang Harbor, pin digest, Trivy image scan, SBOM và Cosign signing là phần bàn giao tiếp cho Member 2/Member 1.
+- App workload hiện tại dùng Harbor làm registry chính và pin image bằng digest trong overlay app. Phần Trivy image scan, SBOM và Cosign signing là phần bàn giao tiếp cho Member 2/Member 1.
 
 ## Mạng
 
@@ -250,7 +255,7 @@ Namespace `sagelms-devsecops`:
 
 Manifest Kubernetes foundation:
 
-- `infra/k8s/devsecops/cnpg-foundation.yaml`
+- `infra/k8s/devsecops/cloudnativepg/cnpg-foundation.yaml`
 - `infra/k8s/devsecops/apps/app-shared-externalsecret.yaml`
 
 Các ExternalSecret mới đã apply và đồng bộ:
@@ -278,11 +283,11 @@ Chưa đồng bộ vì source secret chưa có value thật:
 ## Trạng Thái Bàn Giao
 
 - Phần Cloud/IaC foundation của Thắng đã đủ để bàn giao: OpenTofu validate được, Checkov không còn failed check trong `infra/opentofu`, GKE chạy được app workloads, ESO sync secret, CloudNativePG healthy và backup đã completed.
-- Web app đã chạy được qua HTTP tại `http://sagelms.id.vn`; đây là trạng thái demo kỹ thuật hiện tại, chưa phải production-ready HTTPS.
-- HTTPS còn pending vì `ManagedCertificate` chưa Active; cần theo dõi/fix cùng người phụ trách DNS/Ingress cho đến khi `https://sagelms.id.vn` hoạt động.
-- GitOps/FluxCD final còn pending: workload hiện đang được apply bằng Kustomize overlay, chưa thấy FluxCD reconcile app runtime.
-- Harbor final còn pending: Harbor đã có runtime và pull secret, nhưng app deployment hiện vẫn dùng Artifact Registry tạm; cần Member 2/Member 1 chuyển sang Harbor image digest, SBOM, Cosign và workflow build/publish chính thức.
+- Web app đã chạy được qua HTTPS tại `https://sagelms.id.vn`; `ManagedCertificate` đã Active.
+- HTTP vẫn còn được allow trên Ingress để tiện debug; nên giao Member 3 quyết định redirect/tắt HTTP trong bước hardening.
+- GitOps/FluxCD đang có manifests reconcile app runtime từ `infra/k8s/devsecops/apps` và Harbor từ `infra/k8s/devsecops/harbor`.
+- Harbor là registry chính cho app runtime; Member 2/Member 1 vẫn cần hoàn thiện SBOM, Cosign và workflow build/publish chính thức.
 - Thành viên 1 có thể dùng project, region, tên GKE cluster, WIF provider, GitHub Actions GSA, OpenTofu path và endpoint web hiện tại để hoàn thiện CI/CD workflow, infra plan/apply approval và smoke test.
 - Thành viên 2 cần tiếp tục phần Harbor/supply-chain: Harbor project/robot account/retention, push image chính thức, resolve digest, Trivy image scan, SBOM, Cosign signing và cập nhật overlay/GitOps theo digest.
-- Thành viên 3 có thể dùng GKE cluster, namespaces, ESO mapping, ClusterSecretStore, CloudNativePG runtime manifests, `sagelms-postgres-rw` service, backup/WAL archive và app overlay hiện tại để GitOps hóa runtime, hoàn thiện HTTPS, Kyverno, observability và runbook.
+- Thành viên 3 có thể dùng GKE cluster, namespaces, ESO mapping, ClusterSecretStore, CloudNativePG runtime manifests, `sagelms-postgres-rw` service, backup/WAL archive và app overlay hiện tại để GitOps hóa runtime, hardening Ingress/HTTPS, Kyverno, observability và runbook.
 - Bước nên làm tiếp trước khi chốt nghiệm thu cuối: restore drill CloudNativePG tối thiểu, test end-to-end login/register/API, và quyết định chính thức về `worker`/`ai-tutor-service` trong scope demo.

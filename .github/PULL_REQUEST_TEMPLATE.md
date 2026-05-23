@@ -21,7 +21,6 @@
 - [ ] `services/progress-service`
 - [ ] `services/assessment-service`
 - [ ] `services/ai-tutor-service`
-- [ ] `services/worker`
 - [ ] `infra/`
 - [ ] `docs/`
 

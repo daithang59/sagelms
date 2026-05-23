@@ -40,6 +40,12 @@ variable "enable_cnpg_backup" {
   default     = true
 }
 
+variable "enable_harbor_registry_storage" {
+  description = "Whether to provision Harbor registry GCS bucket, IAM and Workload Identity."
+  type        = bool
+  default     = true
+}
+
 variable "enable_managed_redis" {
   description = "Whether to provision managed Redis."
   type        = bool
@@ -136,4 +142,46 @@ variable "cnpg_backup_retention_days" {
   description = "Age in days before deleting old CloudNativePG backup objects."
   type        = number
   default     = 30
+}
+
+variable "harbor_registry_bucket_name" {
+  description = "GCS bucket name for Harbor registry image blobs."
+  type        = string
+  default     = "sagelms-devsecops-harbor-registry"
+}
+
+variable "harbor_registry_service_account_id" {
+  description = "Google service account ID for Harbor registry GCS access. Must be 30 characters or fewer."
+  type        = string
+  default     = "sagelms-devsecops-harbor-gcs"
+}
+
+variable "harbor_registry_ksa_namespace" {
+  description = "Kubernetes namespace for the Harbor registry service account."
+  type        = string
+  default     = "harbor"
+}
+
+variable "harbor_registry_ksa_name" {
+  description = "Kubernetes service account name used by Harbor registry."
+  type        = string
+  default     = "harbor-registry"
+}
+
+variable "harbor_registry_bucket_versioning_enabled" {
+  description = "Whether to enable object versioning for the Harbor registry bucket."
+  type        = bool
+  default     = true
+}
+
+variable "harbor_registry_log_bucket_name" {
+  description = "Optional bucket that receives Harbor registry bucket access logs. Null keeps the current project-level audit-log-only baseline."
+  type        = string
+  default     = null
+}
+
+variable "harbor_registry_log_object_prefix" {
+  description = "Object prefix for Harbor registry bucket access logs when harbor_registry_log_bucket_name is set."
+  type        = string
+  default     = "harbor-registry-access"
 }

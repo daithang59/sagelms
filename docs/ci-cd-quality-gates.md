@@ -2,7 +2,7 @@
 
 Tài liệu này mô tả các quality/security gate đang áp dụng cho phần CI/CD của SageLMS, chủ yếu trong workflow `.github/workflows/ci-pr.yml` và workflow build/publish image `.github/workflows/build-publish.yml`.
 
-Cập nhật hiện tại: PR validation chạy trên GitHub-hosted runner. Build/publish image đã mở rộng cho toàn bộ service có Dockerfile trong scope hiện tại. GitOps update, Cosign signing và post-deploy smoke test vẫn là các bước sau.
+Cập nhật hiện tại: PR validation chạy trên GitHub-hosted runner và có thể chạy thủ công bằng `workflow_dispatch` để test source code trên branch hiện tại. Build/publish image hiện đã được thay bằng workflow CD trên `main`. GitOps update để Member phụ trách FluxCD xử lý riêng. Post-deploy smoke test đã tách thành workflow riêng để kiểm tra rollout GKE và endpoint public sau khi FluxCD reconcile xong.
 
 ## PR Validation
 
