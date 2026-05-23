@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { Bot, Check, ChevronsLeft, ChevronsRight, MessageSquarePlus, Pencil, RotateCcw, Send, Sparkles, Trash2, X } from 'lucide-react';
 import { Button, Card, CardBody, Message, useConfirm } from '@/components/ui';
+import { useAuth } from '@/contexts/AuthContext';
 import { useAiTutor } from '@/hooks/useAiTutor';
 
 const SAMPLE_PROMPTS = [
@@ -35,6 +36,7 @@ export default function AiTutorPage() {
     sendMessage,
     retryLastMessage,
   } = useAiTutor();
+  const { user } = useAuth();
   const confirm = useConfirm();
   const [input, setInput] = useState('');
   const [historyCollapsed, setHistoryCollapsed] = useState(false);
@@ -119,13 +121,10 @@ export default function AiTutorPage() {
 
   return (
     <div className="mx-auto flex h-[calc(100vh-8rem)] max-w-7xl flex-col space-y-6">
-      <div className="flex items-center gap-3">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-600 to-cyan-500 text-white shadow-lg shadow-violet-500/20">
-          <Bot className="h-6 w-6" />
-        </div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">AI Tutor</h1>
-          <p className="text-sm text-slate-500">Hỏi đáp thông minh với trợ giảng AI của SageLMS.</p>
+          <h1 className="text-2xl font-bold text-slate-800">AI Tutor</h1>
+          <p className="mt-1 text-slate-500">Hỏi đáp thông minh với trợ giảng AI của SageLMS.</p>
         </div>
       </div>
 
@@ -162,7 +161,14 @@ export default function AiTutorPage() {
               ) : (
                 <div className="space-y-5">
                   {messages.map((message) => (
-                    <Message key={message.id} role={message.role} content={message.content} createdAt={message.createdAt} />
+                    <Message
+                      key={message.id}
+                      role={message.role}
+                      content={message.content}
+                      createdAt={message.createdAt}
+                      userName={user?.fullName || user?.email}
+                      userAvatarUrl={user?.avatarUrl}
+                    />
                   ))}
 
                   {loading && (
@@ -186,7 +192,6 @@ export default function AiTutorPage() {
                         {lastPrompt && (
                           <Button type="button" variant="outline" size="sm" onClick={() => void retryLastMessage()} disabled={loading}>
                             <RotateCcw className="h-4 w-4" />
-                            Gửi lại
                           </Button>
                         )}
                       </div>
@@ -197,9 +202,9 @@ export default function AiTutorPage() {
               )}
             </div>
 
-            <form onSubmit={handleSubmit} className="border-t border-slate-100 bg-white px-5 py-4">
-              <div className="flex items-end gap-3">
-                <div className="min-w-0 flex-1">
+            <form onSubmit={handleSubmit} className="border-t border-slate-100 bg-white px-5">
+              <div>
+                <div className="relative">
                   <label className="sr-only" htmlFor="ai-tutor-message">
                     Nhập câu hỏi cho AI Tutor
                   </label>
@@ -210,14 +215,21 @@ export default function AiTutorPage() {
                     onKeyDown={handleKeyDown}
                     placeholder="Nhập câu hỏi của bạn..."
                     rows={2}
-                    className="max-h-40 min-h-[56px] w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-violet-300 focus:bg-white focus:ring-4 focus:ring-violet-100"
+                    className="max-h-40 min-h-[90px] w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 py-4 pl-4 pr-28 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-violet-300 focus:bg-white focus:ring-4 focus:ring-violet-100"
                   />
-                  <div className="mt-1 text-right text-xs text-slate-400">{input.length}/4000</div>
+                  <button
+                    type="submit"
+                    disabled={!canSend || loading}
+                    className="absolute bottom-3 right-3 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-600 hover:opacity-80 to-cyan-500 text-white transition disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none"
+                    aria-label="Gửi tin nhắn"
+                  >
+                    {loading ? (
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                    ) : (
+                      <Send className="h-4 w-4" />
+                    )}
+                  </button>
                 </div>
-                <Button type="submit" size="lg" isLoading={loading} disabled={!canSend} className="mb-5 h-12 px-4">
-                  <Send className="h-5 w-5" />
-                  <span className="hidden sm:inline">Gửi</span>
-                </Button>
               </div>
             </form>
           </CardBody>
@@ -238,7 +250,7 @@ export default function AiTutorPage() {
               <button
                 type="button"
                 onClick={newConversation}
-                className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-600 to-cyan-500 text-white shadow-lg shadow-violet-500/20 transition hover:brightness-105"
+                className="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-600 text-white shadow-lg shadow-violet-500/20 transition hover:brightness-105"
                 aria-label="Cuộc trò chuyện mới"
                 title="Cuộc trò chuyện mới"
               >
@@ -247,7 +259,7 @@ export default function AiTutorPage() {
             </CardBody>
           ) : (
             <CardBody className="flex h-full min-h-0 flex-col p-0">
-              <div className="border-b border-slate-100 px-5 py-4">
+              <div className="border-b border-slate-100 px-2 py-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <h2 className="text-lg font-bold text-slate-900">Lịch sử hội thoại</h2>
@@ -263,13 +275,13 @@ export default function AiTutorPage() {
                     <ChevronsRight className="h-5 w-5" />
                   </button>
                 </div>
-                <Button type="button" variant="secondary" onClick={newConversation} className="mt-4 w-full justify-center">
+                <Button type="button" variant="primary" onClick={newConversation} className="mt-4 w-full justify-center">
                   <MessageSquarePlus className="h-4 w-4" />
                   Cuộc trò chuyện mới
                 </Button>
               </div>
 
-              <div className="min-h-0 flex-1 overflow-y-auto p-3">
+              <div className="min-h-0 flex-1 overflow-y-auto px-2 py-4">
                 {loadingConversations && conversations.length === 0 ? (
                   <div className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-500">Đang tải lịch sử...</div>
                 ) : conversations.length === 0 ? (
@@ -327,11 +339,11 @@ export default function AiTutorPage() {
                                 <p className="truncate text-sm font-semibold text-slate-800">{conversation.title}</p>
                                 <p className="mt-1 text-xs text-slate-500">{formatConversationTime(conversation.updatedAt)}</p>
                               </button>
-                              <div className="flex shrink-0 flex-col gap-1">
+                              <div className="flex shrink-0 items-center gap-1">
                                 <button
                                   type="button"
                                   onClick={() => startEditingConversation(conversation.id, conversation.title)}
-                                  className="inline-flex h-8 items-center justify-center gap-1 rounded-xl px-2 text-xs font-semibold text-slate-600 opacity-80 transition hover:bg-violet-50 hover:text-violet-700 hover:opacity-100"
+                                  className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-slate-600 opacity-80 transition hover:bg-violet-50 hover:text-violet-700 hover:opacity-100"
                                   aria-label="Chỉnh sửa cuộc trò chuyện"
                                 >
                                   <Pencil className="h-4 w-4" />
@@ -339,7 +351,7 @@ export default function AiTutorPage() {
                                 <button
                                   type="button"
                                   onClick={() => void handleDeleteConversation(conversation.id)}
-                                  className="flex h-8 items-center justify-center rounded-xl text-rose-500 opacity-70 transition hover:bg-rose-50 hover:opacity-100"
+                                  className="flex h-8 w-8 items-center justify-center rounded-xl text-rose-500 opacity-70 transition hover:bg-rose-50 hover:opacity-100"
                                   aria-label="Xóa cuộc trò chuyện"
                                 >
                                   <Trash2 className="h-4 w-4" />

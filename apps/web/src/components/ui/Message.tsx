@@ -1,11 +1,13 @@
 import type { ReactNode } from 'react';
-import { Bot, UserRound } from 'lucide-react';
+import { Bot } from 'lucide-react';
 import type { AiTutorChatRole } from '@/types/ai-tutor';
 
 interface MessageProps {
   role: AiTutorChatRole;
   content: string;
   createdAt: string;
+  userName?: string | null;
+  userAvatarUrl?: string | null;
 }
 
 interface MarkdownBlock {
@@ -19,6 +21,10 @@ function formatTime(value: string) {
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date(value));
+}
+
+function getInitial(value?: string | null) {
+  return value?.trim().charAt(0)?.toUpperCase() || 'U';
 }
 
 function splitMarkdownBlocks(content: string): MarkdownBlock[] {
@@ -218,7 +224,7 @@ function MarkdownContent({ content, isUser }: { content: string; isUser: boolean
   );
 }
 
-export default function Message({ role, content, createdAt }: MessageProps) {
+export default function Message({ role, content, createdAt, userName, userAvatarUrl }: MessageProps) {
   const isUser = role === 'user';
 
   return (
@@ -243,9 +249,17 @@ export default function Message({ role, content, createdAt }: MessageProps) {
       </div>
 
       {isUser && (
-        <div className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
-          <UserRound className="h-5 w-5" />
-        </div>
+        userAvatarUrl ? (
+          <img
+            src={userAvatarUrl}
+            alt=""
+            className="mt-1 h-9 w-9 shrink-0 rounded-xl object-cover shadow-md"
+          />
+        ) : (
+          <div className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-brand shadow-md">
+            <span className="text-sm font-bold text-white">{getInitial(userName)}</span>
+          </div>
+        )
       )}
     </div>
   );
