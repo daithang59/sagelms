@@ -38,7 +38,7 @@ Do đó, đồ án cần một pipeline có các điểm kiểm soát rõ ràng 
 Trong phạm vi báo cáo, nhóm tập trung vào các thành phần có liên quan trực tiếp đến pipeline DevSecOps:
 
 \begin{itemize}
-  \item Ứng dụng SageLMS: frontend React/Vite, Spring Boot Gateway, các service backend chính và AI Tutor FastAPI.
+  \item Ứng dụng SageLMS: frontend React/Vite, Spring Boot Gateway, các service backend chính; AI Tutor FastAPI được ghi nhận ở mức source/prototype và nằm ngoài runtime GKE chính của bản demo.
   \item CI/CD: GitHub Actions workflows cho PR validation, CD build/scan/push/deploy PR, OpenTofu plan và post-deploy smoke test.
   \item Supply chain security: Harbor registry, Trivy image scan, SBOM CycloneDX, Cosign signing/attestation theo image digest.
   \item Cloud runtime: GKE, CloudNativePG, Redis, Google Secret Manager, External Secrets Operator, Kustomize overlay và FluxCD manifests.

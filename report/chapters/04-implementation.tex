@@ -26,9 +26,11 @@ SageLMS được hiện thực trong một mono-repo để các thành phần �
 \end{tabularx}
 \end{table}
 
+\placeholderfigure{Placeholder hình cấu trúc mono-repo}{Vị trí chèn ảnh cây thư mục hoặc sơ đồ repository: \path{apps/web}, \path{services}, \path{contracts}, \path{infra/k8s}, \path{infra/opentofu}, \path{.github/workflows} và \path{reports}.}
+
 \section{Hiện thực ứng dụng}
 
-Frontend \path{apps/web} cung cấp giao diện cho người dùng cuối. Các backend services Spring Boot triển khai nghiệp vụ cốt lõi như xác thực, khóa học, nội dung, tiến độ, bài kiểm tra và thử thách. Gateway dùng Spring Cloud Gateway để làm entry point, định tuyến và kiểm soát access. AI Tutor service dùng FastAPI để phù hợp với pipeline AI/RAG.
+Frontend \path{apps/web} cung cấp giao diện cho người dùng cuối. Các backend services Spring Boot triển khai nghiệp vụ cốt lõi như xác thực, khóa học, nội dung, tiến độ, bài kiểm tra và thử thách. Gateway dùng Spring Cloud Gateway để làm entry point, định tuyến và kiểm soát access. AI Tutor service dùng FastAPI ở mức source/prototype để phù hợp với pipeline AI/RAG; trong bản demo GKE chính, nhóm chưa đưa service này vào danh sách deployable.
 
 Mỗi service có Dockerfile riêng, test resources và migration database riêng. Các service Java dùng Maven Wrapper để build và test nhất quán. Frontend dùng npm scripts cho lint, typecheck, test và build.
 
@@ -96,12 +98,31 @@ Thư mục \path{infra/opentofu} chứa bootstrap và environment \texttt{devsec
   \item GKE Standard regional cluster.
   \item IAM, Workload Identity Federation và service accounts.
   \item Secret Manager metadata.
-  \item Cloud Storage buckets.
+  \item Cloud Storage buckets cho evidence/materials, CloudNativePG backup và Harbor registry storage.
   \item CloudNativePG backup foundation.
+  \item Harbor registry GCS storage foundation.
   \item Memorystore Redis.
 \end{itemize}
 
 Theo evidence hiện tại, \texttt{tofu validate} pass, \texttt{tofu plan -no-color -detailed-exitcode} trả exit code 0 và Checkov cho \path{infra/opentofu} có 109 passed, 0 failed, 18 skipped.
+
+\placeholderfigure{Placeholder hình OpenTofu plan và Checkov}{Vị trí chèn ảnh minh chứng hạ tầng: output \texttt{tofu validate}, \texttt{tofu plan -no-color -detailed-exitcode} exit code 0 và kết quả Checkov \path{infra/opentofu} 109 passed, 0 failed, 18 skipped.}
+
+\begin{table}[H]
+\centering
+\caption{Các bucket GCS chính trong hạ tầng DevSecOps}
+\label{tab:gcs-buckets-foundation}
+\begin{tabularx}{\textwidth}{p{0.34\textwidth}Y}
+\toprule
+\textbf{Bucket/nhóm bucket} & \textbf{Vai trò} \\
+\midrule
+\path{gs://sagelms-devsecops-tofu-state} & Lưu remote state OpenTofu, bật versioning, uniform bucket-level access và public access prevention. \\
+\path{gs://sagelms-cnpg-backup-sagelms} & Lưu CloudNativePG base backup và WAL archive cho cluster \texttt{sagelms-postgres}. \\
+\path{gs://sagelms-devsecops-harbor-registry} & Lưu Harbor registry image blobs khi Harbor chuyển từ PVC sang GCS backend. \\
+Evidence/materials buckets & Lưu evidence, tài liệu hoặc object storage phụ phục vụ demo nếu cần. \\
+\bottomrule
+\end{tabularx}
+\end{table}
 
 \section{Kubernetes manifests và overlay DevSecOps}
 
@@ -109,8 +130,20 @@ Kubernetes manifests được chia thành base và overlay. Base trong \path{inf
 
 Các platform manifests trong \path{infra/k8s/devsecops} bao gồm Harbor, FluxCD, CloudNativePG, Cloudflare Tunnel và app overlay. Cách tách này giúp báo cáo thể hiện rõ ranh giới giữa workload ứng dụng và nền tảng vận hành.
 
+\placeholderfigure{Placeholder hình Kustomize overlay DevSecOps}{Vị trí chèn ảnh render hoặc cấu trúc \path{infra/k8s/devsecops}: apps, Harbor, FluxCD, CloudNativePG, Cloudflare Tunnel, Kyverno và monitoring.}
+
+\section{Harbor registry storage trên GCS}
+
+Repo hiện có phần hạ tầng riêng cho Harbor registry storage tại \path{infra/opentofu/modules/harbor-registry-storage}. Module này tạo GCS bucket \path{gs://sagelms-devsecops-harbor-registry}, Google Service Account \texttt{sagelms-devsecops-harbor-gcs@sagelms.iam.gserviceaccount.com}, IAM tối thiểu cho bucket và Workload Identity binding cho Kubernetes ServiceAccount \texttt{harbor/harbor-registry}. Biến \path{enable_harbor_registry_storage} trong environment \texttt{devsecops} mặc định bật để mô hình hóa phần storage này bằng OpenTofu.
+
+Ở runtime, file \path{infra/k8s/devsecops/harbor/values-gcs.yaml} override Harbor Helm values để registry dùng \texttt{persistence.imageChartStorage.type=gcs} và bucket \texttt{sagelms-devsecops-harbor-registry}. Nếu Harbor trước đó đã chạy bằng PVC, repo cung cấp job \path{infra/k8s/devsecops/harbor/registry-pvc-to-gcs-job.yaml} để \texttt{gcloud storage rsync} dữ liệu \path{/storage} sang GCS trước khi đổi backend. Báo cáo cần phân biệt hai lớp: OpenTofu tạo bucket/IAM/Workload Identity, còn thao tác copy PVC sang GCS và helm upgrade Harbor là bước runtime migration có runbook riêng.
+
+\placeholderfigure{Placeholder hình Harbor registry storage trên GCS}{Vị trí chèn ảnh bucket \path{gs://sagelms-devsecops-harbor-registry}, Helm values GCS backend hoặc log job \path{registry-pvc-to-gcs-job.yaml} chạy \texttt{gcloud storage rsync}.}
+
 \section{CloudNativePG và Redis}
 
-Database baseline của cloud runtime dùng CloudNativePG trên GKE. Cluster \texttt{sagelms-data/sagelms-postgres} có service RW \path{sagelms-postgres-rw.sagelms-data.svc.cluster.local:5432}. Evidence cho thấy cluster ở trạng thái healthy, WAL archive thành công và manual backup đã completed lên GCS.
+Database baseline của cloud runtime dùng CloudNativePG trên GKE. Cluster \texttt{sagelms-data/sagelms-postgres} có service RW \path{sagelms-postgres-rw.sagelms-data.svc.cluster.local:5432}. Backup foundation dùng bucket \path{gs://sagelms-cnpg-backup-sagelms} và object store path \path{gs://sagelms-cnpg-backup-sagelms/sagelms-postgres}. Evidence cho thấy cluster ở trạng thái healthy, WAL archive thành công và manual backup đã completed lên GCS, gồm base backup và các WAL objects.
 
 Redis được provision bằng Memorystore với private IP, AUTH và transit encryption. Vì Redis bật TLS, các service client cần được kiểm thử cấu hình trust-store trước khi rollout chính thức.
+
+\placeholderfigure{Placeholder hình CloudNativePG backup/WAL trên GCS}{Vị trí chèn ảnh CloudNativePG cluster Ready, manual backup completed và object trong \path{gs://sagelms-cnpg-backup-sagelms/sagelms-postgres} gồm base backup và WAL archive.}

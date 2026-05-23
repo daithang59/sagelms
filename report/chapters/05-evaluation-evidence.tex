@@ -1,0 +1,216 @@
+\chapter{Đánh giá, kiểm thử và bằng chứng}
+\label{chap:evaluation}
+
+\section{Phương pháp đánh giá}
+
+Đồ án được đánh giá theo hai lớp: lớp ứng dụng và lớp pipeline. Lớp ứng dụng chứng minh SageLMS có thể build, test và chạy các service chính. Lớp pipeline chứng minh quy trình DevSecOps có thể kiểm soát thay đổi từ pull request đến runtime trên GKE.
+
+Các nhóm evidence chính gồm:
+
+\begin{itemize}
+  \item GitHub Actions workflow logs.
+  \item Trivy image scan reports.
+  \item CycloneDX SBOM files.
+  \item Image digest reports.
+  \item Deploy summary và deploy PR body.
+  \item OpenTofu/Checkov validation evidence.
+  \item GKE, CloudNativePG, Redis và ESO status.
+  \item Post-deploy rollout và smoke test artifacts.
+\end{itemize}
+
+\section{So sánh trước và sau khi áp dụng DevSecOps}
+
+Để làm rõ đóng góp của đồ án, báo cáo trình bày sự khác biệt giữa cách triển khai thủ công/thông thường và pipeline DevSecOps đã xây dựng. Bảng này giúp người đọc thấy giá trị của các gate thay vì chỉ nhìn danh sách công cụ.
+
+\begin{table}[H]
+\centering
+\caption{So sánh quy trình trước và sau khi áp dụng DevSecOps}
+\label{tab:before-after-devsecops}
+\begin{tabularx}{\textwidth}{p{0.24\textwidth}Y Y}
+\toprule
+\textbf{Khía cạnh} & \textbf{Trước khi có pipeline} & \textbf{Sau khi áp dụng DevSecOps} \\
+\midrule
+Kiểm tra thay đổi & Dễ phụ thuộc kiểm tra thủ công, khó biết thay đổi nào làm fail. & PR validation tự động chạy lint, test, typecheck, secret scan, dependency scan và IaC scan theo path filter. \\
+Artifact deploy & Image có thể chỉ được tag theo tên hoặc latest, khó truy vết chính xác. & Image tag theo git SHA, resolve digest và deploy bằng digest bất biến. \\
+Bảo mật supply chain & Khó chứng minh image đến từ đúng workflow và chứa thành phần nào. & Trivy image scan, SBOM CycloneDX, Cosign sign/attest/verify trước deploy PR. \\
+Triển khai runtime & CI hoặc người vận hành có thể apply trực tiếp vào cluster. & CD mở deploy PR; FluxCD reconcile từ Git sau review, có lịch sử rollback. \\
+Evidence nghiệm thu & Dễ rời rạc giữa log, ảnh chụp và trạng thái cluster. & Evidence được gom trong \path{reports}, deploy summary, image digest, SBOM, scan report và workflow logs. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Kết quả PR validation}
+
+Workflow PR validation kiểm tra nhiều loại thay đổi khác nhau. Với thay đổi ứng dụng, pipeline chạy test theo service, frontend lint/typecheck/test/build và dependency scan. Với thay đổi hạ tầng, pipeline chạy OpenTofu validate và Checkov. Với Dockerfile, pipeline chạy Hadolint, Checkov và Docker build thử. Cách tổ chức này giúp giảm thời gian chạy nhờ path filter nhưng vẫn giữ coverage theo vùng thay đổi.
+
+Bằng chứng hình ảnh cho mục này là màn hình GitHub Actions của một PR pass đầy đủ; nếu có đủ thời gian, nhóm có thể bổ sung thêm một PR fail để minh họa tác dụng của gate.
+
+\placeholderfigure{Placeholder ảnh PR validation pass/fail}{Vị trí chèn ảnh GitHub Actions \texttt{CI - Validation PR}: tên workflow, commit/PR, danh sách job như Gitleaks, test, Trivy, Checkov, Docker build và trạng thái pass/fail.}
+
+\section{Kết quả image build, scan, SBOM và digest}
+
+Repo hiện có reports cho commit \texttt{1b21116f523c3e40c4c223988b88c73f55cfebf0}. Các report này cho thấy pipeline đã build nhiều image, scan Trivy PASS, tạo SBOM và ghi digest. Đây là evidence quan trọng nhất cho supply chain security.
+
+\begin{table}[H]
+\centering
+\caption{Nguồn evidence supply chain}
+\label{tab:supply-chain-evidence}
+\begin{tabularx}{\textwidth}{p{0.30\textwidth}Y}
+\toprule
+\textbf{Evidence} & \textbf{Đường dẫn} \\
+\midrule
+Deploy summary & \path{reports/deploy-summary-1b21116f523c3e40c4c223988b88c73f55cfebf0.md} \\
+Deploy PR body & \path{reports/deploy-pr-body-1b21116f523c3e40c4c223988b88c73f55cfebf0.md} \\
+Image digest table & \path{reports/image-digests-1b21116f523c3e40c4c223988b88c73f55cfebf0.md} \\
+Trivy reports & \path{reports/trivy/*.txt} \\
+SBOM files & \path{reports/sbom/1b21116f523c3e40c4c223988b88c73f55cfebf0/*-sbom.cdx.json} \\
+Cosign automation evidence & \path{reports/deploy-summary-a8a0b63d1568f0c356d10a22fcb89abad429ef52.md} và workflow run \texttt{26303390987}. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\placeholderfigure{Placeholder ảnh supply chain evidence}{Vị trí chèn ảnh Harbor image digest, Trivy report PASS, SBOM CycloneDX artifact và deploy summary cho commit \texttt{1b21116f523c3e40c4c223988b88c73f55cfebf0} hoặc commit mới hơn nếu dùng khi bảo vệ.}
+
+\section{Kết quả Cosign verification mới nhất}
+
+Sau khi bổ sung bước verify cho Cosign, nhóm chạy \texttt{workflow\_dispatch} trên branch \texttt{main} cho \texttt{auth-service}. Evidence mới nhất:
+
+\begin{table}[H]
+\centering
+\caption{Evidence Cosign automation cho auth-service}
+\label{tab:cosign-verification-evidence}
+\begin{tabularx}{\textwidth}{p{0.30\textwidth}Y}
+\toprule
+\textbf{Trường} & \textbf{Giá trị} \\
+\midrule
+Run & \texttt{26303390987} \\
+Branch & \texttt{main} \\
+Image & \path{harbor.sagelms.id.vn/sagelms-app/auth-service:a8a0b63d1568f0c356d10a22fcb89abad429ef52} \\
+Digest & \path{sha256:9e436d64f9a39a65d8052c57d9da5abbf285f5b400f4c94610311fe543efa35d} \\
+Verify Cosign & PASS \\
+Verify SBOM attestation & PASS \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\placeholderfigure{Placeholder ảnh Cosign verify và verify-attestation}{Vị trí chèn ảnh workflow run \texttt{26303390987} hoặc log artifact thể hiện \texttt{cosign verify} và \texttt{cosign verify-attestation} PASS cho image auth-service digest \path{sha256:9e436d64f9a39a65d8052c57d9da5abbf285f5b400f4c94610311fe543efa35d}.}
+
+Kết quả này bổ sung cho evidence multi-service ở commit \texttt{1b21116f523c3e40c4c223988b88c73f55cfebf0}. Commit \texttt{1b21116f} vẫn dùng để chứng minh pipeline xử lý nhiều service; commit \texttt{a8a0b63d1568f0c356d10a22fcb89abad429ef52} dùng để chứng minh automation mới đã verify image signature và CycloneDX SBOM attestation thành công trước khi mở deploy PR.
+
+\section{Kết quả cloud foundation}
+
+Evidence trong \path{docs/evidence/devsecops-cloud-foundation-evidence.md} và \path{infra/opentofu/outputs.md} cho thấy cloud foundation đã đạt nhiều tiêu chí quan trọng:
+
+\begin{itemize}
+  \item Remote state bucket \texttt{sagelms-devsecops-tofu-state} đã bật versioning, uniform bucket-level access và public access prevention.
+  \item OpenTofu environment có module Harbor registry storage để tạo bucket \texttt{sagelms-devsecops-harbor-registry}, GSA và Workload Identity cho \texttt{harbor/harbor-registry}.
+  \item GKE cluster \texttt{sagelms-devsecops-gke} chạy trong \texttt{asia-southeast1}.
+  \item Node pool \texttt{sagelms-devsecops-main-pool} có 2 node Ready.
+  \item CloudNativePG cluster \texttt{sagelms-data/sagelms-postgres} ở trạng thái Ready.
+  \item WAL archive có condition \texttt{ContinuousArchiving=True}.
+  \item Manual backup đã completed và object tồn tại trong GCS bucket \texttt{sagelms-cnpg-backup-sagelms}, gồm \path{base/20260518T144145/backup.info}, \path{base/20260518T144145/data.tar.gz} và các WAL \path{.gz} dưới \path{wals/}.
+  \item Memorystore Redis ở trạng thái READY, bật AUTH và transit encryption.
+  \item ClusterSecretStore \texttt{gcpsm-sagelms-devsecops} Valid, Ready=True.
+  \item ExternalSecrets đã đồng bộ secret DB, Redis, JWT và gateway shared secret.
+\end{itemize}
+
+\placeholderfigure{Placeholder ảnh cloud foundation trên GCP}{Vị trí chèn ảnh OpenTofu outputs hoặc GCP Console: GKE cluster, Workload Identity, GCS buckets, Secret Manager, Memorystore Redis và CloudNativePG backup bucket.}
+
+\section{Kết quả deployment và smoke test}
+
+
+
+Đối chiếu runtime read-only ngày 23/05/2026 cho thấy trạng thái triển khai hiện tại khớp với kiến trúc báo cáo. Ingress \texttt{sagelms-app} trong namespace \texttt{sagelms-devsecops} dùng \texttt{ingressClassName=nginx}, host \texttt{sagelms.id.vn}, route \texttt{/api/v1} đến \texttt{gateway:8080} và route \texttt{/} đến \texttt{web:80}. Các deployment ứng dụng \texttt{web}, \texttt{gateway}, \texttt{auth-service}, \texttt{course-service}, \texttt{content-service}, \texttt{progress-service}, \texttt{assessment-service} và \texttt{challenge-service} đều ở trạng thái \texttt{1/1}. Image runtime được pull từ Harbor theo dạng tag git SHA kèm digest \texttt{@sha256}. FluxCD trong namespace \texttt{fluxcd} đang có các Kustomization chính ở trạng thái \texttt{Ready=True}, bao gồm app runtime, Harbor, Kyverno và monitoring. Deployment \texttt{cloudflared} trong namespace \texttt{cloudflare} có 2 replica available.
+
+\begin{table}[H]
+\centering
+\caption{Đối chiếu runtime GKE hiện tại}
+\label{tab:runtime-current-evidence}
+\begin{tabularx}{\textwidth}{p{0.28\textwidth}Y}
+\toprule
+\textbf{Hạng mục kiểm tra} & \textbf{Kết quả} \\
+\midrule
+Ingress public & Host \texttt{sagelms.id.vn}; \path{/api/v1 -> gateway:8080}; \path{/ -> web:80}; load balancer IP \texttt{34.142.171.216}. \\
+App deployments & 8 workload chính đều \texttt{1/1}: web, gateway, auth, course, content, progress, assessment, challenge. \\
+Image runtime & Workload dùng image Harbor dạng \path{harbor.sagelms.id.vn/sagelms-app/<service>:9229a5...@sha256:<digest>}. \\
+FluxCD & Kustomization app runtime, Harbor, Kyverno và monitoring đều \texttt{Ready=True}. \\
+Cloudflare Tunnel & Deployment \texttt{cloudflared} namespace \texttt{cloudflare} có 2 replica available. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\placeholderfigure{Placeholder ảnh runtime GKE và FluxCD}{Vị trí chèn ảnh \texttt{kubectl get deployments -n sagelms-devsecops}, \texttt{kubectl get ingress -n sagelms-devsecops}, \texttt{flux get kustomizations -n fluxcd} hoặc GitHub Actions post-deploy run pass.}
+
+Workflow \path{post-deploy-check.yml} tách riêng bước kiểm tra sau triển khai. Workflow này không thay FluxCD và không cập nhật manifest; nó chỉ xác thực trạng thái runtime sau khi GitOps reconcile. Hai job chính là:
+
+\begin{itemize}
+  \item \textbf{GKE rollout status}: lấy kubeconfig, kiểm tra rollout của gateway, auth-service và web trong namespace \texttt{sagelms-devsecops}, lưu pod/ingress report.
+  \item \textbf{Public endpoint smoke test}: gọi web health endpoint và API health endpoint, lưu header/body evidence.
+\end{itemize}
+
+Bằng chứng hình ảnh cho mục này là workflow run post-deploy pass, kèm rollout report và smoke report ở phụ lục hoặc artifact của GitHub Actions.
+
+\section{Luồng demo và gói evidence đề xuất}
+
+Luồng demo bảo vệ được tổ chức ngắn gọn nhưng đủ chứng minh end-to-end. Luồng này ưu tiên evidence có thể kiểm chứng lại trong repo thay vì chỉ dựa vào ảnh chụp màn hình.
+
+\begin{table}[H]
+\centering
+\caption{Luồng demo đề xuất và evidence cần chuẩn bị}
+\label{tab:demo-evidence-flow}
+\begin{tabularx}{\textwidth}{p{0.22\textwidth}Y Y}
+\toprule
+\textbf{Bước demo} & \textbf{Mục tiêu chứng minh} & \textbf{Evidence đưa vào báo cáo/phụ lục} \\
+\midrule
+PR validation & Thay đổi source hoặc manifest bị kiểm tra trước khi merge. & Ảnh workflow PR pass, log Gitleaks/Trivy/Checkov, link commit hoặc PR. \\
+CD auth-service & Pipeline mới build, scan, tạo SBOM, push, resolve digest, sign, attest và verify. & Run \texttt{26303390987}, deploy summary commit \texttt{a8a0b63d}, Cosign verify PASS. \\
+Deploy PR/GitOps & CI không deploy trực tiếp mà tạo thay đổi GitOps có review. & Deploy PR body, diff image digest trong Kustomize overlay, trạng thái FluxCD reconcile. \\
+Runtime/public traffic & Public request đi đúng route qua Gateway thay vì web Nginx. & Ingress YAML, smoke test \path{/api/v1}, pod/rollout report. \\
+Limitations & Nhóm phân biệt rõ phần đã triển khai và phần mở rộng. & Bảng scope runtime, mục hạn chế về AI Tutor, observability, restore drill. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Đối chiếu KPI và Definition of Done}
+
+Ngoài trạng thái đạt/chưa đạt, báo cáo sử dụng một số KPI đơn giản để làm rõ mức độ nghiệm thu pipeline. Các KPI dưới đây không yêu cầu hệ thống production thật, nhưng đủ phản ánh mức độ tự động hóa và khả năng truy vết của đồ án.
+
+\begin{table}[H]
+\centering
+\caption{KPI đánh giá pipeline trong phạm vi đồ án}
+\label{tab:pipeline-kpi}
+\begin{tabularx}{\textwidth}{p{0.30\textwidth}p{0.24\textwidth}Y}
+\toprule
+\textbf{KPI} & \textbf{Mức kỳ vọng} & \textbf{Cách chứng minh} \\
+\midrule
+Coverage gate PR & Mỗi vùng thay đổi chính có gate tương ứng & Path filter và danh sách job trong \path{ci-pr.yml}. \\
+Artifact traceability & Mỗi image demo truy vết được về commit và digest & \path{reports/image-digests-*.md}, deploy summary. \\
+Supply chain verification & Deploy PR chỉ mở sau khi verify signature và SBOM attestation pass & Run \texttt{26303390987}, Cosign verify logs. \\
+GitOps auditability & Thay đổi runtime đi qua commit/PR & Deploy PR body và Kustomize overlay. \\
+Runtime smoke coverage & Có kiểm tra rollout và endpoint public sau deploy & \path{post-deploy-check.yml} và artifacts smoke test. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{table}[H]
+\centering
+\caption{Đối chiếu kết quả với Definition of Done DevSecOps}
+\label{tab:dod-evaluation}
+\begin{tabularx}{\textwidth}{p{0.34\textwidth}p{0.18\textwidth}Y}
+\toprule
+\textbf{Tiêu chí} & \textbf{Trạng thái} & \textbf{Evidence/Ghi chú} \\
+\midrule
+PR validation có lint/test/scan & Đạt & \path{ci-pr.yml}, quality gates docs. \\
+Image scan trước deploy & Đạt & \path{reports/trivy/*.txt}, deploy summary PASS. \\
+Image có digest & Đạt & \path{reports/image-digests-*.md}. \\
+Image có SBOM & Đạt & \path{reports/sbom/**}. \\
+Cosign verify và verify-attestation & Đạt với evidence mới & Run \texttt{26303390987}, image \texttt{auth-service}, verify signature và SBOM attestation đều PASS. \\
+Hạ tầng bằng OpenTofu & Đạt & \path{infra/opentofu/**}, outputs. \\
+Checkov không failed trong infra & Đạt theo evidence & 109 passed, 0 failed, 18 skipped. \\
+CloudNativePG backup/WAL & Đạt mức foundation & WAL archive và manual backup đã kiểm chứng. \\
+Restore drill CloudNativePG & Cần bổ sung & Evidence hiện tại ghi rõ chưa chạy restore drill. \\
+FluxCD/GitOps runtime & Đạt mức demo & Runtime hiện có FluxCD Kustomization Ready cho app, Harbor, Kyverno và monitoring; cần chèn ảnh reconcile/run cuối vào bản nộp. \\
+Observability đầy đủ & Đạt mức foundation, cần mở rộng & Có manifests monitoring và FluxCD Kustomization Ready; dashboard/alert chi tiết vẫn là hướng phát triển. \\
+\bottomrule
+\end{tabularx}
+\end{table}

@@ -3,7 +3,7 @@
 
 \section{Trivy reports}
 
-Các report Trivy nằm trong \path{reports/trivy}. Khi hoàn thiện báo cáo, nhóm nên chèn ảnh hoặc bảng tóm tắt từ các file:
+Các report Trivy nằm trong \path{reports/trivy}. Đây là evidence cho gate image vulnerability scan trước khi artifact được promote sang bước publish/deploy.
 
 \begin{itemize}
   \item \path{reports/trivy/trivy-auth-service.txt}
@@ -13,10 +13,22 @@ Các report Trivy nằm trong \path{reports/trivy}. Khi hoàn thiện báo cáo,
   \item \path{reports/trivy/trivy-web.txt}
 \end{itemize}
 
+\placeholderfigure{Placeholder ảnh Trivy report PASS}{Vị trí chèn ảnh một report Trivy tiêu biểu, ưu tiên auth-service hoặc gateway, thể hiện scan HIGH/CRITICAL và kết quả PASS.}
+
 \section{SBOM}
 
-SBOM CycloneDX được lưu dưới \path{reports/sbom/<git-sha>}. Mỗi service có một file \path{*-sbom.cdx.json}. Trong bản nộp cuối, không nên paste toàn bộ SBOM vì rất dài; chỉ cần chèn metadata, đường dẫn artifact và giải thích SBOM dùng để truy vết thành phần phần mềm.
+SBOM CycloneDX được lưu dưới \path{reports/sbom/<git-sha>}. Mỗi service có một file \path{*-sbom.cdx.json}. Báo cáo chỉ trích metadata, đường dẫn artifact và ý nghĩa truy vết thành phần phần mềm; không đưa toàn bộ SBOM vào phụ lục vì nội dung dài.
+
+\placeholderfigure{Placeholder ảnh SBOM CycloneDX}{Vị trí chèn ảnh metadata đầu file SBOM hoặc artifact list dưới \path{reports/sbom/<git-sha>}, thể hiện tên service, định dạng CycloneDX và commit tương ứng.}
 
 \section{Image digest}
 
 Image digest report nằm ở \path{reports/image-digests-1b21116f523c3e40c4c223988b88c73f55cfebf0.md}. Đây là bằng chứng rằng image đã được định danh bằng digest SHA256 thay vì chỉ dùng tag.
+
+\placeholderfigure{Placeholder ảnh image digest report}{Vị trí chèn ảnh bảng image digest trong \path{reports/image-digests-*.md} hoặc Harbor UI thể hiện tag git SHA và digest SHA256 của image.}
+
+\section{Cosign signature và SBOM attestation}
+
+CD workflow lưu log Cosign trong artifact \path{reports/cosign/*.txt}. Với run \texttt{26303390987}, auth-service commit \texttt{a8a0b63d1568f0c356d10a22fcb89abad429ef52} đã pass cả \texttt{cosign verify} và \texttt{cosign verify-attestation} trên digest \path{sha256:9e436d64f9a39a65d8052c57d9da5abbf285f5b400f4c94610311fe543efa35d}.
+
+\placeholderfigure{Placeholder ảnh Cosign artifact logs}{Vị trí chèn ảnh log \path{reports/cosign/cosign-verify-auth-service.txt} và \path{reports/cosign/cosign-verify-attestation-auth-service.txt} từ GitHub Actions artifact, thể hiện kết quả PASS và GitHub OIDC identity.}

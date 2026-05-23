@@ -1,0 +1,431 @@
+\chapter{Thiết kế kiến trúc hệ thống SageLMS}
+\label{chap:system-architecture}
+\label{chap:requirements}
+\label{chap:pipeline-design}
+
+\section{Phạm vi và yêu cầu thiết kế}
+
+Theo định hướng đồ án, SageLMS là hệ thống quản lý học tập hỗ trợ nhiều vai trò người dùng và nhiều module nghiệp vụ. Các chức năng chính gồm:
+
+\begin{itemize}
+  \item \textbf{Authentication và RBAC}: đăng ký, đăng nhập, phát hành JWT, phân quyền admin, instructor và student.
+  \item \textbf{Course management}: tạo, chỉnh sửa, quản lý khóa học và chính sách ghi danh.
+  \item \textbf{Content delivery}: quản lý lesson, metadata tài liệu, thứ tự nội dung và liên kết với course.
+  \item \textbf{Progress tracking}: ghi nhận tiến độ học của sinh viên theo lesson/course.
+  \item \textbf{Assessment và challenge}: tạo bộ câu hỏi, attempt, chấm điểm tự động hoặc bán tự động, lưu kết quả.
+  \item \textbf{AI Tutor}: chức năng mở rộng theo hướng hỏi đáp dựa trên nội dung học tập và RAG; hiện có source/prototype nhưng nằm ngoài runtime GKE chính của bản demo.
+\end{itemize}
+
+Các chức năng này tạo ra một nền ứng dụng đủ thực tế để pipeline DevSecOps có ý nghĩa: nhiều service, nhiều Dockerfile, nhiều contract API, nhiều migration database và nhiều loại kiểm thử.
+
+Ngoài chức năng nghiệp vụ, hệ thống cần đáp ứng các yêu cầu phi chức năng sau:
+
+\begin{itemize}
+  \item \textbf{Tính bảo mật}: request đi qua Gateway, xác thực bằng JWT, phân quyền bằng RBAC, không hardcode secret trong mã nguồn hoặc manifest.
+  \item \textbf{Tính tái lập}: môi trường cloud và Kubernetes manifests được quản lý bằng mã nguồn thay vì cấu hình thủ công.
+  \item \textbf{Tính truy vết}: mỗi image triển khai cần gắn với git SHA, digest, scan report và SBOM.
+  \item \textbf{Tính kiểm thử được}: thay đổi source code, Dockerfile, workflow hoặc hạ tầng phải có gate kiểm tra tương ứng.
+  \item \textbf{Tính vận hành}: workload có health check, rollout status, smoke test và định hướng rollback rõ ràng.
+\end{itemize}
+
+\section{Yêu cầu DevSecOps và ràng buộc triển khai}
+
+Pipeline của SageLMS phải bao phủ các yêu cầu DevSecOps sau:
+
+\begin{enumerate}
+  \item Pull request phải được kiểm tra bằng lint, unit test, typecheck, build thử và các security scanner phù hợp.
+  \item Secret scanning phải chạy sớm để giảm rủi ro lộ token hoặc credential.
+  \item Dependency và image vulnerability phải được quét bằng Trivy, đặc biệt với mức HIGH/CRITICAL.
+  \item IaC, Kubernetes manifests, Dockerfile và GitHub Actions workflow phải được kiểm tra bằng Checkov hoặc công cụ tương ứng.
+  \item Docker image dùng cho môi trường DevSecOps phải được build từ source đã kiểm tra, scan bằng Trivy, tạo SBOM, push lên Harbor, resolve digest, ký, attest và verify trước khi mở deploy PR.
+  \item Deployment phải đi qua GitOps state và approval, CI không deploy trực tiếp vào cluster.
+  \item Hạ tầng cloud phải được quản lý bằng OpenTofu và có plan trước khi apply.
+\end{enumerate}
+
+Ràng buộc lớn nhất của đồ án là cân bằng giữa tính production-oriented và khả năng triển khai trong phạm vi môn học. Nhóm không duy trì ba môi trường cloud riêng như dev, staging và production. Thay vào đó, nhóm chọn một Shared Cloud DevSecOps Environment trên GCP/GKE. Môi trường này không phải production thật, nhưng vẫn đủ để trình diễn các thực hành quan trọng: GitOps, approval, image digest, SBOM, signing, attestation, verification, secret management, policy định hướng, observability cơ bản và rollback.
+
+Local development vẫn tồn tại nhưng chỉ đóng vai trò debug source code và chạy nhanh Docker Compose. Trục chính của đồ án là cloud pipeline, không phải local-first development.
+
+\begin{table}[H]
+\centering
+\caption{Ma trận truy vết yêu cầu DevSecOps}
+\label{tab:requirements-traceability}
+\begin{tabularx}{\textwidth}{p{0.26\textwidth}Y Y}
+\toprule
+\textbf{Yêu cầu} & \textbf{Thành phần hiện thực} & \textbf{Evidence trong repo} \\
+\midrule
+PR validation & Workflow kiểm tra PR, path filter, test và scan & \path{.github/workflows/ci-pr.yml}, \path{docs/ci-cd-quality-gates.md} \\
+Secret scanning & Gitleaks chạy trong PR & \path{.github/workflows/ci-pr.yml} \\
+Dependency scan & Trivy filesystem scan & \path{.github/workflows/ci-pr.yml} \\
+IaC scan & Checkov cho IaC, workflow và Dockerfile & \path{.github/workflows/ci-pr.yml}, \path{.github/workflows/infra-plan.yml} \\
+Image scan & Trivy image scan trước khi push/deploy & \path{.github/workflows/cd-main.yml}, \path{reports/trivy/} \\
+SBOM & CycloneDX SBOM bằng Trivy & \path{reports/sbom/} \\
+Digest & Image digest từ Harbor & \path{reports/image-digests-*.md}, \path{reports/deploy-summary-*.md} \\
+Cosign verification & Verify image signature và SBOM attestation trước deploy PR & Run \texttt{26303390987}, \path{reports/deploy-summary-a8a0b63d1568f0c356d10a22fcb89abad429ef52.md} \\
+IaC cloud foundation & OpenTofu quản lý GCP/GKE & \path{infra/opentofu/}, \path{infra/opentofu/outputs.md} \\
+GitOps runtime & FluxCD manifests và Kustomize overlay & \path{infra/k8s/devsecops/fluxcd/}, \path{infra/k8s/devsecops/apps/} \\
+Secret management & Google Secret Manager và ESO & \path{docs/cloud-foundation.md}, \path{infra/k8s/devsecops/} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Threat model và ranh giới bảo vệ}
+\label{sec:threat-model}
+
+Threat model của đồ án tập trung vào các rủi ro thường gặp trong pipeline microservices: lộ secret, artifact bị thay đổi sau khi build, image có lỗ hổng nghiêm trọng, manifest runtime bị cập nhật ngoài quy trình review và traffic public bị route sai. Nhóm không mô tả hệ thống như một production platform hoàn chỉnh, nhưng cần chứng minh các ranh giới bảo vệ chính đã được đặt đúng vị trí từ source code đến runtime.
+
+\begin{table}[H]
+\centering
+\caption{Threat model rút gọn cho SageLMS DevSecOps pipeline}
+\label{tab:threat-model}
+\begin{tabularx}{\textwidth}{p{0.24\textwidth}Y Y}
+\toprule
+\textbf{Tài sản/luồng} & \textbf{Rủi ro chính} & \textbf{Kiểm soát trong đồ án} \\
+\midrule
+Source code và workflow & Secret bị commit, workflow bị sửa để bỏ qua gate & Gitleaks, CODEOWNERS/PR review, Checkov cho GitHub Actions, branch protection định hướng. \\
+Container image & Image chứa CVE HIGH/CRITICAL hoặc tag bị ghi đè & Trivy image scan, tag theo git SHA, deploy bằng digest thay vì tag mutable. \\
+SBOM và provenance & Không chứng minh được thành phần phần mềm trong image & SBOM CycloneDX bằng Trivy, Cosign attest SBOM theo digest. \\
+Artifact trust & Image hoặc attestation không đến từ workflow tin cậy & Cosign sign, cosign verify và cosign verify-attestation trước khi mở deploy PR. \\
+GitOps state & Manifest runtime bị cập nhật trực tiếp hoặc thiếu approval & Deploy PR, review, FluxCD reconcile từ Git thay vì CI apply trực tiếp. \\
+Public API traffic & \path{/api/v1} route nhầm vào web hoặc bỏ qua Gateway & Cloudflare Tunnel -> ingress-nginx -> Ingress rule; \path{/api/v1} vào gateway, \path{/} vào web. \\
+Database/secret runtime & Lộ DB password/JWT secret hoặc hardcode vào manifest & Google Secret Manager, External Secrets Operator, Kubernetes Secret do ESO đồng bộ. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Tổng quan kiến trúc ứng dụng}
+
+SageLMS được tổ chức theo kiến trúc microservices. Frontend là ứng dụng React 18, Vite và TypeScript. Client gửi request đến API Gateway, Gateway xác thực JWT, áp dụng RBAC, gắn correlation ID và định tuyến đến service backend phù hợp. Các service backend chính dùng Spring Boot 3.x và Java 17. AI Tutor có source/prototype riêng dùng FastAPI và Python 3.11 để thuận tiện tích hợp LangChain và các thư viện AI, nhưng chưa thuộc runtime GKE chính của bản demo hiện tại.
+
+Database chính là PostgreSQL 16. Trong giai đoạn MVP, các service có schema riêng trong cùng một instance PostgreSQL để giảm chi phí vận hành nhưng vẫn giữ ranh giới dữ liệu theo service. Redis 7 được dùng cho cache hoặc queue khi cần xử lý tác vụ bất đồng bộ.
+
+\begin{figure}[H]
+\centering
+\fbox{%
+\begin{minipage}{0.94\textwidth}
+\small
+\begin{tabularx}{\linewidth}{p{0.25\linewidth}Y}
+\toprule
+\textbf{Lớp kiến trúc} & \textbf{Thành phần và trách nhiệm} \\
+\midrule
+Public entry & Browser truy cập domain public; Cloudflare Tunnel đưa traffic vào ingress-nginx trong GKE. \\
+Presentation & Web frontend React/Vite, build thành static assets và serve bằng Nginx runtime. \\
+API Gateway & Gateway port 8080 xử lý \path{/api/v1}, xác thực JWT, kiểm tra RBAC, gắn correlation ID và route đến service. \\
+Business services & Auth, Course, Content, Progress, Assessment và Challenge là các service Spring Boot chính trong runtime demo. \\
+Data layer & PostgreSQL 16/CloudNativePG dùng schema theo service; Redis 7 phục vụ cache hoặc queue khi cần. \\
+Optional/prototype & AI Tutor FastAPI có source/prototype RAG, nhưng chưa thuộc runtime GKE chính của bản demo. \\
+\bottomrule
+\end{tabularx}
+\end{minipage}%
+}
+\caption{Sơ đồ kiến trúc microservices SageLMS}
+\label{fig:microservices-architecture}
+\end{figure}
+
+\placeholderfigure{Placeholder hình kiến trúc microservices SageLMS}{Vị trí chèn hình kiến trúc tổng quan: Browser, Cloudflare Tunnel, ingress-nginx, Web, Gateway, các service Spring Boot, CloudNativePG, Redis, Harbor, FluxCD và Google Secret Manager/ESO. Hình có thể dựng lại từ \path{docs/architecture/devsecops-diagram-blueprints.md}.}
+
+\section{Danh sách service và phạm vi runtime}
+
+\begin{table}[H]
+\centering
+\caption{Các service chính của SageLMS}
+\label{tab:services}
+\begin{tabularx}{\textwidth}{p{0.24\textwidth}p{0.14\textwidth}Y}
+\toprule
+\textbf{Service} & \textbf{Port} & \textbf{Vai trò} \\
+\midrule
+Web frontend & 3000/80 & Giao diện người dùng, chạy dev ở 3000 và service runtime web ở port 80. \\
+Gateway & 8080 & Entry point, JWT, RBAC, correlation ID và routing. \\
+Auth Service & 8081 & Đăng ký, đăng nhập, JWT, user profile và vai trò. \\
+Course Service & 8082 & Quản lý khóa học và ghi danh. \\
+Content Service & 8083 & Quản lý lesson, tài liệu và metadata nội dung. \\
+Progress Service & 8084 & Theo dõi tiến độ học của sinh viên. \\
+Assessment Service & 8085 & Bài kiểm tra, câu hỏi, attempt và chấm điểm. \\
+Challenge Service & 8086 & Bài thử thách, leaderboard và kết quả. \\
+AI Tutor Service & Optional & Hỏi đáp dựa trên RAG; có trong định hướng/source nhưng nằm ngoài scope runtime GKE chính hiện tại để tránh nhầm với Challenge Service port 8086. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Phạm vi runtime demo cuối cùng}
+
+Bảng dưới đây chốt ranh giới để tránh báo cáo mô tả vượt quá phần đã triển khai hoặc có evidence. Các thành phần được đánh dấu \textit{trong runtime GKE chính} là phần được dùng khi demo end-to-end; các thành phần còn lại được trình bày như foundation, prototype hoặc hướng mở rộng.
+
+\begin{table}[H]
+\centering
+\caption{Phạm vi runtime GKE chính của bản demo}
+\label{tab:runtime-scope-final}
+\begin{tabularx}{\textwidth}{p{0.28\textwidth}p{0.20\textwidth}Y}
+\toprule
+\textbf{Nhóm thành phần} & \textbf{Trạng thái} & \textbf{Ghi chú} \\
+\midrule
+Web, Gateway và 6 service nghiệp vụ & Trong runtime GKE chính & Web, gateway, auth, course, content, progress, assessment và challenge là scope demo app chính. \\
+CloudNativePG và Redis & Runtime nền & PostgreSQL 16 chạy bằng CloudNativePG; Redis dùng Memorystore hoặc cấu hình runtime tương ứng. \\
+Harbor, FluxCD, ESO, ingress-nginx, Cloudflare Tunnel & Trong nền tảng DevSecOps & Dùng cho registry, GitOps, secret sync và public routing. \\
+Cosign, Trivy, SBOM, Checkov, Gitleaks & Trong pipeline CI/CD & Chạy ở workflow và sinh evidence; không phải workload ứng dụng runtime. \\
+AI Tutor FastAPI & Ngoài runtime chính & Có source/prototype và định hướng RAG, nhưng không đưa vào danh sách deployable để tránh nhầm với Challenge Service port 8086. \\
+Obs/Kyverno enforce & Hướng mở rộng & Có định hướng/manifest nền tảng; phần enforce đầy đủ và dashboard/alert được trình bày là future work nếu chưa có evidence cuối. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Luồng request và public traffic}
+
+Luồng request cơ bản diễn ra như sau:
+
+\begin{enumerate}
+  \item Người dùng thao tác trên frontend.
+  \item Frontend gửi request đến Gateway.
+  \item Gateway kiểm tra JWT, phân quyền theo RBAC và gắn correlation ID.
+  \item Gateway định tuyến request đến service phù hợp.
+  \item Service xử lý nghiệp vụ, truy cập PostgreSQL hoặc Redis khi cần.
+  \item Response trả về theo đường ngược lại qua Gateway.
+\end{enumerate}
+
+\begin{figure}[H]
+\centering
+\fbox{%
+\begin{minipage}{0.94\textwidth}
+\small
+\begin{tabularx}{\linewidth}{p{0.18\linewidth}Y}
+\toprule
+\textbf{Bước} & \textbf{Luồng xử lý} \\
+\midrule
+1 & Client gọi web hoặc API public qua domain \path{sagelms.id.vn}. \\
+2 & Cloudflare Tunnel chuyển traffic vào ingress-nginx trong GKE. \\
+3 & Ingress route \path{/api/v1} đến \texttt{gateway:8080}; route \path{/} đến \texttt{web:80}. \\
+4 & Gateway xác thực JWT, kiểm tra RBAC, gắn correlation ID và chuyển tiếp đến service backend. \\
+5 & Service xử lý nghiệp vụ, truy cập PostgreSQL/Redis khi cần và trả response qua Gateway. \\
+\bottomrule
+\end{tabularx}
+\end{minipage}%
+}
+\caption{Luồng request qua Cloudflare Tunnel, Ingress và API Gateway}
+\label{fig:request-flow}
+\end{figure}
+
+Trong bản demo public, traffic được thiết kế theo luồng:
+
+\begin{lstlisting}[language=bash]
+Public traffic -> Cloudflare Tunnel -> ingress-nginx -> Ingress rule
+/api/v1 -> gateway:8080
+/       -> web:80
+\end{lstlisting}
+
+Ingress \path{infra/k8s/devsecops/apps/ingress.yaml} hiện khai báo host \path{sagelms.id.vn}, path \path{/api/v1} trỏ tới service \texttt{gateway} port 8080 và path \path{/} trỏ tới service \texttt{web} port 80. Đây là điểm quan trọng cho demo public vì lỗi thực tế từng gặp là \path{sagelms.id.vn/api/v1} bị route vào web Nginx, khiến API request nhận response frontend thay vì đi qua Gateway.
+
+\placeholderfigure{Placeholder hình public routing và Ingress}{Vị trí chèn ảnh minh chứng public routing: manifest hoặc output \texttt{kubectl get ingress sagelms-app -n sagelms-devsecops -o yaml} thể hiện host \path{sagelms.id.vn}, path \path{/api/v1 -> gateway:8080} và path \path{/ -> web:80}; bổ sung ảnh Cloudflare Tunnel hoặc \texttt{cloudflared} deployment nếu dùng trong demo public.}
+
+\section{Kiến trúc dữ liệu và repository}
+
+Mỗi service sở hữu schema riêng trong PostgreSQL. Cách này giúp tách ranh giới dữ liệu ở mức logic, đồng thời vẫn đơn giản hơn so với việc vận hành nhiều database riêng trong phạm vi môn học. Các service Spring Boot dùng Flyway để quản lý migration. Database runtime trên GKE dùng CloudNativePG với PostgreSQL 16 và hỗ trợ backup/WAL archive ra GCS.
+
+Mono-repo SageLMS được chia thành các nhóm thư mục chính:
+
+\begin{itemize}
+  \item \path{apps/web}: frontend React/Vite.
+  \item \path{services}: backend microservices và AI Tutor source/prototype.
+  \item \path{contracts}: OpenAPI và AsyncAPI contracts.
+  \item \path{infra/docker}: Docker Compose và runtime local.
+  \item \path{infra/k8s}: Kubernetes base manifests và DevSecOps overlay.
+  \item \path{infra/opentofu}: Infrastructure as Code cho GCP/GKE.
+  \item \path{.github/workflows}: CI/CD pipelines.
+  \item \path{reports}: evidence từ build, scan, SBOM, digest, signing, attestation và deploy.
+\end{itemize}
+
+Cấu trúc này hỗ trợ path filter trong CI/CD: thay đổi frontend chỉ chạy các job liên quan đến frontend; thay đổi service chỉ chạy test/build/scan service đó; thay đổi hạ tầng kích hoạt OpenTofu và Checkov.
+
+\section{Nguyên tắc thiết kế pipeline DevSecOps}
+
+Pipeline DevSecOps của SageLMS được thiết kế theo các nguyên tắc sau:
+
+\begin{itemize}
+  \item \textbf{CI và CD tách biệt}: CI kiểm tra chất lượng và bảo mật; CD tạo artifact, publish và cập nhật GitOps state. FluxCD mới là thành phần triển khai vào GKE.
+  \item \textbf{Artifact bất biến}: image được tag bằng git SHA và triển khai bằng digest thay vì tag mutable.
+  \item \textbf{Shift-left security}: security scan chạy từ pull request, không chờ đến trước production.
+  \item \textbf{Một mục đích, một công cụ chính}: SonarCloud/SonarQube cho code quality/SAST, Gitleaks cho secret, Trivy cho dependency/image/SBOM, Checkov cho IaC/config, Cosign cho signing/attestation/verification.
+  \item \textbf{Least privilege}: GitHub Actions, Harbor robot account, Kubernetes ServiceAccount và Google Service Account có quyền theo vai trò.
+  \item \textbf{GitOps-first deployment}: runtime state được review qua Git, có lịch sử, approval và rollback bằng commit.
+\end{itemize}
+
+\section{Stack DevSecOps}
+
+\begin{table}[H]
+\centering
+\caption{Công cụ DevSecOps và vai trò trong SageLMS}
+\label{tab:devsecops-tools}
+\begin{tabularx}{\textwidth}{p{0.28\textwidth}p{0.24\textwidth}Y}
+\toprule
+\textbf{Lớp kiểm soát} & \textbf{Công cụ} & \textbf{Vai trò} \\
+\midrule
+CI orchestration & GitHub Actions & Chạy PR validation, CD, infra plan và post-deploy check. \\
+Code quality/SAST & SonarCloud/\allowbreak SonarQube & Kiểm tra quality gate, bugs, vulnerabilities, code smells. \\
+Secret scanning & Gitleaks & Phát hiện token, password, private key hoặc secret pattern trong repo. \\
+Dependency/\allowbreak image/\allowbreak SBOM & Trivy & Quét phụ thuộc, image và tạo SBOM CycloneDX. \\
+IaC/config scanning & Checkov & Quét OpenTofu, Kubernetes manifests, Dockerfile và workflow. \\
+IaC & OpenTofu & Quản lý cloud foundation trên GCP/GKE. \\
+Registry & Harbor & Lưu image tin cậy, tách quyền push/pull bằng robot account. \\
+Artifact trust & Cosign & Ký image digest, attest SBOM CycloneDX và verify chữ ký/attestation trước deploy PR. \\
+GitOps CD & FluxCD & Reconcile manifests từ Git vào Kubernetes. \\
+Runtime config & Kustomize & Tách base manifest và overlay \texttt{devsecops}. \\
+Secret runtime & Google Secret Manager, ESO & Đồng bộ secret vào Kubernetes mà không hardcode trong Git. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Pipeline tổng thể}
+
+Luồng tổng thể bắt đầu từ pull request và kết thúc ở runtime trên GKE:
+
+\begin{enumerate}
+  \item Thành viên tạo branch và pull request.
+  \item PR validation chạy convention, lint, test, typecheck, build thử và security scan.
+  \item Sau khi PR được merge vào \texttt{main}, CD workflow xác định service thay đổi.
+  \item Pipeline build Docker image, scan bằng Trivy, tạo SBOM, push lên Harbor, resolve digest, ký bằng Cosign, attest SBOM và verify chữ ký/attestation.
+  \item Pipeline tạo deploy PR để cập nhật Kustomize overlay.
+  \item Deploy PR được review/approval.
+  \item FluxCD reconcile manifest đã merge vào GKE.
+  \item Post-deploy workflow kiểm tra rollout và endpoint public.
+\end{enumerate}
+
+\begin{figure}[H]
+\centering
+\fbox{%
+\begin{minipage}{0.94\textwidth}
+\small
+\begin{tabularx}{\linewidth}{p{0.20\linewidth}Y}
+\toprule
+\textbf{Giai đoạn} & \textbf{Kết quả kiểm soát} \\
+\midrule
+Source/PR & Branch, commit, pull request, convention, reviewer và thay đổi được path filter. \\
+PR validation & Lint, test, typecheck, Gitleaks, Trivy filesystem, Checkov, Hadolint/SonarCloud nếu bật. \\
+Build artifact & Docker image được build, Trivy image scan, SBOM CycloneDX được tạo. \\
+Publish/trust & Push Harbor, resolve digest, Cosign sign, attest SBOM, verify signature và verify-attestation. \\
+GitOps deploy & Mở deploy PR, review/merge, FluxCD reconcile vào GKE, post-deploy rollout và smoke test. \\
+\bottomrule
+\end{tabularx}
+\end{minipage}%
+}
+\caption{Pipeline DevSecOps tổng thể của SageLMS}
+\label{fig:pipeline-overall}
+\end{figure}
+
+\placeholderfigure{Placeholder hình pipeline DevSecOps end-to-end}{Vị trí chèn hình pipeline từ PR đến runtime: PR validation, build image, Trivy scan, SBOM, Harbor push, digest, Cosign sign/attest/verify, deploy PR, FluxCD reconcile và post-deploy check.}
+
+\section{Pull Request Pipeline}
+
+Workflow \path{.github/workflows/ci-pr.yml} là tuyến phòng thủ đầu tiên. Workflow này chạy trên pull request và workflow dispatch. Các job chính gồm:
+
+\begin{itemize}
+  \item Gitleaks secret scan.
+  \item Validate PR title, branch name và commit messages.
+  \item Detect changed paths để tạo matrix phù hợp.
+  \item AI Tutor tests bằng Ruff và pytest.
+  \item Java service tests và package.
+  \item Frontend ESLint, TypeScript, Vitest và build.
+  \item Trivy filesystem dependency scan.
+  \item Checkov cho infra và GitHub workflows.
+  \item OpenTofu format/validate.
+  \item Hadolint và Checkov cho Dockerfile.
+  \item Docker build và Trivy image vulnerability scan.
+  \item SonarCloud nếu cấu hình được bật.
+\end{itemize}
+
+\begin{table}[H]
+\centering
+\caption{Các gate chính trong PR validation}
+\label{tab:pr-gates}
+\begin{tabularx}{\textwidth}{p{0.25\textwidth}p{0.28\textwidth}Y}
+\toprule
+\textbf{Gate} & \textbf{Workflow job} & \textbf{Điều kiện fail} \\
+\midrule
+Secret scan & Gitleaks & Phát hiện secret chưa được xử lý. \\
+Frontend quality & ESLint, TypeScript, Tests, Build & Lint/typecheck/test/build không pass. \\
+Backend tests & Java tests, AI Tutor tests & Unit tests hoặc package step fail. \\
+Dependency scan & Trivy filesystem scan & Vulnerability vượt ngưỡng cấu hình. \\
+IaC/config scan & Checkov & Finding nghiêm trọng chưa xử lý hoặc chưa allowlist. \\
+Dockerfile quality & Hadolint, Checkov Dockerfiles & Dockerfile build hoặc cấu hình không đạt gate. \\
+Image scan PR & Docker build and Trivy image scan & Image có HIGH/CRITICAL fixed vulnerability. \\
+Code quality & SonarCloud & Quality gate fail khi SonarCloud được bật. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Build, scan và publish artifact}
+
+Workflow \path{.github/workflows/cd-main.yml} chạy khi có thay đổi trên \texttt{main} hoặc được gọi thủ công. Workflow phát hiện service cần deploy, kiểm tra cấu hình registry, xác thực GCP để đọc Harbor robot secret từ Secret Manager, build image, scan image bằng Trivy, tạo SBOM, push lên Harbor và ghi digest.
+
+Thứ tự supply chain được chuẩn hóa như sau:
+
+\begin{lstlisting}[language=bash]
+Build -> Trivy scan -> Generate SBOM -> Push
+      -> Resolve digest -> Sign -> Attest -> Verify
+      -> Deploy PR
+\end{lstlisting}
+
+Sau bước push image, workflow cần đi theo chuỗi chi tiết:
+
+\begin{lstlisting}[language=bash]
+Push -> Resolve digest -> Cosign sign
+     -> Cosign attest SBOM
+     -> Cosign verify
+     -> Cosign verify-attestation
+     -> Open deploy PR
+\end{lstlisting}
+
+Việc ký, attest và verify được thực hiện trên digest đã resolve từ registry. Điều này giúp chữ ký gắn với nội dung image cụ thể, tránh rủi ro tag bị thay đổi sau khi ký và bảo đảm deploy PR chỉ được mở sau khi image signature cùng CycloneDX SBOM attestation đều verify thành công.
+
+\section{Harbor registry và GitOps deployment}
+
+Harbor là trusted private registry của đồ án. Project chính là \texttt{sagelms-app}, chứa image của frontend và các backend services. CI dùng robot account có quyền push; runtime/FluxCD dùng credential pull riêng. Tách quyền như vậy giúp giảm rủi ro nếu một credential bị lộ hoặc bị cấp sai phạm vi.
+
+Harbor không thay thế Trivy trong CI. Trivy vẫn là security gate chính trước khi artifact được promote/deploy. Harbor lưu trữ artifact, hỗ trợ audit, quản lý vòng đời và cung cấp điểm pull image tin cậy cho GKE. Với môi trường GKE, repo cũng có thiết kế chuyển registry image blobs của Harbor sang GCS bằng bucket riêng \path{gs://sagelms-devsecops-harbor-registry}, Google Service Account riêng và Workload Identity cho Kubernetes ServiceAccount \texttt{harbor/harbor-registry}. Thiết kế này giúp dữ liệu registry không chỉ phụ thuộc vào PVC/GCE Persistent Disk của pod Harbor.
+
+Sau khi image được build, Trivy scan, generate SBOM, push, resolve digest, ký, attest và verify, pipeline mở deploy PR để cập nhật Kustomize overlay. Thay đổi manifest được review như code. Khi deploy PR được merge, FluxCD phát hiện commit mới, render manifest và reconcile vào namespace \texttt{sagelms-devsecops}.
+
+Cách làm này tách rời trách nhiệm:
+
+\begin{itemize}
+  \item CI/CD tạo artifact và đề xuất thay đổi GitOps state.
+  \item Người review duyệt thay đổi runtime.
+  \item FluxCD thực hiện reconcile vào cluster.
+  \item Post-deploy workflow kiểm tra kết quả rollout và smoke test.
+\end{itemize}
+
+\begin{figure}[H]
+\centering
+\fbox{%
+\begin{minipage}{0.94\textwidth}
+\small
+\begin{tabularx}{\linewidth}{p{0.22\linewidth}Y}
+\toprule
+\textbf{Điểm kiểm soát} & \textbf{Ý nghĩa trong GitOps flow} \\
+\midrule
+Deploy PR & CD workflow chỉ đề xuất thay đổi image tag/digest trong overlay, không apply trực tiếp vào cluster. \\
+Review/Merge & Thành viên phụ trách runtime kiểm tra manifest, digest và evidence trước khi merge. \\
+FluxCD reconcile & FluxCD theo dõi GitRepository/Kustomization và đưa desired state vào namespace \texttt{sagelms-devsecops}. \\
+Runtime verification & Post-deploy workflow kiểm tra rollout, ingress và public endpoint để chứng minh kết quả deploy. \\
+Rollback & Revert GitOps commit hoặc deploy PR trước đó để FluxCD reconcile về trạng thái đã biết. \\
+\bottomrule
+\end{tabularx}
+\end{minipage}%
+}
+\caption{GitOps deployment flow của SageLMS}
+\label{fig:gitops-flow}
+\end{figure}
+
+\placeholderfigure{Placeholder hình GitOps deployment flow}{Vị trí chèn ảnh deploy PR hoặc FluxCD reconciliation: diff \path{infra/k8s/devsecops/apps/kustomization.yaml}, trạng thái FluxCD Kustomization và rollout sau khi merge deploy PR.}
+
+\section{OpenTofu pipeline và secret management}
+
+Workflow \path{.github/workflows/infra-plan.yml} phục vụ thay đổi hạ tầng. Pull request thay đổi \path{infra/opentofu/**} sẽ chạy OpenTofu fmt/validate và Checkov. Remote plan dùng workflow dispatch vì cần credential và tác động nhiều hơn. Apply hạ tầng phải có approval riêng, không tự động destroy hoặc thay đổi tài nguyên shared.
+
+Secret được phân thành ba nhóm:
+
+\begin{itemize}
+  \item Secret của CI/CD: Harbor robot credential, GCP WIF config, Sonar token, Cosign config.
+  \item Secret runtime: DB password, Redis password, JWT secret, gateway shared secret, Grafana admin.
+  \item Config không bí mật: service URL, log level, app environment, feature flags.
+\end{itemize}
+
+Giá trị bí mật được lưu ở Google Secret Manager và đồng bộ xuống Kubernetes bằng External Secrets Operator. Manifest trong Git chỉ chứa reference đến secret, không chứa secret value thật.

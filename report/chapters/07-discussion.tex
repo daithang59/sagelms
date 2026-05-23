@@ -27,15 +27,16 @@ Một số hạn chế cần trình bày trung thực:
 \begin{itemize}
   \item Đồ án chưa tách đủ ba môi trường dev, staging và production như hệ thống thương mại.
   \item Restore drill CloudNativePG cần được hoàn thiện nếu muốn chứng minh disaster recovery đầy đủ.
-  \item Observability có thể mới ở mức định hướng hoặc foundation, chưa chắc đã có dashboard/alert đầy đủ.
+  \item Observability hiện đạt mức foundation với manifest/FluxCD Kustomization, nhưng chưa chứng minh dashboard và alert rule đầy đủ.
   \item Kyverno policy có thể cần chuyển dần từ audit sang enforce để tránh làm gián đoạn demo.
-  \item AI Tutor và worker nên được xác định rõ là nằm trong demo runtime chính hay nằm ở phạm vi mở rộng.
-  \item Một số thông tin như MSSV, giảng viên, ảnh chụp workflow và kết quả demo cuối cần bổ sung trước khi nộp.
+  \item AI Tutor đã được chốt là source/prototype ngoài runtime GKE chính; async worker hoặc các thành phần mở rộng khác không được trình bày như workload đã deploy nếu chưa có evidence.
+  \item Challenge Service đã có workload/runtime và port 8086, nhưng thư mục \path{contracts/openapi} hiện chưa có OpenAPI contract riêng cho challenge; đây là điểm cần bổ sung nếu muốn phần API contract bao phủ đủ toàn bộ service runtime.
+  \item Ảnh chụp workflow, runtime và kết quả demo cuối được liệt kê bằng placeholder trong báo cáo để nhóm chèn minh chứng thực tế trước khi nộp.
 \end{itemize}
 
 \section{So sánh với production thực tế}
 
-Nếu triển khai production thật, pipeline cần được mở rộng thêm. Hệ thống nên có ít nhất staging và production riêng, policy enforce chặt hơn, secret rotation, backup restore drill định kỳ, SLO/SLA, monitoring dashboard, alerting rule, incident response runbook và progressive delivery như canary hoặc blue-green. Ngoài ra, supply chain có thể nâng cấp theo hướng SLSA provenance, keyless signing chuẩn hóa bằng OIDC và admission policy xác minh chữ ký image trước khi pod chạy.
+Nếu triển khai production thật, pipeline cần được mở rộng thêm. Hệ thống cần có ít nhất staging và production riêng, policy enforce chặt hơn, secret rotation, backup restore drill định kỳ, SLO/SLA, monitoring dashboard, alerting rule, incident response runbook và progressive delivery như canary hoặc blue-green. Ngoài ra, supply chain có thể nâng cấp theo hướng SLSA provenance, keyless signing chuẩn hóa bằng OIDC và admission policy xác minh chữ ký image trước khi pod chạy.
 
 Tuy nhiên, với phạm vi đồ án môn học, việc duy trì một môi trường GKE dùng chung là lựa chọn hợp lý. Nó giảm chi phí nhưng vẫn cho phép chứng minh phần cốt lõi của DevSecOps: kiểm tra tự động, artifact đáng tin cậy, GitOps deployment, IaC và evidence vận hành.
 
