@@ -1,0 +1,159 @@
+\chapter{Thiết kế pipeline DevSecOps}
+\label{chap:pipeline-design}
+
+\section{Nguyên tắc thiết kế}
+
+Pipeline DevSecOps của SageLMS được thiết kế theo các nguyên tắc sau:
+
+\begin{itemize}
+  \item \textbf{CI và CD tách biệt}: CI kiểm tra chất lượng và bảo mật; CD tạo artifact, publish và cập nhật GitOps state. FluxCD mới là thành phần triển khai vào GKE.
+  \item \textbf{Artifact bất biến}: image được tag bằng git SHA và triển khai bằng digest thay vì tag mutable.
+  \item \textbf{Shift-left security}: security scan chạy từ pull request, không chờ đến trước production.
+  \item \textbf{Một mục đích, một công cụ chính}: SonarCloud/SonarQube cho code quality/SAST, Gitleaks cho secret, Trivy cho dependency/image/SBOM, Checkov cho IaC/config, Cosign cho signing.
+  \item \textbf{Least privilege}: GitHub Actions, Harbor robot account, Kubernetes ServiceAccount và Google Service Account có quyền theo vai trò.
+  \item \textbf{GitOps-first deployment}: runtime state được review qua Git, có lịch sử, approval và rollback bằng commit.
+\end{itemize}
+
+\section{Stack DevSecOps}
+
+\begin{table}[H]
+\centering
+\caption{Công cụ DevSecOps và vai trò trong SageLMS}
+\label{tab:devsecops-tools}
+\begin{tabularx}{\textwidth}{p{0.28\textwidth}p{0.24\textwidth}Y}
+\toprule
+\textbf{Lớp kiểm soát} & \textbf{Công cụ} & \textbf{Vai trò} \\
+\midrule
+CI orchestration & GitHub Actions & Chạy PR validation, CD, infra plan và post-deploy check. \\
+Code quality/SAST & SonarCloud/\allowbreak SonarQube & Kiểm tra quality gate, bugs, vulnerabilities, code smells. \\
+Secret scanning & Gitleaks & Phát hiện token, password, private key hoặc secret pattern trong repo. \\
+Dependency/\allowbreak image/\allowbreak SBOM & Trivy & Quét phụ thuộc, image và tạo SBOM CycloneDX. \\
+IaC/config scanning & Checkov & Quét OpenTofu, Kubernetes manifests, Dockerfile và workflow. \\
+IaC & OpenTofu & Quản lý cloud foundation trên GCP/GKE. \\
+Registry & Harbor & Lưu image tin cậy, tách quyền push/pull bằng robot account. \\
+Artifact trust & Cosign & Ký image digest, attest SBOM CycloneDX và verify chữ ký/attestation trước deploy PR. \\
+GitOps CD & FluxCD & Reconcile manifests từ Git vào Kubernetes. \\
+Runtime config & Kustomize & Tách base manifest và overlay \texttt{devsecops}. \\
+Secret runtime & Google Secret Manager, ESO & Đồng bộ secret vào Kubernetes mà không hardcode trong Git. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Pipeline tổng thể}
+
+Luồng tổng thể bắt đầu từ pull request và kết thúc ở runtime trên GKE:
+
+\begin{enumerate}
+  \item Thành viên tạo branch và pull request.
+  \item PR validation chạy convention, lint, test, typecheck, build thử và security scan.
+  \item Sau khi PR được merge vào \texttt{main}, CD workflow xác định service thay đổi.
+  \item Pipeline build Docker image, scan bằng Trivy, tạo SBOM, push lên Harbor, resolve digest, ký bằng Cosign, attest SBOM và verify chữ ký/attestation.
+  \item Pipeline tạo deploy PR để cập nhật Kustomize overlay.
+  \item Deploy PR được review/approval.
+  \item FluxCD reconcile manifest đã merge vào GKE.
+  \item Post-deploy workflow kiểm tra rollout và endpoint public.
+\end{enumerate}
+
+\placeholderfigure{Pipeline DevSecOps tổng thể}{Thay placeholder này bằng sơ đồ Code -> PR Validation -> Build/Trivy Scan/SBOM -> Harbor -> Digest -> Cosign Sign/Attest/Verify -> Deploy PR -> FluxCD -> GKE -> Smoke Test.}
+\label{fig:pipeline-overall}
+
+\section{Pull Request Pipeline}
+
+Workflow \path{.github/workflows/ci-pr.yml} là tuyến phòng thủ đầu tiên. Workflow này chạy trên pull request và workflow dispatch. Các job chính gồm:
+
+\begin{itemize}
+  \item Gitleaks secret scan.
+  \item Validate PR title, branch name và commit messages.
+  \item Detect changed paths để tạo matrix phù hợp.
+  \item AI Tutor tests bằng Ruff và pytest.
+  \item Java service tests và package.
+  \item Frontend ESLint, TypeScript, Vitest và build.
+  \item Trivy filesystem dependency scan.
+  \item Checkov cho infra và GitHub workflows.
+  \item OpenTofu format/validate.
+  \item Hadolint và Checkov cho Dockerfile.
+  \item Docker build và Trivy image vulnerability scan.
+  \item SonarCloud nếu cấu hình được bật.
+\end{itemize}
+
+\begin{table}[H]
+\centering
+\caption{Các gate chính trong PR validation}
+\label{tab:pr-gates}
+\begin{tabularx}{\textwidth}{p{0.25\textwidth}p{0.28\textwidth}Y}
+\toprule
+\textbf{Gate} & \textbf{Workflow job} & \textbf{Điều kiện fail} \\
+\midrule
+Secret scan & Gitleaks & Phát hiện secret chưa được xử lý. \\
+Frontend quality & ESLint, TypeScript, Tests, Build & Lint/typecheck/test/build không pass. \\
+Backend tests & Java tests, AI Tutor tests & Unit tests hoặc package step fail. \\
+Dependency scan & Trivy filesystem scan & Vulnerability vượt ngưỡng cấu hình. \\
+IaC/config scan & Checkov & Finding nghiêm trọng chưa xử lý hoặc chưa allowlist. \\
+Dockerfile quality & Hadolint, Checkov Dockerfiles & Dockerfile build hoặc cấu hình không đạt gate. \\
+Image scan PR & Docker build and Trivy image scan & Image có HIGH/CRITICAL fixed vulnerability. \\
+Code quality & SonarCloud & Quality gate fail khi SonarCloud được bật. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Build, scan và publish artifact}
+
+Workflow \path{.github/workflows/cd-main.yml} chạy khi có thay đổi trên \texttt{main} hoặc được gọi thủ công. Workflow phát hiện service cần deploy, kiểm tra cấu hình registry, xác thực GCP để đọc Harbor robot secret từ Secret Manager, build image, scan image bằng Trivy, tạo SBOM, push lên Harbor và ghi digest.
+
+Thứ tự supply chain được chuẩn hóa như sau:
+
+\begin{lstlisting}[language=bash]
+Build -> Trivy scan -> Generate SBOM -> Push
+      -> Resolve digest -> Sign -> Attest -> Verify
+      -> Deploy PR
+\end{lstlisting}
+
+Sau bước push image, workflow cần đi theo chuỗi chi tiết:
+
+\begin{lstlisting}[language=bash]
+Push -> Resolve digest -> Cosign sign
+     -> Cosign attest SBOM
+     -> Cosign verify
+     -> Cosign verify-attestation
+     -> Open deploy PR
+\end{lstlisting}
+
+Việc ký, attest và verify nên thực hiện trên digest đã resolve từ registry. Điều này giúp chữ ký gắn với nội dung image cụ thể, tránh rủi ro tag bị thay đổi sau khi ký và bảo đảm deploy PR chỉ được mở sau khi image signature cùng CycloneDX SBOM attestation đều verify thành công.
+
+\section{Harbor registry strategy}
+
+Harbor là trusted private registry của đồ án. Project chính là \texttt{sagelms-app}, chứa image của frontend và các backend services. CI dùng robot account có quyền push; runtime/FluxCD dùng credential pull riêng. Tách quyền như vậy giúp giảm rủi ro nếu một credential bị lộ hoặc bị cấp sai phạm vi.
+
+Harbor không thay thế Trivy trong CI. Trivy vẫn là security gate chính trước khi artifact được promote/deploy. Harbor lưu trữ artifact, hỗ trợ audit, quản lý vòng đời và cung cấp điểm pull image tin cậy cho GKE.
+
+\section{GitOps deployment với FluxCD}
+
+Sau khi image được build, Trivy scan, generate SBOM, push, resolve digest, ký, attest và verify, pipeline mở deploy PR để cập nhật Kustomize overlay. Thay đổi manifest được review như code. Khi deploy PR được merge, FluxCD phát hiện commit mới, render manifest và reconcile vào namespace \texttt{sagelms-devsecops}.
+
+Cách làm này tách rời trách nhiệm:
+
+\begin{itemize}
+  \item CI/CD tạo artifact và đề xuất thay đổi GitOps state.
+  \item Người review duyệt thay đổi runtime.
+  \item FluxCD thực hiện reconcile vào cluster.
+  \item Post-deploy workflow kiểm tra kết quả rollout và smoke test.
+\end{itemize}
+
+\placeholderfigure{GitOps deployment flow}{Thay placeholder này bằng sơ đồ Deploy PR -> Review -> Merge -> FluxCD GitRepository/Kustomization -> GKE namespace -> Post-deploy check.}
+\label{fig:gitops-flow}
+
+\section{OpenTofu Infrastructure Pipeline}
+
+Workflow \path{.github/workflows/infra-plan.yml} phục vụ thay đổi hạ tầng. Pull request thay đổi \path{infra/opentofu/**} sẽ chạy OpenTofu fmt/validate và Checkov. Remote plan dùng workflow dispatch vì cần credential và tác động nhiều hơn. Apply hạ tầng phải có approval riêng, không tự động destroy hoặc thay đổi tài nguyên shared.
+
+\section{Secret management}
+
+Secret được phân thành ba nhóm:
+
+\begin{itemize}
+  \item Secret của CI/CD: Harbor robot credential, GCP WIF config, Sonar token, Cosign config.
+  \item Secret runtime: DB password, Redis password, JWT secret, gateway shared secret, Grafana admin.
+  \item Config không bí mật: service URL, log level, app environment, feature flags.
+\end{itemize}
+
+Giá trị bí mật được lưu ở Google Secret Manager và đồng bộ xuống Kubernetes bằng External Secrets Operator. Manifest trong Git chỉ chứa reference đến secret, không chứa secret value thật.

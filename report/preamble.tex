@@ -1,0 +1,104 @@
+\usepackage[a4paper,top=2.5cm,bottom=2.5cm,left=3cm,right=2cm]{geometry}
+\usepackage{iftex}
+
+\ifPDFTeX
+  \usepackage[utf8]{inputenc}
+  \usepackage[T5]{fontenc}
+  \usepackage{lmodern}
+\else
+  \usepackage{fontspec}
+  \defaultfontfeatures{Ligatures=TeX}
+  \setmainfont{Times New Roman}
+  \setsansfont{Arial}
+  \setmonofont{Consolas}[Scale=MatchLowercase]
+\fi
+
+\usepackage{microtype}
+\usepackage{setspace}
+\setstretch{1.5}
+
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{xurl}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{upquote}
+\usepackage{caption}
+\usepackage{float}
+\usepackage{csquotes}
+\usepackage[backend=biber,style=ieee,sorting=none]{biblatex}
+\addbibresource{references.bib}
+
+\definecolor{codebg}{RGB}{248,248,248}
+\definecolor{codeframe}{RGB}{210,210,210}
+\definecolor{linkblue}{RGB}{20,77,145}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=linkblue,
+  citecolor=linkblue,
+  urlcolor=linkblue,
+  pdftitle={\reportTitle},
+  pdfauthor={\studentA; \studentB; \studentC; \studentD}
+}
+
+\lstdefinestyle{reportcode}{
+  basicstyle=\ttfamily\small,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  rulecolor=\color{codeframe},
+  breaklines=true,
+  breakatwhitespace=false,
+  columns=fullflexible,
+  keepspaces=true,
+  showstringspaces=false,
+  upquote=true,
+  tabsize=2,
+  numbers=none
+}
+\lstset{style=reportcode}
+
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+\setlist[itemize]{leftmargin=*,topsep=4pt,itemsep=2pt}
+\setlist[enumerate]{leftmargin=*,topsep=4pt,itemsep=2pt}
+
+\newcommand{\placeholderfigure}[2]{%
+  \begin{figure}[H]
+    \centering
+    \fbox{%
+      \begin{minipage}{0.90\textwidth}
+        \centering
+        \vspace{1.2cm}
+        \textbf{#1}\par
+        \vspace{0.4cm}
+        \small #2
+        \vspace{1.2cm}
+      \end{minipage}%
+    }
+    \caption{#1}
+  \end{figure}%
+}
+\newcommand{\NoBreak}[1]{\mbox{#1}}
+\newcommand{\Harbor}{\NoBreak{Harbor}}
+\newcommand{\WAL}{\NoBreak{WAL}}
+\newcommand{\VerticalSlice}{\NoBreak{Vertical slice}}
+
+\renewcommand{\contentsname}{Mục lục}
+\renewcommand{\listfigurename}{Danh mục hình}
+\renewcommand{\listtablename}{Danh mục bảng}
+\renewcommand{\chaptername}{Chương}
+\renewcommand{\figurename}{Hình}
+\renewcommand{\tablename}{Bảng}
+\renewcommand{\appendixname}{Phụ lục}
+
+\hyphenpenalty=10000
+\exhyphenpenalty=10000
+\tolerance=2000
+\emergencystretch=3em
+\sloppy

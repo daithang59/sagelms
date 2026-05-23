@@ -1,0 +1,73 @@
+\chapter{Trích đoạn workflow quan trọng}
+\label{appendix:workflow-snippets}
+
+\section{PR secret scan}
+
+\begin{lstlisting}[language=bash,caption={Gitleaks secret scan trong PR}]
+gitleaks detect --source . --no-git --redact
+\end{lstlisting}
+
+\section{OpenTofu validate}
+
+\begin{lstlisting}[language=bash,caption={OpenTofu validate trong CI}]
+tofu -chdir=infra/opentofu/envs/devsecops init -backend=false
+tofu fmt -check -recursive infra/opentofu
+tofu -chdir=infra/opentofu/envs/devsecops validate
+\end{lstlisting}
+
+\section{Trivy image scan và SBOM}
+
+\begin{lstlisting}[language=bash,caption={Quét image và tạo SBOM bằng Trivy}]
+trivy image --severity HIGH,CRITICAL --exit-code 1 \
+  --format table --output "$trivy_report" "$image"
+
+trivy image --format cyclonedx \
+  --output "$sbom_report" "$image"
+\end{lstlisting}
+
+\section{Cosign signing, attestation và verification}
+
+\begin{lstlisting}[language=bash,caption={Thứ tự Cosign trong CD workflow}]
+Push -> Resolve digest -> Cosign sign
+     -> Cosign attest SBOM
+     -> Cosign verify
+     -> Cosign verify-attestation
+     -> Open deploy PR
+\end{lstlisting}
+
+\begin{lstlisting}[language=bash,caption={Ký, attest SBOM và verify artifact}]
+cosign sign --yes "$digest_ref" \
+  2>&1 | tee "reports/cosign/cosign-sign-$service.txt"
+
+cosign attest --yes \
+  --predicate "$sbom_report" \
+  --type cyclonedx \
+  "$digest_ref" \
+  2>&1 | tee "reports/cosign/cosign-attest-sbom-$service.txt"
+
+identity="https://github.com/$GITHUB_REPOSITORY/.github/workflows/cd-main.yml"
+identity="$identity@refs/heads/$GITHUB_REF_NAME"
+
+cosign verify "$digest_ref" \
+  --certificate-identity "$identity" \
+  --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+  2>&1 | tee "reports/cosign/cosign-verify-$service.txt"
+
+cosign verify-attestation "$digest_ref" \
+  --type cyclonedx \
+  --certificate-identity "$identity" \
+  --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+  2>&1 | tee "reports/cosign/cosign-verify-attestation-$service.txt"
+\end{lstlisting}
+
+Run \texttt{26303390987} trên branch \texttt{main} xác nhận \texttt{auth-service} commit \texttt{a8a0b63d1568f0c356d10a22fcb89abad429ef52} có \texttt{cosign verify} và \texttt{cosign verify-attestation} đều PASS.
+
+\section{Post-deploy rollout}
+
+\begin{lstlisting}[language=bash,caption={Kiểm tra rollout sau triển khai}]
+kubectl rollout status "deployment/${deployment}" \
+  -n "$POST_DEPLOY_NAMESPACE" --timeout=180s
+
+kubectl get pods -n "$POST_DEPLOY_NAMESPACE" -o wide
+kubectl get ingress -n "$POST_DEPLOY_NAMESPACE" -o wide
+\end{lstlisting}
