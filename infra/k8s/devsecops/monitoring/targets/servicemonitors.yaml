@@ -1,0 +1,30 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: sagelms-spring-services
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: sagelms-spring-services
+    app.kubernetes.io/part-of: sagelms
+    release: kube-prometheus-stack
+spec:
+  namespaceSelector:
+    matchNames:
+      - sagelms-devsecops
+  selector:
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values:
+          - gateway
+          - auth-service
+          - course-service
+          - content-service
+          - progress-service
+          - assessment-service
+          - challenge-service
+  endpoints:
+    - port: http
+      path: /actuator/prometheus
+      interval: 30s
+      scrapeTimeout: 10s

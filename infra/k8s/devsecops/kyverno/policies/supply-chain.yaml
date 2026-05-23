@@ -1,0 +1,138 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: sagelms-require-harbor-registry
+  labels:
+    app.kubernetes.io/name: sagelms-require-harbor-registry
+    app.kubernetes.io/part-of: sagelms
+  annotations:
+    policies.kyverno.io/title: SageLMS Require Harbor Registry
+    policies.kyverno.io/category: Supply Chain Security
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/subject: Pod
+spec:
+  validationFailureAction: Audit
+  failurePolicy: Ignore
+  background: true
+  rules:
+    - name: require-harbor-registry
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - sagelms-devsecops
+      validate:
+        message: Images should be pulled from harbor.sagelms.id.vn/sagelms-app.
+        pattern:
+          spec:
+            containers:
+              - image: harbor.sagelms.id.vn/sagelms-app/*
+            =(initContainers):
+              - image: harbor.sagelms.id.vn/sagelms-app/*
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: sagelms-require-image-digest
+  labels:
+    app.kubernetes.io/name: sagelms-require-image-digest
+    app.kubernetes.io/part-of: sagelms
+  annotations:
+    policies.kyverno.io/title: SageLMS Require Image Digest
+    policies.kyverno.io/category: Supply Chain Security
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/subject: Pod
+spec:
+  validationFailureAction: Audit
+  failurePolicy: Ignore
+  background: true
+  rules:
+    - name: require-image-digest
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - sagelms-devsecops
+      validate:
+        message: Images should be pinned by immutable digest.
+        pattern:
+          spec:
+            containers:
+              - image: "*@sha256:*"
+            =(initContainers):
+              - image: "*@sha256:*"
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: sagelms-disallow-latest-tag
+  labels:
+    app.kubernetes.io/name: sagelms-disallow-latest-tag
+    app.kubernetes.io/part-of: sagelms
+  annotations:
+    policies.kyverno.io/title: SageLMS Disallow Latest Tag
+    policies.kyverno.io/category: Supply Chain Security
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Pod
+spec:
+  validationFailureAction: Audit
+  failurePolicy: Ignore
+  background: true
+  rules:
+    - name: disallow-latest-tag
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - sagelms-devsecops
+      validate:
+        message: Images should not use the mutable latest tag.
+        pattern:
+          spec:
+            containers:
+              - image: "!*:latest"
+            =(initContainers):
+              - image: "!*:latest"
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: sagelms-verify-cosign-signature
+  labels:
+    app.kubernetes.io/name: sagelms-verify-cosign-signature
+    app.kubernetes.io/part-of: sagelms
+  annotations:
+    policies.kyverno.io/title: SageLMS Verify Cosign Signature
+    policies.kyverno.io/category: Supply Chain Security
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/subject: Pod
+spec:
+  validationFailureAction: Audit
+  failurePolicy: Ignore
+  background: true
+  webhookTimeoutSeconds: 30
+  rules:
+    - name: verify-cosign-signature
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - sagelms-devsecops
+      verifyImages:
+        - imageReferences:
+            - harbor.sagelms.id.vn/sagelms-app/*
+          mutateDigest: false
+          required: true
+          attestors:
+            - entries:
+                - keyless:
+                    issuer: https://token.actions.githubusercontent.com
+                    subject: https://github.com/daithang59/sagelms/.github/workflows/cd-main.yml@refs/heads/main
