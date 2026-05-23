@@ -136,3 +136,5 @@ spec:
                 - keyless:
                     issuer: https://token.actions.githubusercontent.com
                     subject: https://github.com/daithang59/sagelms/.github/workflows/cd-main.yml@refs/heads/main
+                    rekor:
+                      url: https://rekor.sigstore.dev
