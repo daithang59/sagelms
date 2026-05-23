@@ -1,13 +1,16 @@
 import os
+import re
 from datetime import datetime, timezone
 from typing import Literal
 from uuid import uuid4
 
 from pydantic import BaseModel
-from sqlalchemy import DateTime, ForeignKey, String, Text, create_engine, select
+from sqlalchemy import DateTime, ForeignKey, String, Text, create_engine, event, select, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship, sessionmaker
 
 MAX_CONTEXT_MESSAGES = 20
+DEFAULT_DB_SCHEMA = "ai_tutor"
+SCHEMA_NAME_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 def utc_now() -> datetime:
@@ -20,16 +23,22 @@ class DatabaseSettings(BaseModel):
     db_name: str = "sagelms"
     db_user: str = "sagelms"
     db_password: str = "sagelms"
+    db_schema: str = DEFAULT_DB_SCHEMA
     database_url: str | None = None
 
     @classmethod
     def from_env(cls) -> "DatabaseSettings":
+        db_schema = os.getenv("DB_SCHEMA", DEFAULT_DB_SCHEMA).strip() or DEFAULT_DB_SCHEMA
+        if not SCHEMA_NAME_PATTERN.match(db_schema):
+            raise ValueError(f"Invalid DB_SCHEMA value: {db_schema!r}")
+
         return cls(
             db_host=os.getenv("DB_HOST", "localhost").strip(),
             db_port=int(os.getenv("DB_PORT", "5432")),
             db_name=os.getenv("DB_NAME", "sagelms").strip(),
             db_user=os.getenv("DB_USER", "sagelms").strip(),
             db_password=os.getenv("DB_PASSWORD", "sagelms").strip(),
+            db_schema=db_schema,
             database_url=os.getenv("DATABASE_URL"),
         )
 
@@ -39,9 +48,23 @@ class DatabaseSettings(BaseModel):
             return self.database_url
         return f"postgresql+psycopg2://{self.db_user}:{self.db_password}@{self.db_host}:{self.db_port}/{self.db_name}"
 
+    @property
+    def is_postgresql(self) -> bool:
+        return self.sqlalchemy_url.startswith("postgresql")
 
-engine = create_engine(DatabaseSettings.from_env().sqlalchemy_url, pool_pre_ping=True)
+
+database_settings = DatabaseSettings.from_env()
+engine = create_engine(database_settings.sqlalchemy_url, pool_pre_ping=True)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
+
+
+@event.listens_for(engine, "connect")
+def set_postgres_search_path(dbapi_connection, _) -> None:
+    if not database_settings.is_postgresql:
+        return
+
+    with dbapi_connection.cursor() as cursor:
+        cursor.execute(f'SET search_path TO "{database_settings.db_schema}", public')
 
 
 class Base(DeclarativeBase):
@@ -87,6 +110,10 @@ class AiMessageRecord(Base):
 
 
 def init_db() -> None:
+    if database_settings.is_postgresql:
+        with engine.begin() as connection:
+            connection.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{database_settings.db_schema}"'))
+
     Base.metadata.create_all(bind=engine)
 
 

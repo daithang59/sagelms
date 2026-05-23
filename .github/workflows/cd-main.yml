@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       services:
-        description: "Comma-separated services to build, or all. Deployable values: web,gateway,auth-service,course-service,content-service,progress-service,assessment-service,challenge-service."
+        description: "Comma-separated services to build, or all. Deployable values: web,gateway,auth-service,course-service,content-service,progress-service,assessment-service,challenge-service,ai-tutor-service."
         required: false
         default: ""
 
@@ -117,14 +117,8 @@ jobs:
           selected "progress-service" "$CHANGED_PROGRESS" && add_service "progress-service" "services/progress-service" "java"
           selected "assessment-service" "$CHANGED_ASSESSMENT" && add_service "assessment-service" "services/assessment-service" "java"
           selected "challenge-service" "$CHANGED_CHALLENGE" && add_service "challenge-service" "services/challenge-service" "java"
+          selected "ai-tutor-service" "$CHANGED_AI_TUTOR" && add_service "ai-tutor-service" "services/ai-tutor-service" "python"
           selected "web" "$CHANGED_WEB" && add_service "web" "apps/web" "frontend"
-
-          if [[ "$CHANGED_AI_TUTOR" == "true" ]]; then
-            {
-              echo "### ai-tutor-service"
-              echo "ai-tutor-service changed, but it is intentionally excluded from GKE deployment in this phase."
-            } >> "$GITHUB_STEP_SUMMARY"
-          fi
 
           printf "%s\n" "${services[@]}" > reports/deploy-services.txt
           echo "services_count=${#services[@]}" >> "$GITHUB_OUTPUT"
@@ -235,6 +229,13 @@ jobs:
           cache: npm
           cache-dependency-path: apps/web/package-lock.json
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: services/ai-tutor-service/requirements.txt
+
       - name: Run service checks
         shell: bash
         run: |
@@ -254,6 +255,13 @@ jobs:
               npm run lint
               npm test -- --run
               npm run build
+              popd >/dev/null
+            elif [[ "$kind" == "python" ]]; then
+              pushd "$context" >/dev/null
+              python -m pip install --upgrade pip
+              python -m pip install -r requirements.txt
+              python -m ruff check .
+              python -m pytest
               popd >/dev/null
             fi
             echo "::endgroup::"

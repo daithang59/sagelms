@@ -4,6 +4,7 @@ namespace: sagelms-devsecops
 resources:
   - namespace.yaml
   - ../../base/apps
+  - ai-tutor-externalsecret.yaml
   - app-shared-externalsecret.yaml
   - harbor-pull-externalsecret.yaml
   - ingress.yaml
@@ -38,6 +39,9 @@ images:
     newName: harbor.sagelms.id.vn/sagelms-app/challenge-service
     newTag: 9229a5baad32c94d5f355c98329b7d149af4e587
     digest: sha256:1f683777a6c061e6e1f74795cb449530be5411e9d6034892a35d6bd10f419c04
+  - name: harbor.sagelms.id.vn/sagelms-app/ai-tutor-service
+    newName: harbor.sagelms.id.vn/sagelms-app/ai-tutor-service
+    newTag: dev
   - name: harbor.sagelms.id.vn/sagelms-app/web
     newName: harbor.sagelms.id.vn/sagelms-app/web
     newTag: 9229a5baad32c94d5f355c98329b7d149af4e587
