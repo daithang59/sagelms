@@ -280,3 +280,5 @@ def rename_conversation(
 def delete_conversation(conversation_id: str, _: GatewayDependency, user: UserDependency, db: DbDependency) -> None:
     conversation = require_visible_conversation(db, conversation_id, user)
     database.soft_delete_conversation(db, conversation)
+
+# Test CI/CD pipline for AI Tutor Service
