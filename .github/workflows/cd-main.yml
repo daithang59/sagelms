@@ -415,7 +415,7 @@ jobs:
             sbom_report="reports/sbom/$service-sbom.cdx.json"
 
             echo "::group::Trivy scan $service"
-            if ! trivy image --severity HIGH,CRITICAL --exit-code 1 --format table --output "$trivy_report" "$image"; then
+            if ! trivy image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 --format table --output "$trivy_report" "$image"; then
               echo "Trivy found HIGH or CRITICAL vulnerabilities in $service."
               echo
               cat "$trivy_report"

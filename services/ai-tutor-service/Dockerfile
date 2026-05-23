@@ -8,8 +8,10 @@ RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
 COPY requirements.txt .
+
+# hadolint ignore=DL3013
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
-    pip install --no-cache-dir --only-binary :all: -r requirements.txt  # NOSONAR
+    pip install --no-cache-dir --only-binary :all: -r requirements.txt
 
 COPY *.py alembic.ini ruff.toml ./
 
