@@ -23,7 +23,7 @@ env:
   POST_DEPLOY_WEB_HEALTH_PATH: ${{ vars.POST_DEPLOY_WEB_HEALTH_PATH || '/health' }}
   POST_DEPLOY_WEB_EXPECTED_STATUS: ${{ vars.POST_DEPLOY_WEB_EXPECTED_STATUS || '200' }}
   POST_DEPLOY_WEB_EXPECTED_BODY: ${{ vars.POST_DEPLOY_WEB_EXPECTED_BODY || 'ok' }}
-  POST_DEPLOY_API_HEALTH_PATH: ${{ vars.POST_DEPLOY_API_HEALTH_PATH || '/api/actuator/health' }}
+  POST_DEPLOY_API_HEALTH_PATH: ${{ vars.POST_DEPLOY_API_HEALTH_PATH || '/api/v1/actuator/health' }}
   POST_DEPLOY_API_EXPECTED_STATUSES: ${{ vars.POST_DEPLOY_API_EXPECTED_STATUSES || '200,401' }}
 
 jobs:
@@ -76,7 +76,18 @@ jobs:
             echo "| --- | --- | --- |"
           } > "$report"
 
-          for deployment in gateway auth-service web; do
+          deployments=(
+            gateway
+            auth-service
+            course-service
+            content-service
+            progress-service
+            assessment-service
+            challenge-service
+            web
+          )
+
+          for deployment in "${deployments[@]}"; do
             echo "Checking rollout for ${deployment}"
             kubectl rollout status "deployment/${deployment}" \
               -n "$POST_DEPLOY_NAMESPACE" \

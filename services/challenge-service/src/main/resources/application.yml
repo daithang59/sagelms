@@ -19,3 +19,9 @@ spring:
     enabled: true
     schemas: challenge
     default-schema: challenge
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus

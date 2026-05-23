@@ -1,0 +1,137 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: sagelms-pod-security-baseline
+  labels:
+    app.kubernetes.io/name: sagelms-pod-security-baseline
+    app.kubernetes.io/part-of: sagelms
+  annotations:
+    policies.kyverno.io/title: SageLMS Pod Security Baseline
+    policies.kyverno.io/category: Pod Security
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Pod
+spec:
+  validationFailureAction: Audit
+  failurePolicy: Ignore
+  background: true
+  rules:
+    - name: pod-security-baseline
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - sagelms-devsecops
+      validate:
+        message: Pods in sagelms-devsecops should satisfy the Kubernetes Pod Security Baseline profile.
+        podSecurity:
+          level: baseline
+          version: latest
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: sagelms-require-resources
+  labels:
+    app.kubernetes.io/name: sagelms-require-resources
+    app.kubernetes.io/part-of: sagelms
+  annotations:
+    policies.kyverno.io/title: SageLMS Require Resources
+    policies.kyverno.io/category: Resource Management
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Pod
+spec:
+  validationFailureAction: Audit
+  failurePolicy: Ignore
+  background: true
+  rules:
+    - name: require-container-requests-and-limits
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - sagelms-devsecops
+      validate:
+        message: App containers should define CPU and memory requests and limits.
+        pattern:
+          spec:
+            containers:
+              - resources:
+                  requests:
+                    cpu: "?*"
+                    memory: "?*"
+                  limits:
+                    cpu: "?*"
+                    memory: "?*"
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: sagelms-require-probes
+  labels:
+    app.kubernetes.io/name: sagelms-require-probes
+    app.kubernetes.io/part-of: sagelms
+  annotations:
+    policies.kyverno.io/title: SageLMS Require Health Probes
+    policies.kyverno.io/category: Reliability
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Pod
+spec:
+  validationFailureAction: Audit
+  failurePolicy: Ignore
+  background: true
+  rules:
+    - name: require-readiness-and-liveness-probes
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - sagelms-devsecops
+      validate:
+        message: App containers should define readiness and liveness probes.
+        pattern:
+          spec:
+            containers:
+              - readinessProbe:
+                  "*": "?*"
+                livenessProbe:
+                  "*": "?*"
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: sagelms-require-safe-security-context
+  labels:
+    app.kubernetes.io/name: sagelms-require-safe-security-context
+    app.kubernetes.io/part-of: sagelms
+  annotations:
+    policies.kyverno.io/title: SageLMS Require Safe Security Context
+    policies.kyverno.io/category: Pod Security
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Pod
+spec:
+  validationFailureAction: Audit
+  failurePolicy: Ignore
+  background: true
+  rules:
+    - name: require-non-root-no-privilege-escalation
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - sagelms-devsecops
+      validate:
+        message: App containers should run as non-root and disable privilege escalation.
+        pattern:
+          spec:
+            containers:
+              - securityContext:
+                  runAsNonRoot: true
+                  allowPrivilegeEscalation: false

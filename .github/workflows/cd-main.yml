@@ -341,8 +341,11 @@ jobs:
 
           mkdir -p reports/trivy "reports/sbom/$IMAGE_TAG" reports/cosign
           digest_report="reports/image-digests-$IMAGE_TAG.md"
+          digest_tsv="reports/image-digests-$IMAGE_TAG.tsv"
           pr_body="reports/deploy-pr-body-$IMAGE_TAG.md"
           summary_report="reports/deploy-summary-$IMAGE_TAG.md"
+
+          printf "service\timage\tdigest\n" > "$digest_tsv"
 
           {
             echo "# Image digests for $IMAGE_TAG"
@@ -416,6 +419,7 @@ jobs:
           set -euo pipefail
 
           digest_report="reports/image-digests-$IMAGE_TAG.md"
+          digest_tsv="reports/image-digests-$IMAGE_TAG.tsv"
           pr_body="reports/deploy-pr-body-$IMAGE_TAG.md"
           summary_report="reports/deploy-summary-$IMAGE_TAG.md"
 
@@ -435,9 +439,23 @@ jobs:
               --type cyclonedx \
               "$digest_ref" 2>&1 | tee "reports/cosign/cosign-attest-sbom-$service.txt"
 
+            identity="https://github.com/$GITHUB_REPOSITORY/.github/workflows/cd-main.yml@refs/heads/$GITHUB_REF_NAME"
+
+            cosign verify "$digest_ref" \
+              --certificate-identity "$identity" \
+              --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+              2>&1 | tee "reports/cosign/cosign-verify-$service.txt"
+
+            cosign verify-attestation "$digest_ref" \
+              --type cyclonedx \
+              --certificate-identity "$identity" \
+              --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+              2>&1 | tee "reports/cosign/cosign-verify-attestation-$service.txt"
+
             echo "| $service | \`$image\` | \`$digest\` | PASS | \`$sbom_report\` | PASS |" >> "$pr_body"
             echo "| $service | \`$image\` | \`$digest\` | PASS | \`$sbom_report\` | PASS |" >> "$summary_report"
             echo "| $service | \`$image\` | \`$digest\` |" >> "$digest_report"
+            printf "%s\t%s\t%s\n" "$service" "$image" "$digest" >> "$digest_tsv"
           done < reports/deploy-services.txt
 
       - name: Publish GitHub job summary
@@ -454,6 +472,7 @@ jobs:
           name: deploy-evidence
           path: |
             reports/image-digests-${{ env.IMAGE_TAG }}.md
+            reports/image-digests-${{ env.IMAGE_TAG }}.tsv
             reports/deploy-pr-body-${{ env.IMAGE_TAG }}.md
             reports/deploy-summary-${{ env.IMAGE_TAG }}.md
             reports/trivy/*.txt
@@ -497,16 +516,33 @@ jobs:
           sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64
           sudo chmod +x /usr/local/bin/yq
 
-      - name: Update deployment manifest image tags
+      - name: Update deployment manifest image tags and digests
         shell: bash
         run: |
           set -euo pipefail
 
+          digest_tsv="reports/image-digests-$IMAGE_TAG.tsv"
+          if [[ ! -s "$digest_tsv" ]]; then
+            echo "::error::Missing digest map: $digest_tsv"
+            exit 1
+          fi
+
           while IFS='|' read -r service context kind; do
             [[ -z "$service" ]] && continue
             image_name="$REGISTRY_HOST/$REGISTRY_NAMESPACE/$service"
+            image_digest="$(awk -F '\t' -v service="$service" 'NR > 1 && $1 == service { print $3; found=1 } END { if (!found) exit 1 }' "$digest_tsv" || true)"
+
+            if [[ -z "$image_digest" ]]; then
+              echo "::error::Missing digest for $service in $digest_tsv"
+              exit 1
+            fi
+
             export IMAGE_NAME="$image_name"
-            yq -i '(.images[] | select(.newName == env(IMAGE_NAME)) | .newTag) = env(IMAGE_TAG)' "$KUSTOMIZATION_FILE"
+            export IMAGE_DIGEST="$image_digest"
+            yq -i '
+              (.images[] | select(.newName == env(IMAGE_NAME)) | .newTag) = env(IMAGE_TAG) |
+              (.images[] | select(.newName == env(IMAGE_NAME)) | .digest) = env(IMAGE_DIGEST)
+            ' "$KUSTOMIZATION_FILE"
           done < reports/deploy-services.txt
 
       - name: Publish GitHub job summary
@@ -520,7 +556,7 @@ jobs:
             echo
             echo "### Deploy PR"
             echo
-            echo "A deploy PR will update \`$KUSTOMIZATION_FILE\` to image tag \`$IMAGE_TAG\`."
+            echo "A deploy PR will update \`$KUSTOMIZATION_FILE\` to image tag \`$IMAGE_TAG\` and pin the resolved image digests."
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Create deploy PR
