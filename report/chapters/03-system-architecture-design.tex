@@ -122,7 +122,12 @@ Optional/prototype & AI Tutor FastAPI có source/prototype RAG, nhưng chưa thu
 \label{fig:microservices-architecture}
 \end{figure}
 
-\placeholderfigure{Placeholder hình kiến trúc microservices SageLMS}{Vị trí chèn hình kiến trúc tổng quan: Browser, Cloudflare Tunnel, ingress-nginx, Web, Gateway, các service Spring Boot, CloudNativePG, Redis, Harbor, FluxCD và Google Secret Manager/ESO. Hình có thể dựng lại từ \path{docs/architecture/devsecops-diagram-blueprints.md}.}
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.98\textwidth,height=0.72\textheight,keepaspectratio]{01-sagelms-overall-architecture-gke.jpg}
+\caption{Kiến trúc tổng thể hệ thống SageLMS trên Google Kubernetes Engine}
+\label{fig:sagelms-overall-architecture-image}
+\end{figure}
 
 \section{Danh sách service và phạm vi runtime}
 
@@ -214,7 +219,12 @@ Public traffic -> Cloudflare Tunnel -> ingress-nginx -> Ingress rule
 
 Ingress \path{infra/k8s/devsecops/apps/ingress.yaml} hiện khai báo host \path{sagelms.id.vn}, path \path{/api/v1} trỏ tới service \texttt{gateway} port 8080 và path \path{/} trỏ tới service \texttt{web} port 80. Đây là điểm quan trọng cho demo public vì lỗi thực tế từng gặp là \path{sagelms.id.vn/api/v1} bị route vào web Nginx, khiến API request nhận response frontend thay vì đi qua Gateway.
 
-\placeholderfigure{Placeholder hình public routing và Ingress}{Vị trí chèn ảnh minh chứng public routing: manifest hoặc output \texttt{kubectl get ingress sagelms-app -n sagelms-devsecops -o yaml} thể hiện host \path{sagelms.id.vn}, path \path{/api/v1 -> gateway:8080} và path \path{/ -> web:80}; bổ sung ảnh Cloudflare Tunnel hoặc \texttt{cloudflared} deployment nếu dùng trong demo public.}
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.98\textwidth,height=0.72\textheight,keepaspectratio]{03-api-gateway-request-flow-jwt-rbac.jpg}
+\caption{Luồng request qua API Gateway và cơ chế kiểm soát JWT/RBAC}
+\label{fig:api-gateway-request-sequence-image}
+\end{figure}
 
 \section{Kiến trúc dữ liệu và repository}
 
@@ -310,7 +320,12 @@ GitOps deploy & Mở deploy PR, review/merge, FluxCD reconcile vào GKE, post-de
 \label{fig:pipeline-overall}
 \end{figure}
 
-\placeholderfigure{Placeholder hình pipeline DevSecOps end-to-end}{Vị trí chèn hình pipeline từ PR đến runtime: PR validation, build image, Trivy scan, SBOM, Harbor push, digest, Cosign sign/attest/verify, deploy PR, FluxCD reconcile và post-deploy check.}
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.98\textwidth,height=0.72\textheight,keepaspectratio]{02-devsecops-pipeline-end-to-end.jpg}
+\caption{Pipeline DevSecOps từ pull request đến artifact tin cậy và post-deploy verification}
+\label{fig:devsecops-pipeline-image}
+\end{figure}
 
 \section{Pull Request Pipeline}
 
@@ -414,7 +429,12 @@ Rollback & Revert GitOps commit hoặc deploy PR trước đó để FluxCD reco
 \label{fig:gitops-flow}
 \end{figure}
 
-\placeholderfigure{Placeholder hình GitOps deployment flow}{Vị trí chèn ảnh deploy PR hoặc FluxCD reconciliation: diff \path{infra/k8s/devsecops/apps/kustomization.yaml}, trạng thái FluxCD Kustomization và rollout sau khi merge deploy PR.}
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.98\textwidth,height=0.72\textheight,keepaspectratio]{04-gitops-fluxcd-reconciliation.jpg}
+\caption{GitOps CD và cơ chế FluxCD reconciliation trong runtime GKE}
+\label{fig:gitops-reconciliation-image}
+\end{figure}
 
 \section{OpenTofu pipeline và secret management}
 

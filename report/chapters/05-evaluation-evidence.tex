@@ -45,7 +45,6 @@ Workflow PR validation kiểm tra nhiều loại thay đổi khác nhau. Với t
 
 Bằng chứng hình ảnh cho mục này là màn hình GitHub Actions của một PR pass đầy đủ. Trong phần minh chứng bổ sung, nhóm có thể đưa thêm một PR fail để minh họa tác dụng của gate.
 
-\placeholderfigure{Placeholder ảnh PR validation pass/fail}{Vị trí chèn ảnh GitHub Actions \texttt{CI - Validation PR}: tên workflow, commit/PR, danh sách job như Gitleaks, test, Trivy, Checkov, Docker build và trạng thái pass/fail.}
 
 \section{Kết quả image build, scan, SBOM và digest}
 
@@ -69,7 +68,6 @@ Cosign automation evidence & \path{reports/deploy-summary-a8a0b63d1568f0c356d10a
 \end{tabularx}
 \end{table}
 
-\placeholderfigure{Placeholder ảnh supply chain evidence}{Vị trí chèn ảnh Harbor image digest, Trivy report PASS, SBOM CycloneDX artifact và deploy summary cho commit \texttt{1b21116f523c3e40c4c223988b88c73f55cfebf0} hoặc commit mới hơn nếu dùng khi bảo vệ.}
 
 \section{Kết quả Cosign verification mới nhất}
 
@@ -93,7 +91,6 @@ Verify SBOM attestation & PASS \\
 \end{tabularx}
 \end{table}
 
-\placeholderfigure{Placeholder ảnh Cosign verify và verify-attestation}{Vị trí chèn ảnh workflow run \texttt{26303390987} hoặc log artifact thể hiện \texttt{cosign verify} và \texttt{cosign verify-attestation} PASS cho image auth-service digest \path{sha256:9e436d64f9a39a65d8052c57d9da5abbf285f5b400f4c94610311fe543efa35d}.}
 
 Kết quả này bổ sung cho evidence multi-service ở commit \texttt{1b21116f523c3e40c4c223988b88c73f55cfebf0}. Commit \texttt{1b21116f} vẫn dùng để chứng minh pipeline xử lý nhiều service; commit \texttt{a8a0b63d1568f0c356d10a22fcb89abad429ef52} dùng để chứng minh automation mới đã verify image signature và CycloneDX SBOM attestation thành công trước khi mở deploy PR.
 
@@ -114,7 +111,6 @@ Evidence trong \path{docs/evidence/devsecops-cloud-foundation-evidence.md} và \
   \item ExternalSecrets đã đồng bộ secret DB, Redis, JWT và gateway shared secret.
 \end{itemize}
 
-\placeholderfigure{Placeholder ảnh cloud foundation trên GCP}{Vị trí chèn ảnh OpenTofu outputs hoặc GCP Console: GKE cluster, Workload Identity, GCS buckets, Secret Manager, Memorystore Redis và CloudNativePG backup bucket.}
 
 \section{Kết quả deployment và smoke test}
 
@@ -139,7 +135,6 @@ Cloudflare Tunnel & Deployment \texttt{cloudflared} namespace \texttt{cloudflare
 \end{tabularx}
 \end{table}
 
-\placeholderfigure{Placeholder ảnh runtime GKE và FluxCD}{Vị trí chèn ảnh \texttt{kubectl get deployments -n sagelms-devsecops}, \texttt{kubectl get ingress -n sagelms-devsecops}, \texttt{flux get kustomizations -n fluxcd} hoặc GitHub Actions post-deploy run pass.}
 
 Workflow \path{post-deploy-check.yml} tách riêng bước kiểm tra sau triển khai. Workflow này không thay FluxCD và không cập nhật manifest; nó chỉ xác thực trạng thái runtime sau khi GitOps reconcile. Hai job chính là:
 
