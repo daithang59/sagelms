@@ -18,7 +18,7 @@ import QuestionDetailPage from '@/pages/challenges/QuestionDetailPage';
 import QuestionTakingPage from '@/pages/challenges/QuestionTakingPage';
 import QuestionResultPage from '@/pages/challenges/QuestionResultPage';
 import QuestionReviewPage from '@/pages/challenges/QuestionReviewPage';
-import QuizzesPage from '@/pages/courses/QuizzesPage';
+import AssessmentPage from '@/pages/courses/AssessmentPage';
 import AssessmentQuestionDetailPage from '@/pages/courses/AssessmentQuestionDetailPage';
 import AssessmentTakingPage from '@/pages/courses/AssessmentTakingPage';
 import AssessmentResultPage from '@/pages/courses/AssessmentResultPage';
@@ -112,7 +112,7 @@ function App() {
                   </ProtectedRoute>
                 }
               />
-              <Route path="/quizzes" element={<QuizzesPage />} />
+              <Route path="/assessments" element={<AssessmentPage />} />
               <Route
                 path="/courses/:courseId/assessments/:id/question-sets/new"
                 element={

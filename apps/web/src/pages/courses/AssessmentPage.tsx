@@ -20,7 +20,7 @@ function statusBadge(status: string) {
   return <Badge variant="neutral">Lưu trữ</Badge>;
 }
 
-export default function QuizzesPage() {
+export default function AssessmentPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { showToast } = useToast();

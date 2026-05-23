@@ -6,3 +6,4 @@ export { useChallengeAttempt } from './useChallengeAttempt';
 export { useAssessments } from './useAssessments';
 export { useAssessmentAttempt } from './useAssessmentAttempt';
 export { useUserProfiles } from './useUserProfiles';
+export { useAiTutor } from './useAiTutor';

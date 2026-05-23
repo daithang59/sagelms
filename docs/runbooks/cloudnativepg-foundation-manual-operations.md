@@ -420,7 +420,7 @@ kubectl get crds | Select-String -Pattern "postgresql.cnpg.io|barmancloud.cnpg.i
 Manifest runtime nằm ở:
 
 ```text
-infra/k8s/devsecops/cloudnativepg-runtime/
+infra/k8s/devsecops/cloudnativepg/
 ```
 
 Nội dung chính:
@@ -436,8 +436,8 @@ Nội dung chính:
 Apply:
 
 ```powershell
-kubectl apply --server-side --dry-run=server -k infra\k8s\devsecops\cloudnativepg-runtime
-kubectl apply -k infra\k8s\devsecops\cloudnativepg-runtime
+kubectl apply --server-side --dry-run=server -k infra\k8s\devsecops\cloudnativepg
+kubectl apply -k infra\k8s\devsecops\cloudnativepg
 ```
 
 Theo dõi:

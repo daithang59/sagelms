@@ -16,6 +16,7 @@ import {
   Plus,
   Trash2,
   Eye,
+  EyeOff,
   GraduationCap,
   Mail,
   UserRound,
@@ -155,7 +156,7 @@ function ParticipantRow({
         type="button"
         onClick={onDrop}
         disabled={!canDrop}
-        className="pressable rounded-lg p-2 text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100"
+        className="pressable rounded-lg p-2 text-red-600 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100"
         title="Đưa ra khỏi khóa học"
         aria-label="Đưa ra khỏi khóa học"
       >
@@ -962,6 +963,9 @@ export default function CourseDetailPage() {
                               e.stopPropagation();
                               try {
                                 await publishLesson(lesson.id, !lesson.isPublished);
+                                if (id) {
+                                  await (canManageCourse ? fetchLessonsForManagement(id) : fetchLessonsByCourse(id));
+                                }
                                 showToast(
                                   lesson.isPublished ? 'Bài học đã được ẩn!' : 'Bài học đã được xuất bản!',
                                   'success'
@@ -971,9 +975,9 @@ export default function CourseDetailPage() {
                                 showToast(message, 'error');
                               }
                             }}
-                            className="pressable p-2 rounded-lg hover:bg-slate-100 text-slate-500"
+                            className="pressable p-2 rounded-lg hover:bg-slate-200 text-slate-500"
                           >
-                            <Eye className="w-4 h-4" />
+                            {lesson.isPublished ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                           </button>
                           <button
                             onClick={async (e) => {
@@ -994,7 +998,7 @@ export default function CourseDetailPage() {
                                 showToast(message, 'error');
                               }
                             }}
-                            className="pressable p-2 rounded-lg hover:bg-red-50 text-red-500"
+                            className="pressable p-2 rounded-lg hover:bg-red-100 text-red-500"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>

@@ -1,24 +1,25 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: gateway-config
+  name: ai-tutor-service-config
   labels:
-    app.kubernetes.io/name: gateway
+    app.kubernetes.io/name: ai-tutor-service
     app.kubernetes.io/part-of: sagelms
 data:
-  SERVER_PORT: "8080"
-  SPRING_PROFILES_ACTIVE: "gke"
-  AUTH_SERVICE_HOST: "auth-service"
-  AUTH_SERVICE_PORT: "8081"
+  DB_HOST: "sagelms-postgres-rw.sagelms-data.svc.cluster.local"
+  DB_PORT: "5432"
+  DB_NAME: "sagelms"
+  DB_SCHEMA: "ai_tutor"
+  GOOGLE_MODEL: "gemini-2.5-flash"
+  AI_TUTOR_TEMPERATURE: "0.2"
+  AI_TUTOR_MAX_OUTPUT_TOKENS: "1024"
+  AI_TUTOR_CONTEXT_MAX_CHARS: "12000"
+  AI_TUTOR_CONTEXT_TIMEOUT_SECONDS: "5.0"
   COURSE_SERVICE_HOST: "course-service"
   COURSE_SERVICE_PORT: "8082"
   CONTENT_SERVICE_HOST: "content-service"
   CONTENT_SERVICE_PORT: "8083"
-  PROGRESS_SERVICE_HOST: "progress-service"
-  PROGRESS_SERVICE_PORT: "8084"
   ASSESSMENT_SERVICE_HOST: "assessment-service"
   ASSESSMENT_SERVICE_PORT: "8085"
   CHALLENGE_SERVICE_HOST: "challenge-service"
   CHALLENGE_SERVICE_PORT: "8086"
-  AI_TUTOR_SERVICE_HOST: "ai-tutor-service"
-  AI_TUTOR_SERVICE_PORT: "8087"

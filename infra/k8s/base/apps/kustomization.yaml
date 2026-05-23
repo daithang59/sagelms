@@ -9,4 +9,5 @@ resources:
   - progress-service
   - assessment-service
   - challenge-service
+  - ai-tutor-service
   - web
