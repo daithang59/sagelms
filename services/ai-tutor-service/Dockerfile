@@ -8,12 +8,11 @@ RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir --only-binary :all: -r requirements.txt  # NOSONAR
 
-# Fix: Explicitly copy required files instead of recursively copying everything
 COPY *.py alembic.ini ruff.toml ./
 
-# Fix: Create a non-root user to run the container
 RUN groupadd -r appuser && useradd -r -g appuser appuser && \
     chown -R appuser:appuser /app
 USER appuser
