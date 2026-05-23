@@ -43,7 +43,7 @@ Evidence nghiệm thu & Dễ rời rạc giữa log, ảnh chụp và trạng th
 
 Workflow PR validation kiểm tra nhiều loại thay đổi khác nhau. Với thay đổi ứng dụng, pipeline chạy test theo service, frontend lint/typecheck/test/build và dependency scan. Với thay đổi hạ tầng, pipeline chạy OpenTofu validate và Checkov. Với Dockerfile, pipeline chạy Hadolint, Checkov và Docker build thử. Cách tổ chức này giúp giảm thời gian chạy nhờ path filter nhưng vẫn giữ coverage theo vùng thay đổi.
 
-Bằng chứng hình ảnh cho mục này là màn hình GitHub Actions của một PR pass đầy đủ; nếu có đủ thời gian, nhóm có thể bổ sung thêm một PR fail để minh họa tác dụng của gate.
+Bằng chứng hình ảnh cho mục này là màn hình GitHub Actions của một PR pass đầy đủ. Trong phần minh chứng bổ sung, nhóm có thể đưa thêm một PR fail để minh họa tác dụng của gate.
 
 \placeholderfigure{Placeholder ảnh PR validation pass/fail}{Vị trí chèn ảnh GitHub Actions \texttt{CI - Validation PR}: tên workflow, commit/PR, danh sách job như Gitleaks, test, Trivy, Checkov, Docker build và trạng thái pass/fail.}
 
@@ -209,7 +209,7 @@ Hạ tầng bằng OpenTofu & Đạt & \path{infra/opentofu/**}, outputs. \\
 Checkov không failed trong infra & Đạt theo evidence & 109 passed, 0 failed, 18 skipped. \\
 CloudNativePG backup/WAL & Đạt mức foundation & WAL archive và manual backup đã kiểm chứng. \\
 Restore drill CloudNativePG & Cần bổ sung & Evidence hiện tại ghi rõ chưa chạy restore drill. \\
-FluxCD/GitOps runtime & Đạt mức demo & Runtime hiện có FluxCD Kustomization Ready cho app, Harbor, Kyverno và monitoring; cần chèn ảnh reconcile/run cuối vào bản nộp. \\
+FluxCD/GitOps runtime & Đạt mức demo & Runtime hiện có FluxCD Kustomization Ready cho app, Harbor, Kyverno và monitoring; minh chứng hình ảnh nên gồm ảnh reconcile hoặc workflow run cuối. \\
 Observability đầy đủ & Đạt mức foundation, cần mở rộng & Có manifests monitoring và FluxCD Kustomization Ready; dashboard/alert chi tiết vẫn là hướng phát triển. \\
 \bottomrule
 \end{tabularx}
