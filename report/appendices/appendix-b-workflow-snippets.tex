@@ -1,0 +1,44 @@
+\chapter{Trích đoạn workflow quan trọng}
+\label{appendix:workflow-snippets}
+
+\section{PR secret scan}
+
+\begin{lstlisting}[language=bash,caption={Gitleaks secret scan trong PR}]
+gitleaks detect --source . --no-git --redact
+\end{lstlisting}
+
+\section{OpenTofu validate}
+
+\begin{lstlisting}[language=bash,caption={OpenTofu validate trong CI}]
+tofu -chdir=infra/opentofu/envs/devsecops init -backend=false
+tofu fmt -check -recursive infra/opentofu
+tofu -chdir=infra/opentofu/envs/devsecops validate
+\end{lstlisting}
+
+\section{Trivy image scan và SBOM}
+
+\begin{lstlisting}[language=bash,caption={Quét image và tạo SBOM bằng Trivy}]
+trivy image --severity HIGH,CRITICAL --exit-code 1 \
+  --format table --output "$trivy_report" "$image"
+
+trivy image --format cyclonedx \
+  --output "$sbom_report" "$image"
+\end{lstlisting}
+
+\section{Cosign signing}
+
+\begin{lstlisting}[language=bash,caption={Ký image digest và tạo SBOM attestation}]
+cosign sign --yes "$digest_ref"
+cosign attest --yes --predicate "$sbom_report" \
+  --type cyclonedx "$digest_ref"
+\end{lstlisting}
+
+\section{Post-deploy rollout}
+
+\begin{lstlisting}[language=bash,caption={Kiểm tra rollout sau triển khai}]
+kubectl rollout status "deployment/${deployment}" \
+  -n "$POST_DEPLOY_NAMESPACE" --timeout=180s
+
+kubectl get pods -n "$POST_DEPLOY_NAMESPACE" -o wide
+kubectl get ingress -n "$POST_DEPLOY_NAMESPACE" -o wide
+\end{lstlisting}

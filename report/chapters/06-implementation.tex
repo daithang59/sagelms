@@ -1,0 +1,100 @@
+\chapter{Hiện thực hệ thống và pipeline}
+\label{chap:implementation}
+
+\section{Cấu trúc mono-repo}
+
+SageLMS được hiện thực trong một mono-repo để các thành phần ứng dụng, hạ tầng và pipeline có thể version chung. Cấu trúc này phù hợp với đồ án vì nhóm cần trình bày quan hệ giữa source code, Dockerfile, Kubernetes manifests, OpenTofu modules và GitHub Actions workflows.
+
+\begin{table}[H]
+\centering
+\caption{Cấu trúc thư mục hiện thực}
+\label{tab:repo-structure}
+\begin{tabularx}{\textwidth}{p{0.28\textwidth}Y}
+\toprule
+\textbf{Đường dẫn} & \textbf{Vai trò} \\
+\midrule
+\path{apps/web} & Frontend React/Vite/TypeScript. \\
+\path{services} & Backend microservices, Gateway và AI Tutor. \\
+\path{contracts} & OpenAPI và AsyncAPI contracts. \\
+\path{infra/docker} & Docker Compose local runtime. \\
+\path{infra/k8s/base} & Kubernetes base manifests cho workload SageLMS. \\
+\path{infra/k8s/devsecops} & Overlay và platform manifests cho môi trường GKE DevSecOps. \\
+\path{infra/opentofu} & IaC quản lý cloud foundation trên GCP. \\
+\path{.github/workflows} & CI/CD workflows. \\
+\path{reports} & Evidence: Trivy, SBOM, image digest, deploy summary. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Hiện thực ứng dụng}
+
+Frontend \path{apps/web} cung cấp giao diện cho người dùng cuối. Các backend services Spring Boot triển khai nghiệp vụ cốt lõi như xác thực, khóa học, nội dung, tiến độ, bài kiểm tra và thử thách. Gateway dùng Spring Cloud Gateway để làm entry point, định tuyến và kiểm soát access. AI Tutor service dùng FastAPI để phù hợp với pipeline AI/RAG.
+
+Mỗi service có Dockerfile riêng, test resources và migration database riêng. Các service Java dùng Maven Wrapper để build và test nhất quán. Frontend dùng npm scripts cho lint, typecheck, test và build.
+
+\section{Hiện thực GitHub Actions}
+
+Bốn workflow chính đã được tạo:
+
+\begin{itemize}
+  \item \path{ci-pr.yml}: kiểm tra pull request.
+  \item \path{cd-main.yml}: build, scan, push image, tạo SBOM, ký và mở deploy PR.
+  \item \path{infra-plan.yml}: OpenTofu fmt/validate, Checkov scan và remote plan thủ công.
+  \item \path{post-deploy-check.yml}: kiểm tra rollout GKE và endpoint smoke test sau deploy.
+\end{itemize}
+
+Trong CD workflow, danh sách service deployable gồm web, gateway, auth-service, course-service, content-service, progress-service, assessment-service và challenge-service. AI Tutor được ghi nhận nhưng có thể tách scope deployment nếu chưa nằm trong runtime demo chính.
+
+\section{Docker image và evidence}
+
+CD workflow tạo báo cáo trong \path{reports}. Với commit \texttt{1b21116f523c3e40c4c223988b88c73f55cfebf0}, repo đã có deploy summary và image digest cho nhiều service. Mỗi dòng evidence bao gồm service, image tag trong Harbor, digest, trạng thái Trivy và đường dẫn SBOM.
+
+\begin{table}[H]
+\centering
+\caption{Ví dụ evidence image build và scan}
+\label{tab:image-evidence}
+\begin{tabularx}{\textwidth}{p{0.22\textwidth}Y p{0.16\textwidth}}
+\toprule
+\textbf{Service} & \textbf{Registry image} & \textbf{Trivy} \\
+\midrule
+gateway & \path{harbor.sagelms.id.vn/sagelms-app/gateway:<git-sha>} & PASS \\
+auth-service & \path{harbor.sagelms.id.vn/sagelms-app/auth-service:<git-sha>} & PASS \\
+course-service & \path{harbor.sagelms.id.vn/sagelms-app/course-service:<git-sha>} & PASS \\
+content-service & \path{harbor.sagelms.id.vn/sagelms-app/content-service:<git-sha>} & PASS \\
+progress-service & \path{harbor.sagelms.id.vn/sagelms-app/progress-service:<git-sha>} & PASS \\
+assessment-service & \path{harbor.sagelms.id.vn/sagelms-app/assessment-service:<git-sha>} & PASS \\
+challenge-service & \path{harbor.sagelms.id.vn/sagelms-app/challenge-service:<git-sha>} & PASS \\
+web & \path{harbor.sagelms.id.vn/sagelms-app/web:<git-sha>} & PASS \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{OpenTofu cloud foundation}
+
+Thư mục \path{infra/opentofu} chứa bootstrap và environment \texttt{devsecops}. OpenTofu quản lý các lớp hạ tầng chính:
+
+\begin{itemize}
+  \item GCS remote state bucket.
+  \item GCP APIs và project services.
+  \item VPC, subnet, Cloud NAT và Private Service Access.
+  \item GKE Standard regional cluster.
+  \item IAM, Workload Identity Federation và service accounts.
+  \item Secret Manager metadata.
+  \item Cloud Storage buckets.
+  \item CloudNativePG backup foundation.
+  \item Memorystore Redis.
+\end{itemize}
+
+Theo evidence hiện tại, \texttt{tofu validate} pass, \texttt{tofu plan -no-color -detailed-exitcode} trả exit code 0 và Checkov cho \path{infra/opentofu} có 109 passed, 0 failed, 18 skipped.
+
+\section{Kubernetes manifests và overlay DevSecOps}
+
+Kubernetes manifests được chia thành base và overlay. Base trong \path{infra/k8s/base} định nghĩa workload chung, gồm Deployment, Service, ServiceAccount, ConfigMap, probes, resources và securityContext. Overlay \path{infra/k8s/devsecops/apps} deploy workload vào namespace \texttt{sagelms-devsecops}, thêm ExternalSecret, Ingress, imagePullSecret và patch phù hợp với GKE.
+
+Các platform manifests trong \path{infra/k8s/devsecops} bao gồm Harbor, FluxCD, CloudNativePG, Cloudflare tunnel và app overlay. Cách tách này giúp báo cáo thể hiện rõ ranh giới giữa workload ứng dụng và nền tảng vận hành.
+
+\section{CloudNativePG và Redis}
+
+Database baseline của cloud runtime dùng CloudNativePG trên GKE. Cluster \texttt{sagelms-data/sagelms-postgres} có service RW \path{sagelms-postgres-rw.sagelms-data.svc.cluster.local:5432}. Evidence cho thấy cluster ở trạng thái healthy, WAL archive thành công và manual backup đã completed lên GCS.
+
+Redis được provision bằng Memorystore với private IP, AUTH và transit encryption. Vì Redis bật TLS, các service client cần được kiểm thử cấu hình trust-store trước khi rollout chính thức.

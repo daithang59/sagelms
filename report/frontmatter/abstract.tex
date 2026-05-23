@@ -1,0 +1,8 @@
+\chapter*{Tóm tắt}
+\addcontentsline{toc}{chapter}{Tóm tắt}
+
+Báo cáo trình bày quá trình thiết kế và triển khai pipeline DevSecOps cho SageLMS, một hệ thống quản lý học tập theo kiến trúc web microservices. Trọng tâm của đồ án là xây dựng một chuỗi delivery có kiểm soát từ pull request, kiểm thử, quét bảo mật, build image, sinh SBOM, ký artifact, xác minh chữ ký và attestation, đến mở deploy pull request cho GitOps runtime trên GKE.
+
+Phạm vi triển khai thực tế được giới hạn trong một Shared Cloud DevSecOps Environment trên GCP/GKE. Môi trường này không được mô tả như production thật, nhưng áp dụng các thực hành production-oriented quan trọng: image immutable theo digest, registry riêng bằng \Harbor{}, SBOM CycloneDX bằng Trivy, Cosign signing và verification, FluxCD/Kustomize cho GitOps, External Secrets Operator, Kyverno policy, CloudNativePG và luồng public traffic qua Cloudflare Tunnel.
+
+Kết quả chính của đồ án là một pipeline có bằng chứng chạy được trên repository: workflow CD build/scan/push image, resolve digest, ký image, attest SBOM, verify signature, verify attestation và mở deploy PR. Báo cáo cũng ghi nhận các giới hạn còn lại như phạm vi AI Tutor chưa nằm trong runtime GKE chính và yêu cầu cấu hình đúng Ingress rule để demo public endpoint \path{sagelms.id.vn/api/v1}.

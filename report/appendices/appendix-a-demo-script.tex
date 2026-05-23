@@ -1,0 +1,33 @@
+\chapter{Kịch bản demo}
+\label{appendix:demo-script}
+
+\section{Demo ứng dụng}
+
+Kịch bản demo ứng dụng nên đi theo luồng người dùng:
+
+\begin{enumerate}
+  \item Truy cập web public endpoint.
+  \item Đăng ký hoặc đăng nhập bằng tài khoản có sẵn.
+  \item Kiểm tra Gateway bảo vệ API bằng JWT.
+  \item Instructor tạo hoặc chỉnh sửa khóa học.
+  \item Instructor tạo lesson/content.
+  \item Student ghi danh khóa học và xem nội dung.
+  \item Student làm bài assessment hoặc challenge.
+  \item Hệ thống hiển thị kết quả hoặc tiến độ.
+\end{enumerate}
+
+\section{Demo pipeline}
+
+Kịch bản demo pipeline nên đi theo luồng:
+
+\begin{enumerate}
+  \item Tạo branch thay đổi nhỏ trong service hoặc frontend.
+  \item Mở pull request và quan sát \texttt{CI - Validation PR}.
+  \item Chỉ ra các job như Gitleaks, test, Trivy, Checkov và Docker build.
+  \item Merge PR vào \texttt{main}.
+  \item Quan sát \texttt{CD - Build Scan Push Deploy PR}.
+  \item Mở deploy summary để xem image, digest, Trivy PASS và SBOM path.
+  \item Review deploy PR cập nhật Kustomize overlay.
+  \item Merge deploy PR để FluxCD reconcile vào GKE.
+  \item Chạy \texttt{Post Deploy Check} để kiểm tra rollout và endpoint.
+\end{enumerate}

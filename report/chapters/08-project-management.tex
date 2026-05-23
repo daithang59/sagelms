@@ -1,0 +1,84 @@
+\chapter{Quản lý dự án và phân công}
+\label{chap:project-management}
+
+\section{Tổ chức nhóm}
+
+Nhóm thực hiện đồ án gồm bốn thành viên:
+
+\begin{itemize}
+  \item Huỳnh Lê Đại Thắng.
+  \item Trần Nguyễn Việt Hoàng.
+  \item Nguyễn Trường Duy.
+  \item Bùi Ngọc Thái.
+\end{itemize}
+
+Theo tài liệu phân công, nhóm được chia thành hai hướng chính: Platform \& Runtime và CI/CD \& Supply Chain. Cách chia này phù hợp với bản chất đồ án vì pipeline DevSecOps không chỉ là viết workflow GitHub Actions, mà còn cần hạ tầng cloud, registry, GitOps, Kubernetes runtime và bằng chứng vận hành.
+
+\section{Vai trò theo tài liệu phân công}
+
+\begin{table}[H]
+\centering
+\caption{Vai trò chính theo tài liệu phân công}
+\label{tab:team-roles}
+\begin{tabularx}{\textwidth}{p{0.25\textwidth}p{0.30\textwidth}Y}
+\toprule
+\textbf{Thành viên} & \textbf{Vai trò} & \textbf{Phạm vi} \\
+\midrule
+Huỳnh Lê Đại Thắng & Cloud/IaC Owner & GCP, GKE, OpenTofu, VPC, IAM, Workload Identity, Secret Manager, Cloud Storage, CloudNativePG backup foundation, Redis. \\
+Trần Nguyễn Việt Hoàng & Runtime Platform Owner & FluxCD, Kustomize, External Secrets Operator, Harbor runtime, Kubernetes manifests, policy/runtime hardening, runbooks. \\
+Nguyễn Trường Duy & CI/CD Automation Owner & GitHub Actions, PR validation, path filter, quality/security gates, infra plan workflow, deploy PR, post-deploy check. \\
+Bùi Ngọc Thái & Artifact \& Supply Chain Owner & Dockerfile, image build, Harbor artifact flow, Trivy image scan, SBOM, Cosign, image convention. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Tài liệu phân công hiện tại nêu rõ Thắng là Cloud/IaC Owner; các vai trò còn lại được map theo phân công nhóm: Trần Nguyễn Việt Hoàng là Member 3, Nguyễn Trường Duy là Member 1 và Bùi Ngọc Thái là Member 2. Cách trình bày này giữ cấu trúc hai nhóm lớn để báo cáo có câu chuyện rõ ràng.
+
+\section{Vertical slice auth-service}
+
+Tài liệu phân công chọn \texttt{auth-service} làm vertical slice đầu tiên. Đây là lựa chọn hợp lý vì auth-service liên quan trực tiếp đến đăng nhập, JWT, RBAC và các request bảo vệ qua Gateway. Khi auth-service chạy được end-to-end từ PR đến GKE, nhóm có thể nhân rộng pattern sang các service khác.
+
+Vertical slice gồm các bước:
+
+\begin{enumerate}
+  \item Viết hoặc hoàn thiện Dockerfile cho auth-service.
+  \item PR validation chạy test và security gates.
+  \item CD workflow build image và scan bằng Trivy.
+  \item Push image vào Harbor.
+  \item Resolve digest, tạo SBOM và ký image.
+  \item Cập nhật Kustomize overlay bằng deploy PR.
+  \item FluxCD deploy auth-service vào GKE.
+  \item Post-deploy smoke test kiểm tra endpoint.
+\end{enumerate}
+
+\section{Convention tích hợp}
+
+Các convention quan trọng cần trình bày trong báo cáo:
+
+\begin{itemize}
+  \item \textbf{Image naming}: \path{harbor.sagelms.id.vn/sagelms-app/<service>:<git-sha>}.
+  \item \textbf{Digest reference}: \path{harbor.sagelms.id.vn/sagelms-app/<service>@sha256:<digest>}.
+  \item \textbf{Namespace}: \texttt{sagelms-devsecops}, \texttt{platform-system}, \texttt{cnpg-system}, \texttt{sagelms-data}, \texttt{harbor}, \texttt{monitoring}.
+  \item \textbf{Secret naming}: secret value thật ở Google Secret Manager, Kubernetes Secret do ESO tạo.
+  \item \textbf{GitOps update}: deploy PR cập nhật image tag/digest trong overlay.
+\end{itemize}
+
+\section{Rủi ro và phương án dự phòng}
+
+\begin{table}[H]
+\centering
+\caption{Rủi ro chính của đồ án}
+\label{tab:risks}
+\begin{tabularx}{\textwidth}{p{0.28\textwidth}p{0.26\textwidth}Y}
+\toprule
+\textbf{Rủi ro} & \textbf{Ảnh hưởng} & \textbf{Phương án dự phòng} \\
+\midrule
+Chi phí cloud vượt dự kiến & Không duy trì được nhiều môi trường & Chỉ dùng một Shared Cloud DevSecOps Environment, scale resource ở mức demo. \\
+Pipeline build nhiều service lâu & CI/CD chậm & Dùng path filter, matrix theo service thay đổi, cache dependency. \\
+Trivy/Checkov false positive & PR bị chặn dù rủi ro chấp nhận được & Dùng allowlist có lý do, ghi rõ trong báo cáo. \\
+Harbor hoặc credential lỗi & Không push/pull được image & Tách robot push/pull, kiểm tra secret từ GCP Secret Manager trước build. \\
+FluxCD reconcile lỗi & Runtime không cập nhật & Có post-deploy check, runbook debug FluxCD và rollback bằng revert GitOps commit. \\
+CloudNativePG chưa restore drill & Chưa chứng minh DR hoàn chỉnh & Ghi rõ limitation và bổ sung restore drill trước khi có dữ liệu thật. \\
+\bottomrule
+\end{tabularx}
+\end{table}
