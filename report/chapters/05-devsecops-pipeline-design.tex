@@ -25,13 +25,13 @@ Pipeline DevSecOps của SageLMS được thiết kế theo các nguyên tắc s
 \textbf{Lớp kiểm soát} & \textbf{Công cụ} & \textbf{Vai trò} \\
 \midrule
 CI orchestration & GitHub Actions & Chạy PR validation, CD, infra plan và post-deploy check. \\
-Code quality/SAST & SonarCloud/SonarQube & Kiểm tra quality gate, bugs, vulnerabilities, code smells. \\
+Code quality/SAST & SonarCloud/\allowbreak SonarQube & Kiểm tra quality gate, bugs, vulnerabilities, code smells. \\
 Secret scanning & Gitleaks & Phát hiện token, password, private key hoặc secret pattern trong repo. \\
-Dependency/image/SBOM & Trivy & Quét phụ thuộc, image và tạo SBOM CycloneDX. \\
+Dependency/\allowbreak image/\allowbreak SBOM & Trivy & Quét phụ thuộc, image và tạo SBOM CycloneDX. \\
 IaC/config scanning & Checkov & Quét OpenTofu, Kubernetes manifests, Dockerfile và workflow. \\
 IaC & OpenTofu & Quản lý cloud foundation trên GCP/GKE. \\
 Registry & Harbor & Lưu image tin cậy, tách quyền push/pull bằng robot account. \\
-Signing & Cosign & Ký image digest và tạo attestation cho SBOM. \\
+Artifact trust & Cosign & Ký image digest, attest SBOM CycloneDX và verify chữ ký/attestation trước deploy PR. \\
 GitOps CD & FluxCD & Reconcile manifests từ Git vào Kubernetes. \\
 Runtime config & Kustomize & Tách base manifest và overlay \texttt{devsecops}. \\
 Secret runtime & Google Secret Manager, ESO & Đồng bộ secret vào Kubernetes mà không hardcode trong Git. \\
@@ -47,14 +47,14 @@ Luồng tổng thể bắt đầu từ pull request và kết thúc ở runtime 
   \item Thành viên tạo branch và pull request.
   \item PR validation chạy convention, lint, test, typecheck, build thử và security scan.
   \item Sau khi PR được merge vào \texttt{main}, CD workflow xác định service thay đổi.
-  \item Pipeline build Docker image, scan bằng Trivy, tạo SBOM, push lên Harbor, resolve digest và ký bằng Cosign.
+  \item Pipeline build Docker image, scan bằng Trivy, tạo SBOM, push lên Harbor, resolve digest, ký bằng Cosign, attest SBOM và verify chữ ký/attestation.
   \item Pipeline tạo deploy PR để cập nhật Kustomize overlay.
   \item Deploy PR được review/approval.
   \item FluxCD reconcile manifest đã merge vào GKE.
   \item Post-deploy workflow kiểm tra rollout và endpoint public.
 \end{enumerate}
 
-\placeholderfigure{Pipeline DevSecOps tổng thể}{Thay placeholder này bằng sơ đồ Code -> PR Validation -> Build/Scan/SBOM/Sign -> Harbor -> Deploy PR -> FluxCD -> GKE -> Smoke Test.}
+\placeholderfigure{Pipeline DevSecOps tổng thể}{Thay placeholder này bằng sơ đồ Code -> PR Validation -> Build/Trivy Scan/SBOM -> Harbor -> Digest -> Cosign Sign/Attest/Verify -> Deploy PR -> FluxCD -> GKE -> Smoke Test.}
 \label{fig:pipeline-overall}
 
 \section{Pull Request Pipeline}
@@ -102,11 +102,23 @@ Workflow \path{.github/workflows/cd-main.yml} chạy khi có thay đổi trên \
 
 Thứ tự supply chain được chuẩn hóa như sau:
 
-\begin{center}
-\texttt{Build -> Scan -> Push -> Resolve digest -> SBOM/attestation -> Sign -> Deploy PR}
-\end{center}
+\begin{lstlisting}[language=bash]
+Build -> Trivy scan -> Generate SBOM -> Push
+      -> Resolve digest -> Sign -> Attest -> Verify
+      -> Deploy PR
+\end{lstlisting}
 
-Việc ký và attest nên thực hiện trên digest đã resolve từ registry. Điều này giúp chữ ký gắn với nội dung image cụ thể, tránh rủi ro tag bị thay đổi sau khi ký.
+Sau bước push image, workflow cần đi theo chuỗi chi tiết:
+
+\begin{lstlisting}[language=bash]
+Push -> Resolve digest -> Cosign sign
+     -> Cosign attest SBOM
+     -> Cosign verify
+     -> Cosign verify-attestation
+     -> Open deploy PR
+\end{lstlisting}
+
+Việc ký, attest và verify nên thực hiện trên digest đã resolve từ registry. Điều này giúp chữ ký gắn với nội dung image cụ thể, tránh rủi ro tag bị thay đổi sau khi ký và bảo đảm deploy PR chỉ được mở sau khi image signature cùng CycloneDX SBOM attestation đều verify thành công.
 
 \section{Harbor registry strategy}
 
@@ -116,7 +128,7 @@ Harbor không thay thế Trivy trong CI. Trivy vẫn là security gate chính tr
 
 \section{GitOps deployment với FluxCD}
 
-Sau khi image được build, scan, push và ghi digest, pipeline mở deploy PR để cập nhật Kustomize overlay. Thay đổi manifest được review như code. Khi deploy PR được merge, FluxCD phát hiện commit mới, render manifest và reconcile vào namespace \texttt{sagelms-devsecops}.
+Sau khi image được build, Trivy scan, generate SBOM, push, resolve digest, ký, attest và verify, pipeline mở deploy PR để cập nhật Kustomize overlay. Thay đổi manifest được review như code. Khi deploy PR được merge, FluxCD phát hiện commit mới, render manifest và reconcile vào namespace \texttt{sagelms-devsecops}.
 
 Cách làm này tách rời trách nhiệm:
 

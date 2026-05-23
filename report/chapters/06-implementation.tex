@@ -38,16 +38,18 @@ Bốn workflow chính đã được tạo:
 
 \begin{itemize}
   \item \path{ci-pr.yml}: kiểm tra pull request.
-  \item \path{cd-main.yml}: build, scan, push image, tạo SBOM, ký và mở deploy PR.
+  \item \path{cd-main.yml}: build, Trivy scan, tạo SBOM, push image, resolve digest, ký, attest SBOM, verify signature/attestation và mở deploy PR.
   \item \path{infra-plan.yml}: OpenTofu fmt/validate, Checkov scan và remote plan thủ công.
   \item \path{post-deploy-check.yml}: kiểm tra rollout GKE và endpoint smoke test sau deploy.
 \end{itemize}
 
-Trong CD workflow, danh sách service deployable gồm web, gateway, auth-service, course-service, content-service, progress-service, assessment-service và challenge-service. AI Tutor được ghi nhận nhưng có thể tách scope deployment nếu chưa nằm trong runtime demo chính.
+Trong CD workflow, danh sách service deployable gồm web, gateway, auth-service, course-service, content-service, progress-service, assessment-service và challenge-service. AI Tutor được ghi nhận ở source/kiến trúc nhưng không nằm trong runtime GKE chính của bản demo hiện tại.
 
 \section{Docker image và evidence}
 
 CD workflow tạo báo cáo trong \path{reports}. Với commit \texttt{1b21116f523c3e40c4c223988b88c73f55cfebf0}, repo đã có deploy summary và image digest cho nhiều service. Mỗi dòng evidence bao gồm service, image tag trong Harbor, digest, trạng thái Trivy và đường dẫn SBOM.
+
+Sau khi bổ sung automation verify của Cosign, nhóm chạy \texttt{workflow\_dispatch} trên branch \texttt{main} cho \texttt{auth-service} ở commit \texttt{a8a0b63d1568f0c356d10a22fcb89abad429ef52}. Run \texttt{26303390987} tạo image \path{harbor.sagelms.id.vn/sagelms-app/auth-service:a8a0b63d1568f0c356d10a22fcb89abad429ef52}, resolve digest \path{sha256:9e436d64f9a39a65d8052c57d9da5abbf285f5b400f4c94610311fe543efa35d}, và xác nhận cả \texttt{cosign verify} lẫn \texttt{cosign verify-attestation} đều pass trước khi mở deploy PR.
 
 \begin{table}[H]
 \centering
@@ -68,6 +70,20 @@ web & \path{harbor.sagelms.id.vn/sagelms-app/web:<git-sha>} & PASS \\
 \bottomrule
 \end{tabularx}
 \end{table}
+
+\section{Cosign verification automation}
+
+Trong workflow hiện tại, chuỗi sau khi push image là:
+
+\begin{lstlisting}[language=bash]
+Push -> Resolve digest -> Cosign sign
+     -> Cosign attest SBOM
+     -> Cosign verify
+     -> Cosign verify-attestation
+     -> Open deploy PR
+\end{lstlisting}
+
+Bước verify dùng certificate identity của workflow \path{.github/workflows/cd-main.yml} trên branch hiện tại và issuer \path{https://token.actions.githubusercontent.com}. Nhờ đó deploy PR chỉ được tạo sau khi chữ ký image và CycloneDX SBOM attestation được xác minh từ đúng GitHub Actions identity.
 
 \section{OpenTofu cloud foundation}
 
@@ -91,7 +107,7 @@ Theo evidence hiện tại, \texttt{tofu validate} pass, \texttt{tofu plan -no-c
 
 Kubernetes manifests được chia thành base và overlay. Base trong \path{infra/k8s/base} định nghĩa workload chung, gồm Deployment, Service, ServiceAccount, ConfigMap, probes, resources và securityContext. Overlay \path{infra/k8s/devsecops/apps} deploy workload vào namespace \texttt{sagelms-devsecops}, thêm ExternalSecret, Ingress, imagePullSecret và patch phù hợp với GKE.
 
-Các platform manifests trong \path{infra/k8s/devsecops} bao gồm Harbor, FluxCD, CloudNativePG, Cloudflare tunnel và app overlay. Cách tách này giúp báo cáo thể hiện rõ ranh giới giữa workload ứng dụng và nền tảng vận hành.
+Các platform manifests trong \path{infra/k8s/devsecops} bao gồm Harbor, FluxCD, CloudNativePG, Cloudflare Tunnel và app overlay. Cách tách này giúp báo cáo thể hiện rõ ranh giới giữa workload ứng dụng và nền tảng vận hành.
 
 \section{CloudNativePG và Redis}
 

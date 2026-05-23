@@ -63,7 +63,7 @@ Local development vẫn tồn tại nhưng chỉ đóng vai trò debug source co
 PR validation & Workflow kiểm tra PR, path filter, test và scan & \path{.github/workflows/ci-pr.yml}, \path{docs/ci-cd-quality-gates.md} \\
 Secret scanning & Gitleaks chạy trong PR & \path{.github/workflows/ci-pr.yml} \\
 Dependency scan & Trivy filesystem scan & \path{.github/workflows/ci-pr.yml} \\
-IaC scan & Checkov cho OpenTofu/workflows/Dockerfile & \path{.github/workflows/ci-pr.yml}, \path{.github/workflows/infra-plan.yml} \\
+IaC scan & Checkov cho IaC, workflow và Dockerfile & \path{.github/workflows/ci-pr.yml}, \path{.github/workflows/infra-plan.yml} \\
 Image scan & Trivy image scan trước khi push/deploy & \path{.github/workflows/cd-main.yml}, \path{reports/trivy/} \\
 SBOM & CycloneDX SBOM bằng Trivy & \path{reports/sbom/} \\
 Digest & Image digest từ Harbor & \path{reports/image-digests-*.md}, \path{reports/deploy-summary-*.md} \\

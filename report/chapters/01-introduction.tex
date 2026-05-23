@@ -53,7 +53,7 @@ Báo cáo này trình bày các đóng góp sau:
 \begin{itemize}
   \item Thiết kế kiến trúc SageLMS theo hướng microservices, có API Gateway và schema-per-service.
   \item Xây dựng pipeline PR validation có path filter và nhiều lớp kiểm tra chất lượng, bảo mật.
-  \item Chuẩn hóa luồng container artifact từ build, scan, push, resolve digest, SBOM đến signing.
+  \item Chuẩn hóa luồng container artifact từ build, Trivy scan, tạo SBOM, push, resolve digest, ký image, tạo SBOM attestation và verify signature/attestation.
   \item Áp dụng GitOps để tách CI khỏi hành động deploy trực tiếp lên Kubernetes.
   \item Quản lý hạ tầng GCP/GKE bằng OpenTofu và kiểm tra cấu hình bằng Checkov.
   \item Tổ chức evidence phục vụ bảo vệ đồ án: workflow logs, reports, SBOM, digest và cloud outputs.

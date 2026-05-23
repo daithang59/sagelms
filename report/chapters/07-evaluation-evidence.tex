@@ -41,9 +41,34 @@ Deploy PR body & \path{reports/deploy-pr-body-1b21116f523c3e40c4c223988b88c73f55
 Image digest table & \path{reports/image-digests-1b21116f523c3e40c4c223988b88c73f55cfebf0.md} \\
 Trivy reports & \path{reports/trivy/*.txt} \\
 SBOM files & \path{reports/sbom/1b21116f523c3e40c4c223988b88c73f55cfebf0/*-sbom.cdx.json} \\
+Cosign automation evidence & \path{reports/deploy-summary-a8a0b63d1568f0c356d10a22fcb89abad429ef52.md} và workflow run \texttt{26303390987}. \\
 \bottomrule
 \end{tabularx}
 \end{table}
+
+\section{Kết quả Cosign verification mới nhất}
+
+Sau khi bổ sung bước verify cho Cosign, nhóm chạy \texttt{workflow\_dispatch} trên branch \texttt{main} cho \texttt{auth-service}. Evidence mới nhất:
+
+\begin{table}[H]
+\centering
+\caption{Evidence Cosign automation cho auth-service}
+\label{tab:cosign-verification-evidence}
+\begin{tabularx}{\textwidth}{p{0.30\textwidth}Y}
+\toprule
+\textbf{Trường} & \textbf{Giá trị} \\
+\midrule
+Run & \texttt{26303390987} \\
+Branch & \texttt{main} \\
+Image & \path{harbor.sagelms.id.vn/sagelms-app/auth-service:a8a0b63d1568f0c356d10a22fcb89abad429ef52} \\
+Digest & \path{sha256:9e436d64f9a39a65d8052c57d9da5abbf285f5b400f4c94610311fe543efa35d} \\
+Verify Cosign & PASS \\
+Verify SBOM attestation & PASS \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Kết quả này bổ sung cho evidence multi-service ở commit \texttt{1b21116f523c3e40c4c223988b88c73f55cfebf0}. Commit \texttt{1b21116f} vẫn dùng để chứng minh pipeline xử lý nhiều service; commit \texttt{a8a0b63d1568f0c356d10a22fcb89abad429ef52} dùng để chứng minh automation mới đã verify image signature và CycloneDX SBOM attestation thành công trước khi mở deploy PR.
 
 \section{Kết quả cloud foundation}
 
@@ -86,6 +111,7 @@ PR validation có lint/test/scan & Đạt & \path{ci-pr.yml}, quality gates docs
 Image scan trước deploy & Đạt & \path{reports/trivy/*.txt}, deploy summary PASS. \\
 Image có digest & Đạt & \path{reports/image-digests-*.md}. \\
 Image có SBOM & Đạt & \path{reports/sbom/**}. \\
+Cosign verify và verify-attestation & Đạt với evidence mới & Run \texttt{26303390987}, image \texttt{auth-service}, verify signature và SBOM attestation đều PASS. \\
 Hạ tầng bằng OpenTofu & Đạt & \path{infra/opentofu/**}, outputs. \\
 Checkov không failed trong infra & Đạt theo evidence & 109 passed, 0 failed, 18 skipped. \\
 CloudNativePG backup/WAL & Đạt mức foundation & WAL archive và manual backup đã kiểm chứng. \\

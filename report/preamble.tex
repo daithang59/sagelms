@@ -1,22 +1,16 @@
 \usepackage[a4paper,top=2.5cm,bottom=2.5cm,left=3cm,right=2cm]{geometry}
 \usepackage{iftex}
 
-\ifXeTeX
-  \usepackage{fontspec}
-  \IfFontExistsTF{Times New Roman}
-    {\setmainfont{Times New Roman}}
-    {\setmainfont{TeX Gyre Termes}}
-  \setsansfont{TeX Gyre Heros}
-  \setmonofont{Fira Code}[
-    Scale=MatchLowercase,
-    UprightFont=* Regular,
-    BoldFont=* Medium,
-    ItalicFont=* Regular
-  ]
-\else
+\ifPDFTeX
   \usepackage[utf8]{inputenc}
   \usepackage[T5]{fontenc}
   \usepackage{lmodern}
+\else
+  \usepackage{fontspec}
+  \defaultfontfeatures{Ligatures=TeX}
+  \setmainfont{Times New Roman}
+  \setsansfont{Arial}
+  \setmonofont{Consolas}[Scale=MatchLowercase]
 \fi
 
 \usepackage{microtype}
@@ -35,6 +29,7 @@
 \usepackage{listings}
 \usepackage{upquote}
 \usepackage{caption}
+\usepackage{float}
 \usepackage{csquotes}
 \usepackage[backend=biber,style=ieee,sorting=none]{biblatex}
 \addbibresource{references.bib}
@@ -73,6 +68,22 @@
 \setlist[itemize]{leftmargin=*,topsep=4pt,itemsep=2pt}
 \setlist[enumerate]{leftmargin=*,topsep=4pt,itemsep=2pt}
 
+\newcommand{\placeholderfigure}[2]{%
+  \begin{figure}[H]
+    \centering
+    \fbox{%
+      \begin{minipage}{0.90\textwidth}
+        \centering
+        \vspace{1.2cm}
+        \textbf{#1}\par
+        \vspace{0.4cm}
+        \small #2
+        \vspace{1.2cm}
+      \end{minipage}%
+    }
+    \caption{#1}
+  \end{figure}%
+}
 \newcommand{\NoBreak}[1]{\mbox{#1}}
 \newcommand{\Harbor}{\NoBreak{Harbor}}
 \newcommand{\WAL}{\NoBreak{WAL}}
