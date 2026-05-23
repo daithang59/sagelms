@@ -540,6 +540,12 @@ jobs:
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           exit-code: "1"
+      - name: Print Trivy scan report
+        if: failure()
+        run: |
+          if [[ -f "trivy-${{ matrix.service }}.txt" ]]; then
+            cat "trivy-${{ matrix.service }}.txt"
+          fi
       - name: Upload Trivy image scan report
         uses: actions/upload-artifact@v4
         if: always()
