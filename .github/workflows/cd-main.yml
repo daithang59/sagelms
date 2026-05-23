@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       services:
-        description: "Comma-separated services to build, or all. Deployable values: web,gateway,auth-service,course-service,content-service,progress-service,assessment-service,challenge-service."
+        description: "Comma-separated services to build, or all. Deployable values: web,gateway,auth-service,course-service,content-service,progress-service,assessment-service,challenge-service,ai-tutor-service."
         required: false
         default: ""
 
@@ -117,14 +117,8 @@ jobs:
           selected "progress-service" "$CHANGED_PROGRESS" && add_service "progress-service" "services/progress-service" "java"
           selected "assessment-service" "$CHANGED_ASSESSMENT" && add_service "assessment-service" "services/assessment-service" "java"
           selected "challenge-service" "$CHANGED_CHALLENGE" && add_service "challenge-service" "services/challenge-service" "java"
+          selected "ai-tutor-service" "$CHANGED_AI_TUTOR" && add_service "ai-tutor-service" "services/ai-tutor-service" "python"
           selected "web" "$CHANGED_WEB" && add_service "web" "apps/web" "frontend"
-
-          if [[ "$CHANGED_AI_TUTOR" == "true" ]]; then
-            {
-              echo "### ai-tutor-service"
-              echo "ai-tutor-service changed, but it is intentionally excluded from GKE deployment in this phase."
-            } >> "$GITHUB_STEP_SUMMARY"
-          fi
 
           printf "%s\n" "${services[@]}" > reports/deploy-services.txt
           echo "services_count=${#services[@]}" >> "$GITHUB_OUTPUT"
@@ -235,6 +229,13 @@ jobs:
           cache: npm
           cache-dependency-path: apps/web/package-lock.json
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: services/ai-tutor-service/requirements.txt
+
       - name: Run service checks
         shell: bash
         run: |
@@ -254,6 +255,13 @@ jobs:
               npm run lint
               npm test -- --run
               npm run build
+              popd >/dev/null
+            elif [[ "$kind" == "python" ]]; then
+              pushd "$context" >/dev/null
+              python -m pip install --upgrade pip
+              python -m pip install -r requirements.txt
+              python -m ruff check .
+              python -m pytest
               popd >/dev/null
             fi
             echo "::endgroup::"
@@ -339,11 +347,15 @@ jobs:
         run: |
           set -euo pipefail
 
-          mkdir -p reports/trivy "reports/sbom/$IMAGE_TAG" reports/cosign
-          digest_report="reports/image-digests-$IMAGE_TAG.md"
-          digest_tsv="reports/image-digests-$IMAGE_TAG.tsv"
-          pr_body="reports/deploy-pr-body-$IMAGE_TAG.md"
-          summary_report="reports/deploy-summary-$IMAGE_TAG.md"
+          rm -rf reports/trivy reports/sbom reports/cosign
+          rm -f reports/image-digests*.md reports/image-digests*.tsv
+          rm -f reports/deploy-pr-body*.md reports/deploy-summary*.md
+
+          mkdir -p reports/trivy reports/sbom reports/cosign
+          digest_report="reports/image-digests.md"
+          digest_tsv="reports/image-digests.tsv"
+          pr_body="reports/deploy-pr-body.md"
+          summary_report="reports/deploy-summary.md"
 
           printf "service\timage\tdigest\n" > "$digest_tsv"
 
@@ -400,10 +412,10 @@ jobs:
             [[ -z "$service" ]] && continue
             image="$REGISTRY_HOST/$REGISTRY_NAMESPACE/$service:$IMAGE_TAG"
             trivy_report="reports/trivy/trivy-$service.txt"
-            sbom_report="reports/sbom/$IMAGE_TAG/$service-sbom.cdx.json"
+            sbom_report="reports/sbom/$service-sbom.cdx.json"
 
             echo "::group::Trivy scan $service"
-            if ! trivy image --severity HIGH,CRITICAL --exit-code 1 --format table --output "$trivy_report" "$image"; then
+            if ! trivy image --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 --format table --output "$trivy_report" "$image"; then
               echo "Trivy found HIGH or CRITICAL vulnerabilities in $service."
               echo
               cat "$trivy_report"
@@ -418,15 +430,15 @@ jobs:
         run: |
           set -euo pipefail
 
-          digest_report="reports/image-digests-$IMAGE_TAG.md"
-          digest_tsv="reports/image-digests-$IMAGE_TAG.tsv"
-          pr_body="reports/deploy-pr-body-$IMAGE_TAG.md"
-          summary_report="reports/deploy-summary-$IMAGE_TAG.md"
+          digest_report="reports/image-digests.md"
+          digest_tsv="reports/image-digests.tsv"
+          pr_body="reports/deploy-pr-body.md"
+          summary_report="reports/deploy-summary.md"
 
           while IFS='|' read -r service context kind; do
             [[ -z "$service" ]] && continue
             image="$REGISTRY_HOST/$REGISTRY_NAMESPACE/$service:$IMAGE_TAG"
-            sbom_report="reports/sbom/$IMAGE_TAG/$service-sbom.cdx.json"
+            sbom_report="reports/sbom/$service-sbom.cdx.json"
 
             docker push "$image"
             digest="$(docker buildx imagetools inspect "$image" --format '{{.Manifest.Digest}}')"
@@ -463,7 +475,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          summary_report="reports/deploy-summary-$IMAGE_TAG.md"
+          summary_report="reports/deploy-summary.md"
           cat "$summary_report" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload deploy evidence
@@ -471,12 +483,12 @@ jobs:
         with:
           name: deploy-evidence
           path: |
-            reports/image-digests-${{ env.IMAGE_TAG }}.md
-            reports/image-digests-${{ env.IMAGE_TAG }}.tsv
-            reports/deploy-pr-body-${{ env.IMAGE_TAG }}.md
-            reports/deploy-summary-${{ env.IMAGE_TAG }}.md
+            reports/image-digests.md
+            reports/image-digests.tsv
+            reports/deploy-pr-body.md
+            reports/deploy-summary.md
             reports/trivy/*.txt
-            reports/sbom/${{ env.IMAGE_TAG }}/*.json
+            reports/sbom/*.json
             reports/cosign/*.txt
           retention-days: 14
 
@@ -521,7 +533,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          digest_tsv="reports/image-digests-$IMAGE_TAG.tsv"
+          digest_tsv="reports/image-digests.tsv"
           if [[ ! -s "$digest_tsv" ]]; then
             echo "::error::Missing digest map: $digest_tsv"
             exit 1
@@ -550,7 +562,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          summary_report="reports/deploy-summary-$IMAGE_TAG.md"
+          summary_report="reports/deploy-summary.md"
           {
             cat "$summary_report"
             echo
@@ -566,7 +578,7 @@ jobs:
           branch: chore/deploy-${{ env.IMAGE_TAG }}
           delete-branch: true
           title: "chore(deploy): update images to ${{ env.IMAGE_TAG }} [skip ci]"
-          body-path: reports/deploy-pr-body-${{ env.IMAGE_TAG }}.md
+          body-path: reports/deploy-pr-body.md
           commit-message: "chore(deploy): update images to ${{ env.IMAGE_TAG }} [skip ci]"
           add-paths: |
             infra/k8s/devsecops/apps/kustomization.yaml

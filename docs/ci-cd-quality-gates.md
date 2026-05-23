@@ -187,7 +187,7 @@ Image tag hiện dùng full commit SHA:
 Ví dụ với Harbor hiện tại của nhóm:
 
 ```text
-harbor.hldthang.io.vn/sagelms-app/auth-service:<github.sha>
+harbor.sagelm.id.vn/sagelms-app/auth-service:<github.sha>
 ```
 
 Digest artifact ghi dạng:

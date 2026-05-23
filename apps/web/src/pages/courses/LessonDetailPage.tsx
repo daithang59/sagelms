@@ -266,8 +266,8 @@ export default function LessonDetailPage() {
                   <div className="flex shrink-0 flex-col items-end gap-2">
                     <div className="flex flex-wrap justify-end gap-2">
                       <Button variant="secondary" size="sm" onClick={handleTogglePublish} isLoading={publishing}>
-                        {lesson.isPublished ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        {lesson.isPublished ? 'Ẩn' : 'Hiện'}
+                        {lesson.isPublished ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                        {lesson.isPublished ? 'Hiện' : 'Ẩn'}
                       </Button>
                       <Button variant="danger" size="sm" onClick={handleDeleteLesson} isLoading={deleting}>
                         <Trash2 className="h-4 w-4" />

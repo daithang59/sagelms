@@ -22,7 +22,7 @@ Theo thông tin bàn giao hạ tầng và Harbor:
 | Region | `asia-southeast1` |
 | GKE cluster | `sagelms-devsecops-gke` |
 | Namespace workload | `sagelms-devsecops` |
-| Harbor registry | `harbor.hldthang.io.vn` |
+| Harbor registry | `harbor.sagelm.id.vn` |
 | Harbor project | `sagelms-app` |
 | Kubernetes pull secret | `harbor-pull-secret` |
 | GitHub Actions GSA | `sagelms-devsecops-gha-sa@sagelms.iam.gserviceaccount.com` |
@@ -87,7 +87,7 @@ Quy ước image tag:
 Ví dụ:
 
 ```text
-harbor.hldthang.io.vn/sagelms-app/auth-service:<github.sha>
+harbor.sagelm.id.vn/sagelms-app/auth-service:<github.sha>
 ```
 
 Quy ước digest:
@@ -115,7 +115,7 @@ devsecops-build
 Environment variables:
 
 ```text
-REGISTRY_HOST=harbor.hldthang.io.vn
+REGISTRY_HOST=harbor.sagelm.id.vn
 REGISTRY_NAMESPACE=sagelms-app
 ```
 
@@ -152,8 +152,8 @@ Format đề xuất trong Kustomize overlay:
 
 ```yaml
 images:
-  - name: harbor.hldthang.io.vn/sagelms-app/auth-service
-    newName: harbor.hldthang.io.vn/sagelms-app/auth-service
+  - name: harbor.sagelm.id.vn/sagelms-app/auth-service
+    newName: harbor.sagelm.id.vn/sagelms-app/auth-service
     digest: sha256:abc123...
 ```
 
@@ -162,7 +162,7 @@ Hoặc nếu patch trực tiếp manifest:
 ```yaml
 containers:
   - name: auth-service
-    image: harbor.hldthang.io.vn/sagelms-app/auth-service@sha256:abc123...
+    image: harbor.sagelm.id.vn/sagelms-app/auth-service@sha256:abc123...
 ```
 
 Commit message mẫu:
@@ -176,7 +176,7 @@ PR description nên ghi:
 ```text
 Service: auth-service
 Git SHA: <github-sha>
-Image: harbor.hldthang.io.vn/sagelms-app/auth-service@sha256:<digest>
+Image: harbor.sagelm.id.vn/sagelms-app/auth-service@sha256:<digest>
 Trivy scan: passed
 SBOM: generated
 Cosign signature: pending hoặc verified

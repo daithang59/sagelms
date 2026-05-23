@@ -20,7 +20,7 @@ env:
   GCP_SERVICE_ACCOUNT: ${{ vars.GCP_SERVICE_ACCOUNT }}
   POST_DEPLOY_NAMESPACE: ${{ vars.POST_DEPLOY_NAMESPACE || 'sagelms-devsecops' }}
   POST_DEPLOY_BASE_URL: ${{ vars.POST_DEPLOY_BASE_URL || 'https://sagelms.id.vn' }}
-  POST_DEPLOY_WEB_HEALTH_PATH: ${{ vars.POST_DEPLOY_WEB_HEALTH_PATH || '/health' }}
+  POST_DEPLOY_WEB_HEALTH_PATH: ${{ vars.POST_DEPLOY_WEB_HEALTH_PATH || '/healthz' }}
   POST_DEPLOY_WEB_EXPECTED_STATUS: ${{ vars.POST_DEPLOY_WEB_EXPECTED_STATUS || '200' }}
   POST_DEPLOY_WEB_EXPECTED_BODY: ${{ vars.POST_DEPLOY_WEB_EXPECTED_BODY || 'ok' }}
   POST_DEPLOY_API_HEALTH_PATH: ${{ vars.POST_DEPLOY_API_HEALTH_PATH || '/api/v1/actuator/health' }}
@@ -84,6 +84,7 @@ jobs:
             progress-service
             assessment-service
             challenge-service
+            ai-tutor-service
             web
           )
 

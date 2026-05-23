@@ -4,6 +4,7 @@ namespace: sagelms-devsecops
 resources:
   - namespace.yaml
   - ../../base/apps
+  - ai-tutor-externalsecret.yaml
   - app-shared-externalsecret.yaml
   - harbor-pull-externalsecret.yaml
   - ingress.yaml
@@ -12,28 +13,40 @@ resources:
 images:
   - name: harbor.sagelms.id.vn/sagelms-app/gateway
     newName: harbor.sagelms.id.vn/sagelms-app/gateway
-    newTag: 1b21116f523c3e40c4c223988b88c73f55cfebf0
+    newTag: 7e8dfe46f760de0b980ca2e978f52bb5870a12d6
+    digest: sha256:76e69f1b79be284a60a21afbc3e23f6e18bd36de316032e367f2e228ca1a47bb
   - name: harbor.sagelms.id.vn/sagelms-app/auth-service
     newName: harbor.sagelms.id.vn/sagelms-app/auth-service
-    newTag: a8a0b63d1568f0c356d10a22fcb89abad429ef52
+    newTag: 7e8dfe46f760de0b980ca2e978f52bb5870a12d6
+    digest: sha256:694ec9a232aea54abef1735f18da4f29ee82eb66dfcd36d8d8a3feb46f147e67
   - name: harbor.sagelms.id.vn/sagelms-app/course-service
     newName: harbor.sagelms.id.vn/sagelms-app/course-service
-    newTag: 1b21116f523c3e40c4c223988b88c73f55cfebf0
+    newTag: 7e8dfe46f760de0b980ca2e978f52bb5870a12d6
+    digest: sha256:4060800a0cc3f902d27dcc5a44b47d85bc997340fbe311980e31d28aa5979fdf
   - name: harbor.sagelms.id.vn/sagelms-app/content-service
     newName: harbor.sagelms.id.vn/sagelms-app/content-service
-    newTag: 1b21116f523c3e40c4c223988b88c73f55cfebf0
+    newTag: 7e8dfe46f760de0b980ca2e978f52bb5870a12d6
+    digest: sha256:1a101a48c21d68f977464ef6b6ebf77689471009fc9db4715ef2f3fa19c9d063
   - name: harbor.sagelms.id.vn/sagelms-app/progress-service
     newName: harbor.sagelms.id.vn/sagelms-app/progress-service
-    newTag: 1b21116f523c3e40c4c223988b88c73f55cfebf0
+    newTag: 7e8dfe46f760de0b980ca2e978f52bb5870a12d6
+    digest: sha256:91b23839c4dc3d7b72c2c0f3a0c4ea7408ac2b2df2afbbdaa4641355ed6a84bc
   - name: harbor.sagelms.id.vn/sagelms-app/assessment-service
     newName: harbor.sagelms.id.vn/sagelms-app/assessment-service
-    newTag: 1b21116f523c3e40c4c223988b88c73f55cfebf0
+    newTag: 7e8dfe46f760de0b980ca2e978f52bb5870a12d6
+    digest: sha256:8a76e006c951163d760a445aad2da426542c8545112bd2d8b8239d7c30a513fe
   - name: harbor.sagelms.id.vn/sagelms-app/challenge-service
     newName: harbor.sagelms.id.vn/sagelms-app/challenge-service
-    newTag: 1b21116f523c3e40c4c223988b88c73f55cfebf0
+    newTag: 7e8dfe46f760de0b980ca2e978f52bb5870a12d6
+    digest: sha256:49d79fe021023bcdd037d330732790cbf26b3099e2c93251434391fe1fc91ebb
+  - name: harbor.sagelms.id.vn/sagelms-app/ai-tutor-service
+    newName: harbor.sagelms.id.vn/sagelms-app/ai-tutor-service
+    newTag: bc89c849b328b3618f09b18beb2683f1d8930db4
+    digest: sha256:6d1c1e9c10e41f21237c7d4bd23f2a7c0d8be274752e5e5a7338175f9bb3a7a2
   - name: harbor.sagelms.id.vn/sagelms-app/web
     newName: harbor.sagelms.id.vn/sagelms-app/web
-    newTag: 1b21116f523c3e40c4c223988b88c73f55cfebf0
+    newTag: 7e8dfe46f760de0b980ca2e978f52bb5870a12d6
+    digest: sha256:0f58789fffd78ccfcd04c6d93636089042d67abe612f930ea6ee75392106010c
 patches:
   - target:
       kind: ServiceAccount

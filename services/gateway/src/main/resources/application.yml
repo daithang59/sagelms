@@ -91,10 +91,12 @@ spring:
         #     - Path=/api/v1/progress/**
 
         # --- AI Tutor Service ---
-        # - id: ai-tutor-service
-        #   uri: http://${AI_TUTOR_SERVICE_HOST:localhost}:${AI_TUTOR_SERVICE_PORT:8086}
-        #   predicates:
-        #     - Path=/api/v1/ai/**
+        - id: ai-tutor-service
+          uri: http://${AI_TUTOR_SERVICE_HOST:localhost}:${AI_TUTOR_SERVICE_PORT:8087}
+          predicates:
+            - Path=/api/v1/ai/**
+          filters:
+            - StripPrefix=0
 
         # --- Worker (Job API) ---
         # - id: worker-service

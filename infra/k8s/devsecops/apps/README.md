@@ -13,9 +13,8 @@ Workload được deploy:
 - `content-service`
 - `progress-service`
 - `assessment-service`
-- `worker`
-
-Không deploy `ai-tutor-service` trong phạm vi hiện tại.
+- `challenge-service`
+- `ai-tutor-service`
 
 ## Điều Kiện Trước Khi Apply
 
@@ -28,6 +27,7 @@ Không deploy `ai-tutor-service` trong phạm vi hiện tại.
   - `sagelms-devsecops-jwt-secret`
   - `sagelms-devsecops-gateway-shared-secret`
   - `sagelms-devsecops-internal-api-secret`
+  - `sagelms-devsecops-google-api-key`
 - Nếu Harbor là private registry, namespace `sagelms-devsecops` cần có `harbor-pull-secret`.
 
 Tạo image pull secret tạm cho demo:
@@ -66,7 +66,7 @@ kubectl rollout status deployment/course-service -n sagelms-devsecops
 kubectl rollout status deployment/content-service -n sagelms-devsecops
 kubectl rollout status deployment/progress-service -n sagelms-devsecops
 kubectl rollout status deployment/assessment-service -n sagelms-devsecops
-kubectl rollout status deployment/worker -n sagelms-devsecops
+kubectl rollout status deployment/ai-tutor-service -n sagelms-devsecops
 kubectl rollout status deployment/web -n sagelms-devsecops
 ```
 
@@ -87,4 +87,4 @@ curl http://localhost:3000/health
 ## Lưu Ý Runtime
 
 - Gateway hiện route sẵn cho auth/course/content. Route progress/assessment đang comment trong `services/gateway/src/main/resources/application.yml`; chỉ bật khi backend tương ứng đã có API cần expose.
-- Worker dùng `REDIS_HOST=redis` theo ConfigMap hiện tại. Nếu dùng Memorystore hoặc Redis service tên khác, cập nhật `infra/k8s/base/apps/worker/configmap.yaml` hoặc tạo overlay patch trước khi apply.
+- `ai-tutor-service` cần Secret Manager key `sagelms-devsecops-google-api-key` để External Secrets tạo `ai-tutor-secret`.

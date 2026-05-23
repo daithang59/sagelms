@@ -168,6 +168,7 @@ jobs:
             add_java "challenge-service"
             frontend="true"
             ai_tutor_service="true"
+            add_docker "ai-tutor-service"
             infra="false"
             github_workflows="false"
             docker="false"
@@ -179,6 +180,7 @@ jobs:
             if [[ "$PROGRESS_SERVICE" == "true" ]]; then add_java "progress-service"; add_docker "progress-service"; fi
             if [[ "$ASSESSMENT_SERVICE" == "true" ]]; then add_java "assessment-service"; add_docker "assessment-service"; fi
             if [[ "$CHALLENGE_SERVICE" == "true" ]]; then add_java "challenge-service"; add_docker "challenge-service"; fi
+            if [[ "$AI_TUTOR_SERVICE" == "true" ]]; then add_docker "ai-tutor-service"; fi
             if [[ "$FRONTEND" == "true" ]]; then add_web_docker; fi
 
             if [[ "$DOCKER" == "true" && ${#docker_images[@]} -eq 0 ]]; then
@@ -190,6 +192,7 @@ jobs:
               add_docker "progress-service"
               add_docker "assessment-service"
               add_docker "challenge-service"
+              add_docker "ai-tutor-service"
             fi
           fi
 
@@ -537,6 +540,12 @@ jobs:
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           exit-code: "1"
+      - name: Print Trivy scan report
+        if: failure()
+        run: |
+          if [[ -f "trivy-${{ matrix.service }}.txt" ]]; then
+            cat "trivy-${{ matrix.service }}.txt"
+          fi
       - name: Upload Trivy image scan report
         uses: actions/upload-artifact@v4
         if: always()
