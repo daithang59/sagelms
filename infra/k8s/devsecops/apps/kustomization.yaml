@@ -10,7 +10,8 @@ resources:
 images:
   - name: harbor.sagelms.id.vn/sagelms-app/gateway
     newName: harbor.sagelms.id.vn/sagelms-app/gateway
-    newTag: 1b21116f523c3e40c4c223988b88c73f55cfebf0
+    newTag: fd70df563a1a5c350adcc3315a0199ef6a7828a9
+    digest: sha256:d7bce40c3ed9d73e0f2ac45e976362f31ced6fa8933048cf420fc6dd8237ff8b
   - name: harbor.sagelms.id.vn/sagelms-app/auth-service
     newName: harbor.sagelms.id.vn/sagelms-app/auth-service
     newTag: a8a0b63d1568f0c356d10a22fcb89abad429ef52
