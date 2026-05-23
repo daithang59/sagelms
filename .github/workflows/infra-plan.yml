@@ -19,7 +19,7 @@ concurrency:
 
 env:
   TF_IN_AUTOMATION: "true"
-  TOFU_VERSION: "1.9.0"
+  TOFU_VERSION: "1.12.0"
   TOFU_WORKDIR: infra/opentofu/envs/devsecops
 
 jobs:
@@ -61,7 +61,6 @@ jobs:
       - checkov
     if: ${{ github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
-    environment: devsecops-infra
     env:
       GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
       GCP_SERVICE_ACCOUNT: ${{ vars.GCP_SERVICE_ACCOUNT }}
@@ -74,11 +73,11 @@ jobs:
         run: |
           missing=0
           if [[ -z "$GCP_WORKLOAD_IDENTITY_PROVIDER" ]]; then
-            echo "Missing GitHub Environment variable: GCP_WORKLOAD_IDENTITY_PROVIDER"
+            echo "Missing repository variable: GCP_WORKLOAD_IDENTITY_PROVIDER"
             missing=1
           fi
           if [[ -z "$GCP_SERVICE_ACCOUNT" ]]; then
-            echo "Missing GitHub Environment variable: GCP_SERVICE_ACCOUNT"
+            echo "Missing repository variable: GCP_SERVICE_ACCOUNT"
             missing=1
           fi
           if [[ $missing -ne 0 ]]; then

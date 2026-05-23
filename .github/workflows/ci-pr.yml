@@ -248,13 +248,11 @@ jobs:
       - name: Setup gcloud
         uses: google-github-actions/setup-gcloud@v2
 
-      - name: Verify Secret Manager access
+      - name: Verify CI Secret Manager access
         run: |
           set -euo pipefail
           secrets=(
-            "sagelms-devsecops-jwt-secret"
-            "sagelms-devsecops-gateway-shared-secret"
-            "sagelms-devsecops-internal-api-secret"
+            "$GCP_SECRET_SONAR_TOKEN"
           )
 
           for secret in "${secrets[@]}"; do
@@ -470,7 +468,7 @@ jobs:
       - name: Setup OpenTofu
         uses: opentofu/setup-opentofu@v1
         with:
-          tofu_version: 1.9.0
+          tofu_version: 1.12.0
       - name: Init
         run: tofu -chdir=infra/opentofu/envs/devsecops init -backend=false
       - name: Format check

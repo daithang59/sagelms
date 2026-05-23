@@ -1,42 +1,37 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-
 namespace: sagelms-devsecops
-
 resources:
   - namespace.yaml
   - ../../base/apps
   - app-shared-externalsecret.yaml
   - harbor-pull-externalsecret.yaml
   - ingress.yaml
-  - managed-certificate.yaml
-
 images:
   - name: harbor.sagelms.id.vn/sagelms-app/gateway
     newName: harbor.sagelms.id.vn/sagelms-app/gateway
-    newTag: dev
+    newTag: 1b21116f523c3e40c4c223988b88c73f55cfebf0
   - name: harbor.sagelms.id.vn/sagelms-app/auth-service
     newName: harbor.sagelms.id.vn/sagelms-app/auth-service
-    newTag: dev
+    newTag: a8a0b63d1568f0c356d10a22fcb89abad429ef52
   - name: harbor.sagelms.id.vn/sagelms-app/course-service
     newName: harbor.sagelms.id.vn/sagelms-app/course-service
-    newTag: dev
+    newTag: 1b21116f523c3e40c4c223988b88c73f55cfebf0
   - name: harbor.sagelms.id.vn/sagelms-app/content-service
     newName: harbor.sagelms.id.vn/sagelms-app/content-service
-    newTag: dev
+    newTag: 1b21116f523c3e40c4c223988b88c73f55cfebf0
   - name: harbor.sagelms.id.vn/sagelms-app/progress-service
     newName: harbor.sagelms.id.vn/sagelms-app/progress-service
-    newTag: dev
+    newTag: 1b21116f523c3e40c4c223988b88c73f55cfebf0
   - name: harbor.sagelms.id.vn/sagelms-app/assessment-service
     newName: harbor.sagelms.id.vn/sagelms-app/assessment-service
-    newTag: dev
+    newTag: 1b21116f523c3e40c4c223988b88c73f55cfebf0
   - name: harbor.sagelms.id.vn/sagelms-app/challenge-service
     newName: harbor.sagelms.id.vn/sagelms-app/challenge-service
-    newTag: dev
+    newTag: 1b21116f523c3e40c4c223988b88c73f55cfebf0
   - name: harbor.sagelms.id.vn/sagelms-app/web
     newName: harbor.sagelms.id.vn/sagelms-app/web
-    newTag: dev
-
+    newTag: 1b21116f523c3e40c4c223988b88c73f55cfebf0
 patches:
   - target:
       kind: ServiceAccount
