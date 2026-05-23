@@ -1,0 +1,6 @@
+[allowlist]
+description = "Allow generated Harbor image references in reports where auth-service is followed by a Git commit SHA."
+regexTarget = "match"
+regexes = [
+  '''auth-service:[0-9a-f]{20,40}-?''',
+]
