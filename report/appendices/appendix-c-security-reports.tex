@@ -22,6 +22,8 @@ Các report Trivy nằm trong \path{reports/trivy}. Đây là evidence cho gate 
 
 SBOM CycloneDX được lưu dưới \path{reports/sbom/<git-sha>}. Mỗi service có một file \path{*-sbom.cdx.json}. Báo cáo chỉ trích metadata, đường dẫn artifact và ý nghĩa truy vết thành phần phần mềm; không đưa toàn bộ SBOM vào phụ lục vì nội dung dài.
 
+Với AI Tutor, file \path{reports/sbom/ai-tutor-service-sbom.cdx.json} dùng định dạng CycloneDX \texttt{1.6}, có metadata tool Trivy và component container trỏ tới image \path{harbor.sagelms.id.vn/sagelms-app/ai-tutor-service:bc89c849b328b3618f09b18beb2683f1d8930db4}. Bằng chứng ảnh nằm ở Hình~\ref{fig:ai-tutor-sbom-cyclonedx-file}.
+
 
 \section{Image digest}
 
@@ -31,3 +33,5 @@ Image digest report nằm ở \path{reports/image-digests-1b21116f523c3e40c4c223
 \section{Cosign signature và SBOM attestation}
 
 CD workflow lưu log Cosign trong artifact \path{reports/cosign/*.txt}. Với run \texttt{26303390987}, auth-service commit \texttt{a8a0b63d1568f0c356d10a22fcb89abad429ef52} đã pass cả \texttt{cosign verify} và \texttt{cosign verify-attestation} trên digest \path{sha256:9e436d64f9a39a65d8052c57d9da5abbf285f5b400f4c94610311fe543efa35d}.
+
+Với AI Tutor, run \texttt{26326987915} bổ sung evidence summary: digest \path{sha256:6d1c1e9c10e41f21237c7d4bd23f2a7c0d8be274752e5e5a7338175f9bb3a7a2}, SBOM path \path{reports/sbom/ai-tutor-service-sbom.cdx.json} và cột Cosign PASS. Báo cáo không coi ảnh summary này là log mở rộng thay thế cho \texttt{cosign verify-attestation}; nó được dùng để chứng minh AI Tutor đã có SBOM/Cosign summary trong CD run mới.

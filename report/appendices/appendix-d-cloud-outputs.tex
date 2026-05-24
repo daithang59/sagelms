@@ -13,11 +13,30 @@ Theo \path{infra/opentofu/outputs.md}, môi trường DevSecOps dùng GKE cluste
   \item Workload Identity pool: \texttt{sagelms.svc.id.goog}.
 \end{itemize}
 
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.98\textwidth,height=0.70\textheight,keepaspectratio]{28-gcp-gke-cluster-overview.png}
+\caption{GKE cluster sagelms-devsecops-gke đang Running tại asia-southeast1}
+\label{fig:appendix-gcp-gke-cluster-overview}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.98\textwidth,height=0.70\textheight,keepaspectratio]{29-gcp-gke-node-pool-ready.png}
+\caption{Node pool sagelms-devsecops-main-pool và các node GKE ở trạng thái Ready}
+\label{fig:appendix-gcp-gke-node-pool-ready}
+\end{figure}
 
 \section{Ingress, Cloudflare Tunnel và public endpoint}
 
 Runtime hiện có Ingress \texttt{sagelms-app} trong namespace \texttt{sagelms-devsecops}. Ingress dùng host \texttt{sagelms.id.vn}, route \path{/api/v1} tới \texttt{gateway:8080} và route \path{/} tới \texttt{web:80}. Deployment \texttt{cloudflared} trong namespace \texttt{cloudflare} có 2 replica available, dùng secret \texttt{tunnel-token} được đồng bộ từ Google Secret Manager.
 
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.98\textwidth,height=0.70\textheight,keepaspectratio]{31-gcp-load-balancer-public-ip.png}
+\caption{Load balancer trên GCP cấp public IP 34.142.171.216 cho endpoint runtime}
+\label{fig:appendix-gcp-load-balancer-public-ip}
+\end{figure}
 
 \section{GCS buckets và object storage}
 
@@ -30,6 +49,12 @@ Các bucket GCS quan trọng trong phạm vi hạ tầng gồm:
   \item \texttt{sagelms-devsecops-evidence} và \texttt{sagelms-devsecops-materials}: evidence/materials buckets theo outputs hạ tầng.
 \end{itemize}
 
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.98\textwidth,height=0.70\textheight,keepaspectratio]{30-gcp-cloud-storage-buckets.png}
+\caption{Cloud Storage buckets phục vụ remote state, evidence, materials, Harbor registry và CloudNativePG backup}
+\label{fig:appendix-gcp-cloud-storage-buckets}
+\end{figure}
 
 \section{CloudNativePG}
 
