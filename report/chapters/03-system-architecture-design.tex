@@ -101,6 +101,25 @@ SageLMS được tổ chức theo kiến trúc microservices. Frontend là ứng
 
 Database chính là PostgreSQL 16. Trong giai đoạn MVP, các service có schema riêng trong cùng một instance PostgreSQL để giảm chi phí vận hành nhưng vẫn giữ ranh giới dữ liệu theo service. Redis 7 được dùng cho cache hoặc queue khi cần xử lý tác vụ bất đồng bộ.
 
+\begin{table}[H]
+\centering
+\caption{Tech stack ứng dụng SageLMS}
+\label{tab:application-tech-stack}
+\begin{tabularx}{\textwidth}{p{0.25\textwidth}Y}
+\toprule
+\textbf{Lớp/thành phần} & \textbf{Công nghệ và vai trò} \\
+\midrule
+Frontend & React 18, Vite và TypeScript; build thành static assets và serve bằng Nginx trong runtime container. \\
+API Gateway & Spring Cloud Gateway; xử lý route \path{/api/v1}, JWT, RBAC, correlation ID và điều phối request đến các service backend. \\
+Backend services & Spring Boot 3.x, Java 17, Maven Wrapper và Flyway; gồm auth, course, content, progress, assessment và challenge service. \\
+AI Tutor & FastAPI, Python 3.11 và Google Gemini; nhận request qua Gateway path \path{/api/v1/ai/**}, sinh phản hồi chat và lưu lịch sử hội thoại. \\
+Data layer & PostgreSQL 16/CloudNativePG với schema theo service; Redis 7 dùng cho cache hoặc queue khi cần tác vụ bất đồng bộ. \\
+Runtime deployment & Docker image, Kubernetes trên GKE, Kustomize overlay, FluxCD GitOps, ingress-nginx và Cloudflare Tunnel. \\
+DevSecOps tooling & GitHub Actions, Harbor, Trivy, SBOM CycloneDX và Cosign để kiểm tra, đóng gói, ký và truy vết artifact. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
 \begin{figure}[H]
 \centering
 \fbox{%
