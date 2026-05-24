@@ -12,13 +12,13 @@ Nhóm thực hiện đồ án gồm bốn thành viên:
   \item Bùi Ngọc Thái.
 \end{itemize}
 
-Theo tài liệu phân công, nhóm được chia thành hai hướng chính: Platform \& Runtime và CI/CD \& Supply Chain. Cách chia này phù hợp với bản chất đồ án vì pipeline DevSecOps không chỉ là viết workflow GitHub Actions, mà còn cần hạ tầng cloud, registry, GitOps, Kubernetes runtime và bằng chứng vận hành.
+Nhóm tổ chức công việc theo hai hướng chính: Platform \& Runtime và CI/CD \& Supply Chain. Cách chia này phù hợp với bản chất đồ án vì pipeline DevSecOps không chỉ là viết workflow GitHub Actions, mà còn cần hạ tầng cloud, registry, GitOps, Kubernetes runtime và bằng chứng vận hành.
 
-\section{Vai trò theo tài liệu phân công}
+\section{Vai trò và phạm vi phụ trách}
 
 \begin{table}[H]
 \centering
-\caption{Vai trò chính theo tài liệu phân công}
+\caption{Vai trò chính của các thành viên}
 \label{tab:team-roles}
 \begin{tabularx}{\textwidth}{p{0.25\textwidth}p{0.30\textwidth}Y}
 \toprule
@@ -32,11 +32,11 @@ Bùi Ngọc Thái & Artifact \& Supply Chain Owner & Dockerfile, image build, Ha
 \end{tabularx}
 \end{table}
 
-Tài liệu phân công hiện tại nêu rõ Thắng là Cloud/IaC Owner; các vai trò còn lại được map theo phân công nhóm: Trần Nguyễn Việt Hoàng là Member 3, Nguyễn Trường Duy là Member 1 và Bùi Ngọc Thái là Member 2. Cách trình bày này giữ cấu trúc hai nhóm lớn để báo cáo có câu chuyện rõ ràng.
+Các vai trò trong bảng được trình bày theo phạm vi kết quả của đồ án thay vì theo mã thành viên nội bộ. Cách viết này giúp người đọc hiểu mỗi người chịu trách nhiệm phần nào của pipeline, đồng thời vẫn giữ được câu chuyện chung: một nhánh phụ trách hạ tầng/runtime và một nhánh phụ trách automation/supply chain.
 
 \section{Vertical slice auth-service}
 
-Tài liệu phân công chọn \texttt{auth-service} làm vertical slice đầu tiên. Đây là lựa chọn hợp lý vì auth-service liên quan trực tiếp đến đăng nhập, JWT, RBAC và các request bảo vệ qua Gateway. Khi auth-service chạy được end-to-end từ PR đến GKE, nhóm có thể nhân rộng pattern sang các service khác.
+Nhóm chọn \texttt{auth-service} làm vertical slice đầu tiên. Đây là lựa chọn hợp lý vì auth-service liên quan trực tiếp đến đăng nhập, JWT, RBAC và các request bảo vệ qua Gateway. Khi auth-service chạy được end-to-end từ PR đến GKE, nhóm có thể nhân rộng pattern sang các service khác.
 
 Vertical slice gồm các bước:
 

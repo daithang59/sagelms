@@ -13,7 +13,8 @@ Kịch bản demo ứng dụng được đề xuất theo luồng người dùng
   \item Instructor tạo lesson/content.
   \item Student ghi danh khóa học và xem nội dung.
   \item Student làm bài assessment hoặc challenge.
-  \item Hệ thống hiển thị kết quả hoặc tiến độ.
+  \item Student mở AI Tutor, đặt câu hỏi và kiểm tra câu trả lời được trả về qua Gateway.
+  \item Hệ thống hiển thị kết quả, tiến độ hoặc lịch sử hội thoại.
 \end{enumerate}
 
 
@@ -31,4 +32,5 @@ Kịch bản demo pipeline được đề xuất theo luồng:
   \item Review deploy PR cập nhật Kustomize overlay.
   \item Merge deploy PR để FluxCD reconcile vào GKE.
   \item Chạy \texttt{Post Deploy Check} để kiểm tra rollout và endpoint.
+  \item Nếu demo AI Tutor, kiểm tra thêm rollout \texttt{ai-tutor-service}, health endpoint \path{/health} và trang \path{/ai-tutor}.
 \end{enumerate}

@@ -3,9 +3,9 @@
 
 \section{Kết quả đạt được}
 
-Đồ án đã đạt được một nền tảng tương đối đầy đủ để trình bày DevSecOps cho web microservices. Về ứng dụng, SageLMS có frontend, gateway, nhiều backend services, OpenAPI contracts, database migrations và Dockerfile. Về pipeline, repo có PR validation, CD build/scan/push/deploy PR, infra plan và post-deploy check. Về cloud runtime, nhóm đã có GKE, CloudNativePG, Redis, Harbor, ESO và các manifests GitOps/Kustomize.
+Đồ án đã đạt được một nền tảng tương đối đầy đủ để trình bày DevSecOps cho web microservices. Về ứng dụng, SageLMS có frontend, gateway, các backend services Spring Boot, AI Tutor FastAPI, database migrations, Dockerfile và thư mục OpenAPI contracts làm nền cho việc đồng bộ API. Về pipeline, repo có PR validation, CD build/scan/push/deploy PR, infra plan và post-deploy check. Về cloud runtime, nhóm đã có GKE, CloudNativePG, Redis, Harbor, ESO và các manifests GitOps/Kustomize.
 
-Điểm quan trọng là nhóm không chỉ mô tả pipeline trên lý thuyết mà đã có evidence: Trivy reports, SBOM, image digests, deploy summary, OpenTofu outputs và cloud foundation evidence.
+Điểm quan trọng là nhóm không chỉ mô tả pipeline trên lý thuyết mà đã có evidence: Trivy reports, SBOM, image digests, deploy summary, OpenTofu outputs, cloud foundation evidence, GKE workload status, Harbor artifact, FluxCD reconcile và dashboard Grafana ở mức demo.
 
 \section{Điểm mạnh}
 
@@ -22,15 +22,15 @@ Thiết kế pipeline có một số điểm mạnh:
 
 \section{Hạn chế}
 
-Một số hạn chế cần trình bày trung thực:
+Một số hạn chế cần trình bày trung thực. Mỗi hạn chế đều có hướng xử lý cụ thể để người đọc thấy đây là ranh giới phạm vi đồ án, không phải lỗi bị bỏ qua:
 
 \begin{itemize}
-  \item Đồ án chưa tách đủ ba môi trường dev, staging và production như hệ thống thương mại.
-  \item Restore drill CloudNativePG cần được hoàn thiện nếu muốn chứng minh disaster recovery đầy đủ.
-  \item Observability hiện đạt mức foundation với manifest/FluxCD Kustomization, nhưng chưa chứng minh dashboard và alert rule đầy đủ.
-  \item Kyverno policy có thể cần chuyển dần từ audit sang enforce để tránh làm gián đoạn demo.
-  \item AI Tutor đã được chốt là source/prototype ngoài runtime GKE chính; async worker hoặc các thành phần mở rộng khác không được trình bày như workload đã deploy nếu chưa có evidence.
-  \item Challenge Service đã có workload/runtime và port 8086, nhưng thư mục \path{contracts/openapi} hiện chưa có OpenAPI contract riêng cho challenge; đây là điểm cần bổ sung nếu muốn phần API contract bao phủ đủ toàn bộ service runtime.
+  \item Đồ án chưa tách đủ ba môi trường dev, staging và production như hệ thống thương mại; hướng xử lý là tách ít nhất staging/production khi có thêm tài nguyên cloud.
+  \item Restore drill CloudNativePG cần được hoàn thiện nếu muốn chứng minh disaster recovery đầy đủ; hướng xử lý là restore sang cluster tạm và kiểm tra ứng dụng đọc được dữ liệu sau restore.
+  \item Observability hiện đạt mức foundation và đã có ảnh dashboard Grafana ở mức demo; phần alert rule đầy đủ, log/trace correlation và runbook xử lý sự cố vẫn là hướng mở rộng.
+  \item Kyverno policy có thể cần chuyển dần từ audit sang enforce để tránh làm gián đoạn demo; hướng xử lý là bật enforce theo từng policy sau khi đã có exception hợp lý.
+  \item AI Tutor đã chạy ở mức chat service với UI, Gateway route, Gemini integration và lịch sử hội thoại; phần ingestion/vector search RAG đầy đủ, citation chất lượng cao và đánh giá chất lượng câu trả lời vẫn cần hoàn thiện nếu phát triển tiếp.
+  \item API contract cần được đồng bộ định kỳ với implementation, đặc biệt phần AI Tutor/Gateway vì contract cũ còn mô tả \path{/api/v1/ai/ask}, \path{/api/v1/ai/ingest} và port 8086, trong khi runtime hiện dùng \path{/api/v1/ai/chat}, quản lý hội thoại và port 8087; hướng xử lý là cập nhật OpenAPI trước khi dùng để sinh client hoặc contract test.
 \end{itemize}
 
 \section{So sánh với production thực tế}
@@ -46,8 +46,8 @@ Các hướng phát triển tiếp theo gồm:
 \begin{itemize}
   \item Hoàn thiện restore drill CloudNativePG sang cluster tạm.
   \item Bật Kyverno verifyImages để enforce image từ Harbor và Cosign signature.
-  \item Hoàn thiện dashboard Prometheus/Grafana/Loki/Tempo cho các service.
-  \item Bổ sung e2e test cho demo scenario chính.
+  \item Hoàn thiện alert rule, log/trace correlation và dashboard Prometheus/Grafana/Loki/Tempo chi tiết cho từng service.
+  \item Bổ sung e2e test cho demo scenario chính, bao gồm luồng AI Tutor qua frontend và Gateway.
   \item Chuẩn hóa Cosign keyless signing bằng GitHub OIDC.
   \item Tách staging/production nếu có tài nguyên cloud.
   \item Tự động hóa release notes và evidence packaging cho mỗi lần deploy.

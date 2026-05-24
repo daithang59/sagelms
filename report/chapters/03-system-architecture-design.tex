@@ -3,6 +3,8 @@
 \label{chap:requirements}
 \label{chap:pipeline-design}
 
+Chương này được trình bày theo bốn lớp để người đọc dễ theo dõi. Trước hết, báo cáo chốt phạm vi chức năng và yêu cầu DevSecOps. Tiếp theo là kiến trúc ứng dụng, runtime và public traffic. Sau đó, chương mô tả repository, nguyên tắc pipeline và các công cụ kiểm soát. Các bằng chứng chạy thực tế không được dồn vào chương này mà được đối chiếu riêng trong Chương~\ref{chap:evaluation}.
+
 \section{Phạm vi và yêu cầu thiết kế}
 
 Theo định hướng đồ án, SageLMS là hệ thống quản lý học tập hỗ trợ nhiều vai trò người dùng và nhiều module nghiệp vụ. Các chức năng chính gồm:
@@ -10,13 +12,13 @@ Theo định hướng đồ án, SageLMS là hệ thống quản lý học tập
 \begin{itemize}
   \item \textbf{Authentication và RBAC}: đăng ký, đăng nhập, phát hành JWT, phân quyền admin, instructor và student.
   \item \textbf{Course management}: tạo, chỉnh sửa, quản lý khóa học và chính sách ghi danh.
-  \item \textbf{Content delivery}: quản lý lesson, metadata tài liệu, thứ tự nội dung và liên kết với course.
+  \item \textbf{Content delivery}: quản lý lesson, học liệu, metadata nội dung và liên kết với course.
   \item \textbf{Progress tracking}: ghi nhận tiến độ học của sinh viên theo lesson/course.
   \item \textbf{Assessment và challenge}: tạo bộ câu hỏi, attempt, chấm điểm tự động hoặc bán tự động, lưu kết quả.
-  \item \textbf{AI Tutor}: chức năng mở rộng theo hướng hỏi đáp dựa trên nội dung học tập và RAG; hiện có source/prototype nhưng nằm ngoài runtime GKE chính của bản demo.
+  \item \textbf{AI Tutor}: trợ lý học tập dạng chat, gọi Gemini để sinh câu trả lời và lưu lịch sử hội thoại của từng người dùng; phần đọc ngữ cảnh học tập sâu từ các service nghiệp vụ là hướng mở rộng của thiết kế.
 \end{itemize}
 
-Các chức năng này tạo ra một nền ứng dụng đủ thực tế để pipeline DevSecOps có ý nghĩa: nhiều service, nhiều Dockerfile, nhiều contract API, nhiều migration database và nhiều loại kiểm thử.
+Các chức năng này tạo ra một nền ứng dụng đủ thực tế để pipeline DevSecOps có ý nghĩa: nhiều service, nhiều Dockerfile, thư mục contract API cần được đồng bộ cùng implementation, nhiều migration database và nhiều loại kiểm thử.
 
 Ngoài chức năng nghiệp vụ, hệ thống cần đáp ứng các yêu cầu phi chức năng sau:
 
@@ -95,7 +97,7 @@ Database/secret runtime & Lộ DB password/JWT secret hoặc hardcode vào manif
 
 \section{Tổng quan kiến trúc ứng dụng}
 
-SageLMS được tổ chức theo kiến trúc microservices. Frontend là ứng dụng React 18, Vite và TypeScript. Client gửi request đến API Gateway, Gateway xác thực JWT, áp dụng RBAC, gắn correlation ID và định tuyến đến service backend phù hợp. Các service backend chính dùng Spring Boot 3.x và Java 17. AI Tutor có source/prototype riêng dùng FastAPI và Python 3.11 để thuận tiện tích hợp LangChain và các thư viện AI, nhưng chưa thuộc runtime GKE chính của bản demo hiện tại.
+SageLMS được tổ chức theo kiến trúc microservices. Frontend là ứng dụng React 18, Vite và TypeScript \cite{reactDocs,viteDocs}. Client gửi request đến API Gateway, Gateway xác thực JWT, áp dụng RBAC, gắn correlation ID và định tuyến đến service backend phù hợp. Các service backend chính dùng Spring Boot 3.x và Java 17. AI Tutor dùng FastAPI và Python 3.11 để thuận tiện tích hợp Google Gemini và các thư viện AI; trong repo hiện tại service này đã có route qua Gateway, kiểm thử, Dockerfile và manifest Kubernetes riêng.
 
 Database chính là PostgreSQL 16. Trong giai đoạn MVP, các service có schema riêng trong cùng một instance PostgreSQL để giảm chi phí vận hành nhưng vẫn giữ ranh giới dữ liệu theo service. Redis 7 được dùng cho cache hoặc queue khi cần xử lý tác vụ bất đồng bộ.
 
@@ -111,9 +113,9 @@ Database chính là PostgreSQL 16. Trong giai đoạn MVP, các service có sche
 Public entry & Browser truy cập domain public; Cloudflare Tunnel đưa traffic vào ingress-nginx trong GKE. \\
 Presentation & Web frontend React/Vite, build thành static assets và serve bằng Nginx runtime. \\
 API Gateway & Gateway port 8080 xử lý \path{/api/v1}, xác thực JWT, kiểm tra RBAC, gắn correlation ID và route đến service. \\
-Business services & Auth, Course, Content, Progress, Assessment và Challenge là các service Spring Boot chính trong runtime demo. \\
+Business services & Auth, Course, Content, Progress, Assessment và Challenge là các service Spring Boot chính; AI Tutor là service FastAPI riêng cho chức năng chat học tập. \\
 Data layer & PostgreSQL 16/CloudNativePG dùng schema theo service; Redis 7 phục vụ cache hoặc queue khi cần. \\
-Optional/prototype & AI Tutor FastAPI có source/prototype RAG, nhưng chưa thuộc runtime GKE chính của bản demo. \\
+AI Tutor & FastAPI service port 8087, nhận request qua Gateway path \path{/api/v1/ai/**}, gọi Gemini và lưu lịch sử hội thoại trong schema \texttt{ai\_tutor}; phần RAG/learning context sâu là hướng mở rộng. \\
 \bottomrule
 \end{tabularx}
 \end{minipage}%
@@ -143,18 +145,18 @@ Web frontend & 3000/80 & Giao diện người dùng, chạy dev ở 3000 và ser
 Gateway & 8080 & Entry point, JWT, RBAC, correlation ID và routing. \\
 Auth Service & 8081 & Đăng ký, đăng nhập, JWT, user profile và vai trò. \\
 Course Service & 8082 & Quản lý khóa học và ghi danh. \\
-Content Service & 8083 & Quản lý lesson, tài liệu và metadata nội dung. \\
+Content Service & 8083 & Quản lý lesson, học liệu và metadata nội dung. \\
 Progress Service & 8084 & Theo dõi tiến độ học của sinh viên. \\
 Assessment Service & 8085 & Bài kiểm tra, câu hỏi, attempt và chấm điểm. \\
 Challenge Service & 8086 & Bài thử thách, leaderboard và kết quả. \\
-AI Tutor Service & Optional & Hỏi đáp dựa trên RAG; có trong định hướng/source nhưng nằm ngoài scope runtime GKE chính hiện tại để tránh nhầm với Challenge Service port 8086. \\
+AI Tutor Service & 8087 & Chat AI qua FastAPI; Gateway route \path{/api/v1/ai/**}, lưu hội thoại và dùng Gemini. Port 8087 tách khỏi Challenge Service port 8086; learning context/RAG đầy đủ là phần mở rộng. \\
 \bottomrule
 \end{tabularx}
 \end{table}
 
-\subsection{Phạm vi runtime demo cuối cùng}
+\subsection{Phạm vi runtime demo hiện tại}
 
-Bảng dưới đây chốt ranh giới để tránh báo cáo mô tả vượt quá phần đã triển khai hoặc có evidence. Các thành phần được đánh dấu \textit{trong runtime GKE chính} là phần được dùng khi demo end-to-end; các thành phần còn lại được trình bày như foundation, prototype hoặc hướng mở rộng.
+Bảng dưới đây chốt ranh giới để tránh báo cáo mô tả vượt quá phần đã triển khai hoặc có evidence. Các thành phần được đánh dấu \textit{trong runtime GKE chính} là phần dùng khi demo end-to-end; các thành phần còn lại được trình bày như foundation hoặc hướng mở rộng.
 
 \begin{table}[H]
 \centering
@@ -164,11 +166,11 @@ Bảng dưới đây chốt ranh giới để tránh báo cáo mô tả vượt 
 \toprule
 \textbf{Nhóm thành phần} & \textbf{Trạng thái} & \textbf{Ghi chú} \\
 \midrule
-Web, Gateway và 6 service nghiệp vụ & Trong runtime GKE chính & Web, gateway, auth, course, content, progress, assessment và challenge là scope demo app chính. \\
+Web, Gateway và 6 service nghiệp vụ Spring Boot & Trong runtime GKE chính & Web, gateway, auth, course, content, progress, assessment và challenge là phần nền của ứng dụng học tập. \\
 CloudNativePG và Redis & Runtime nền & PostgreSQL 16 chạy bằng CloudNativePG; Redis dùng Memorystore hoặc cấu hình runtime tương ứng. \\
 Harbor, FluxCD, ESO, ingress-nginx, Cloudflare Tunnel & Trong nền tảng DevSecOps & Dùng cho registry, GitOps, secret sync và public routing. \\
 Cosign, Trivy, SBOM, Checkov, Gitleaks & Trong pipeline CI/CD & Chạy ở workflow và sinh evidence; không phải workload ứng dụng runtime. \\
-AI Tutor FastAPI & Ngoài runtime chính & Có source/prototype và định hướng RAG, nhưng không đưa vào danh sách deployable để tránh nhầm với Challenge Service port 8086. \\
+AI Tutor FastAPI & Trong runtime ứng dụng & Có UI chat, Gateway route, Python tests, image/SBOM evidence, ExternalSecret cho Gemini API key và Kustomize image digest riêng. \\
 Obs/Kyverno enforce & Hướng mở rộng & Có định hướng/manifest nền tảng; phần enforce đầy đủ và dashboard/alert được trình bày là future work nếu chưa có evidence cuối. \\
 \bottomrule
 \end{tabularx}
@@ -197,7 +199,7 @@ Luồng request cơ bản diễn ra như sau:
 \textbf{Bước} & \textbf{Luồng xử lý} \\
 \midrule
 1 & Client gọi web hoặc API public qua domain \path{sagelms.id.vn}. \\
-2 & Cloudflare Tunnel chuyển traffic vào ingress-nginx trong GKE. \\
+2 & Cloudflare Tunnel chuyển traffic vào ingress-nginx trong GKE \cite{cloudflareTunnel}. \\
 3 & Ingress route \path{/api/v1} đến \texttt{gateway:8080}; route \path{/} đến \texttt{web:80}. \\
 4 & Gateway xác thực JWT, kiểm tra RBAC, gắn correlation ID và chuyển tiếp đến service backend. \\
 5 & Service xử lý nghiệp vụ, truy cập PostgreSQL/Redis khi cần và trả response qua Gateway. \\
@@ -234,7 +236,7 @@ Mono-repo SageLMS được chia thành các nhóm thư mục chính:
 
 \begin{itemize}
   \item \path{apps/web}: frontend React/Vite.
-  \item \path{services}: backend microservices và AI Tutor source/prototype.
+  \item \path{services}: backend microservices Spring Boot và AI Tutor FastAPI.
   \item \path{contracts}: OpenAPI và AsyncAPI contracts.
   \item \path{infra/docker}: Docker Compose và runtime local.
   \item \path{infra/k8s}: Kubernetes base manifests và DevSecOps overlay.

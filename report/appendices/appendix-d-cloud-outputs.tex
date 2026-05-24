@@ -55,7 +55,7 @@ Database baseline dùng CloudNativePG:
 
 \section{Secret, ESO và registry}
 
-External Secrets Operator đã đồng bộ các secret cần thiết vào namespace runtime. Harbor registry cho app images là \path{harbor.sagelms.id.vn/sagelms-app}. Pull secret runtime đã được ESO đồng bộ và test pull image Harbor có sự kiện pull thành công theo outputs hiện tại.
+External Secrets Operator đã đồng bộ các secret cần thiết vào namespace runtime. Harbor registry cho app images là \path{harbor.sagelms.id.vn/sagelms-app}. Pull secret runtime đã được ESO đồng bộ và test pull image Harbor có sự kiện pull thành công theo outputs hiện tại. Riêng AI Tutor dùng \texttt{ai-tutor-secret} lấy \texttt{GOOGLE\_API\_KEY} từ Google Secret Manager key \texttt{sagelms-devsecops-google-api-key}.
 
 
 \section{Harbor registry storage trên GCS}
@@ -80,4 +80,4 @@ Phần Harbor GCS storage được thể hiện qua các file sau:
 
 \section{FluxCD và runtime images}
 
-FluxCD trong namespace \texttt{fluxcd} có GitRepository \texttt{sagelms} Ready và các Kustomization app runtime, Harbor, Kyverno, monitoring ở trạng thái \texttt{Ready=True}. Các deployment ứng dụng trong namespace \texttt{sagelms-devsecops} đang dùng image Harbor kèm digest \path{@sha256:<digest>}.
+FluxCD trong namespace \texttt{fluxcd} có GitRepository \texttt{sagelms} Ready và các Kustomization app runtime, Harbor, Kyverno, monitoring ở trạng thái \texttt{Ready=True}. Các deployment ứng dụng trong namespace \texttt{sagelms-devsecops} đang dùng image Harbor kèm digest \path{@sha256:<digest>}, bao gồm \texttt{ai-tutor-service} với image \path{harbor.sagelms.id.vn/sagelms-app/ai-tutor-service}.
