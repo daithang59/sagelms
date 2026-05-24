@@ -27,6 +27,13 @@ The core seed currently inserts or updates:
 It includes published, draft, and archived courses; active, dropped, and completed enrollments; and lesson content across `TEXT`, `VIDEO`, `PDF`, and `LINK`.
 Challenge data includes both `MULTIPLE_CHOICE` and `ESSAY` questions, graded attempts, pending-review attempts, and sample file metadata for essay answers.
 
+Optional richer demo lesson seed:
+
+- `seed-demo-extra-lessons.sql` adds up to 66 extra published `TEXT` lessons across 22 published/demo courses.
+- If the API-created course `SageLMS Demo - Cloud Native Java` is not present, it adds 63 lessons across the core seeded courses.
+- `verify-demo-extra-lessons.sql` checks the supplemental lesson count, non-empty text content, and course/instructor relationships.
+- The supplemental seed is idempotent and uses stable UUIDs prefixed with `51000000-0000-0000-0000-0000000000`.
+
 ## Prerequisite
 
 Start the database and core services once so Flyway creates the tables:
@@ -71,6 +78,18 @@ If you changed `POSTGRES_USER` or `POSTGRES_DB`, replace `sagelms` in the comman
 docker compose -f infra/docker/docker-compose.yml cp infra/database/verify-core-dev.sql postgres:/tmp/verify-core-dev.sql
 docker compose -f infra/docker/docker-compose.yml exec -T postgres `
   psql -U sagelms -d sagelms -f /tmp/verify-core-dev.sql
+```
+
+To add richer lesson content for web demos:
+
+```powershell
+docker compose -f infra/docker/docker-compose.yml cp infra/database/seed-demo-extra-lessons.sql postgres:/tmp/seed-demo-extra-lessons.sql
+docker compose -f infra/docker/docker-compose.yml exec -T postgres `
+  psql -U sagelms -d sagelms -f /tmp/seed-demo-extra-lessons.sql
+
+docker compose -f infra/docker/docker-compose.yml cp infra/database/verify-demo-extra-lessons.sql postgres:/tmp/verify-demo-extra-lessons.sql
+docker compose -f infra/docker/docker-compose.yml exec -T postgres `
+  psql -U sagelms -d sagelms -f /tmp/verify-demo-extra-lessons.sql
 ```
 
 ## Test Accounts
