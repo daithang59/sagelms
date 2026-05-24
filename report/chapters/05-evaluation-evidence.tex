@@ -97,9 +97,11 @@ Bằng chứng hình ảnh trong Hình~\ref{fig:github-actions-pr-validation-pas
 \end{figure}
 
 
-\section{Kết quả image build, scan, SBOM và digest}
+\section{Kết quả pipeline image và SBOM}
 
-Repo hiện có nhiều lớp evidence cho image build. Một gói evidence multi-service chứng minh pipeline có thể xử lý nhiều service cùng lúc, trong khi gói evidence riêng của AI Tutor chứng minh service mới đã có Trivy report, SBOM CycloneDX, image tag theo git SHA và digest runtime. Thân báo cáo chỉ dùng tên ngắn của các mốc evidence; commit, run ID và digest đầy đủ được gom ở Bảng~\ref{tab:technical-traceability-identifiers}. AI Tutor có evidence riêng ở \path{reports/trivy/trivy-ai-tutor-service.txt} và \path{reports/sbom/ai-tutor-service-sbom.cdx.json}; Trivy report ghi nhận 0 vulnerability và SBOM CycloneDX gắn với đúng image.
+Repo hiện có hai nhóm evidence chính cho pipeline image. Nhóm multi-service chứng minh pipeline có thể xử lý nhiều service cùng lúc. Nhóm AI Tutor chứng minh service mới đã có scan Trivy, SBOM CycloneDX, image được xuất bản lên Harbor và trạng thái CD pass. Để phần đọc chính không bị nặng bởi mã kỹ thuật, Chương này chỉ giữ tên artifact và ý nghĩa evidence; run ID, commit và digest đầy đủ được gom ở Bảng~\ref{tab:technical-traceability-identifiers}.
+
+Với AI Tutor, evidence riêng nằm trong report Trivy và SBOM CycloneDX của service. Trivy report ghi nhận 0 vulnerability, còn SBOM cho thấy thành phần phần mềm được sinh bằng Trivy và gắn với image của \texttt{ai-tutor-service}.
 
 \begin{table}[H]
 \centering
@@ -109,14 +111,14 @@ Repo hiện có nhiều lớp evidence cho image build. Một gói evidence mult
 \toprule
 \textbf{Evidence} & \textbf{Đường dẫn} \\
 \midrule
-Deploy summary & \path{reports/deploy-summary-<multi-service-commit>.md} \\
-Deploy PR body & \path{reports/deploy-pr-body-<multi-service-commit>.md} \\
-Image digest table & \path{reports/image-digests-<multi-service-commit>.md} \\
-Trivy reports & \path{reports/trivy/*.txt} \\
-SBOM files & \path{reports/sbom/<git-sha>/*-sbom.cdx.json} \\
-AI Tutor image/SBOM & \path{reports/trivy/trivy-ai-tutor-service.txt}, \path{reports/sbom/ai-tutor-service-sbom.cdx.json} và digest trong \path{infra/k8s/devsecops/apps/kustomization.yaml}. \\
-AI Tutor CD workflow & GitHub Actions AI Tutor CD run, service \texttt{ai-tutor-service}. \\
-AI Tutor verify-attestation log & GitHub Actions AI Tutor CD run, image \texttt{ai-tutor-service} theo digest. \\
+Deploy summary & File tổng hợp kết quả deploy trong \path{reports}. \\
+Deploy PR body & File mô tả nội dung deploy PR trong \path{reports}. \\
+Image digest table & Bảng digest image được pipeline sinh ra trong \path{reports}. \\
+Trivy reports & Các report scan trong \path{reports/trivy}. \\
+SBOM files & Các SBOM CycloneDX trong \path{reports/sbom}. \\
+AI Tutor image/SBOM & Report riêng của \texttt{ai-tutor-service}; định danh đầy đủ nằm ở Bảng~\ref{tab:technical-traceability-identifiers}. \\
+AI Tutor CD workflow & Workflow CD mới của \texttt{ai-tutor-service}. \\
+AI Tutor verify-attestation log & Log xác minh SBOM attestation của AI Tutor. \\
 Cosign automation evidence & Deploy summary và Cosign logs; định danh đầy đủ ở Bảng~\ref{tab:technical-traceability-identifiers}. \\
 \bottomrule
 \end{tabularx}
@@ -146,31 +148,29 @@ Cosign automation evidence & Deploy summary và Cosign logs; định danh đầy
 
 \section{Kết quả CD workflow và Cosign verification mới nhất}
 
-Evidence mới nhất cho AI Tutor là workflow \texttt{CD - Build Scan Push Deploy PR}. Run này chạy trên branch \texttt{main} sau khi merge PR AI Tutor, phát hiện deployable service \texttt{ai-tutor-service}, build image, scan bằng Trivy, tạo SBOM, push image, ký/attest artifact bằng SBOM payload, ghi digest và mở deploy PR thành công. Các mã run, commit và digest đầy đủ được đặt ở Phụ lục~\ref{appendix:security-reports}.
+Evidence mới nhất cho AI Tutor là workflow \texttt{CD - Build Scan Push Deploy PR}. Sau khi PR AI Tutor được merge, workflow phát hiện service cần deploy, build image, scan bằng Trivy, tạo SBOM, push image lên Harbor, ký/attest artifact và mở deploy PR thành công. Phần thân báo cáo chỉ cần kết luận vai trò của từng nhóm evidence; các mã run, commit và digest đầy đủ được đặt ở Phụ lục~\ref{appendix:security-reports}.
 
-Hình~\ref{fig:cd-ai-tutor-sbom-attestation-log} cho thấy workflow dùng file \path{reports/sbom/ai-tutor-service-sbom.cdx.json} làm payload khi ký/attest image. Hình~\ref{fig:cd-ai-tutor-summary-sbom-cosign-pass} cho thấy deploy summary của AI Tutor có đúng image digest, SBOM path và cột Cosign ở trạng thái PASS. Hình~\ref{fig:cd-ai-tutor-verify-attestation-log} bổ sung log chi tiết của lệnh \texttt{cosign verify-attestation} cho chính image \texttt{ai-tutor-service}: Cosign claims được validate, transparency log được kiểm tra và certificate signing chain được xác minh. Vì vậy AI Tutor CD run hiện là evidence trực tiếp cho SBOM attestation verification pass; run Cosign bổ trợ vẫn được giữ để chứng minh thêm phần \texttt{cosign verify} cho image signature.
+Ba ảnh trong nhóm này bổ sung evidence trực tiếp cho chuỗi cung ứng của AI Tutor. Hình~\ref{fig:cd-ai-tutor-sbom-attestation-log} xác nhận SBOM của AI Tutor được dùng làm payload khi attest image. Hình~\ref{fig:cd-ai-tutor-summary-sbom-cosign-pass} cho thấy deploy summary có SBOM path và trạng thái Cosign PASS. Hình~\ref{fig:cd-ai-tutor-verify-attestation-log} là log \texttt{verify-attestation} của chính image AI Tutor. Vì vậy AI Tutor CD run hiện chứng minh được SBOM attestation verification pass; run Cosign bổ trợ vẫn được giữ để chứng minh thêm bước verify signature.
 
 \begin{table}[H]
 \centering
-\caption{Evidence CD mới cho AI Tutor và Cosign automation}
+\caption{Vai trò của evidence CD mới cho AI Tutor}
 \label{tab:cosign-verification-evidence}
 \begin{tabularx}{\textwidth}{p{0.30\textwidth}Y}
 \toprule
-\textbf{Trường} & \textbf{Giá trị} \\
+\textbf{Nhóm evidence} & \textbf{Ý nghĩa trong báo cáo} \\
 \midrule
-AI Tutor CD run & Xem định danh đầy đủ ở Bảng~\ref{tab:technical-traceability-identifiers}. \\
-AI Tutor commit/tag & Git SHA của merge commit AI Tutor; dùng làm image tag. \\
-Deployable service & \texttt{ai-tutor-service} \\
-AI Tutor image digest & Digest SHA256 đầy đủ được đặt ở Phụ lục~\ref{appendix:security-reports}. \\
-AI Tutor CD stages visible & Build, Trivy scan, SBOM, push, digest/deploy summary, Cosign summary và verify-attestation: PASS \\
-Cosign verify evidence chi tiết & AI Tutor có \texttt{cosign verify-attestation}: PASS ở Hình~\ref{fig:cd-ai-tutor-verify-attestation-log}; run bổ trợ của \texttt{auth-service} có thêm evidence \texttt{cosign verify} và \texttt{cosign verify-attestation}: PASS. \\
-Cosign workflow logic & \path{.github/workflows/cd-main.yml} chạy sign, attest, verify và verify-attestation trước bước mở deploy PR. \\
+AI Tutor CD workflow & Chứng minh service mới đi qua build, scan, tạo SBOM, push image và mở deploy PR. \\
+SBOM attestation & Chứng minh SBOM của AI Tutor được dùng làm payload attest và có log \texttt{verify-attestation} pass. \\
+Cosign verification bổ trợ & Giữ thêm evidence cho bước verify signature, tránh phụ thuộc vào một ảnh summary duy nhất. \\
+Workflow logic & \path{.github/workflows/cd-main.yml} chạy sign, attest, verify và verify-attestation trước bước mở deploy PR. \\
+Truy vết kỹ thuật & Run ID, commit và digest đầy đủ được đặt ở Bảng~\ref{tab:technical-traceability-identifiers}. \\
 \bottomrule
 \end{tabularx}
 \end{table}
 
 
-Tóm lại, báo cáo dùng ba mốc evidence với vai trò khác nhau: gói multi-service chứng minh pipeline xử lý được nhiều service; AI Tutor CD run chứng minh service mới đã đi qua CD workflow và có log \texttt{verify-attestation} trực tiếp; run Cosign bổ trợ chứng minh thêm automation \texttt{cosign verify} và \texttt{verify-attestation} trước deploy PR. Cách tách vai trò này giúp phần đọc chính dễ theo dõi hơn nhưng vẫn giữ đầy đủ truy vết kỹ thuật ở Phụ lục~\ref{appendix:security-reports}.
+Tóm lại, báo cáo dùng ba mốc evidence với vai trò khác nhau: gói multi-service chứng minh pipeline xử lý được nhiều service; AI Tutor CD run chứng minh service mới đã đi qua workflow CD; run Cosign bổ trợ chứng minh thêm bước verify signature. Cách tách vai trò này giúp phần đọc chính dễ theo dõi hơn nhưng vẫn giữ đầy đủ truy vết kỹ thuật ở Phụ lục~\ref{appendix:security-reports}.
 
 \begin{figure}[H]
 \centering
@@ -229,7 +229,7 @@ Bằng chứng ảnh chụp GCP Console được đặt ở Phụ lục~\ref{app
 
 \section{Kết quả deployment và smoke test}
 
-Đối chiếu runtime và manifest hiện tại cho thấy trạng thái triển khai khớp với kiến trúc báo cáo. Ingress \texttt{sagelms-app} trong namespace \texttt{sagelms-devsecops} dùng \texttt{ingressClassName=nginx}, host \texttt{sagelms.id.vn}, route \texttt{/api/v1} đến \texttt{gateway:8080} và route \texttt{/} đến \texttt{web:80}. Các deployment ứng dụng gồm \texttt{web}, \texttt{gateway}, \texttt{auth-service}, \texttt{course-service}, \texttt{content-service}, \texttt{progress-service}, \texttt{assessment-service}, \texttt{challenge-service} và \texttt{ai-tutor-service}. AI Tutor được định tuyến nội bộ qua Gateway path \path{/api/v1/ai/**} tới service port 8087, dùng ExternalSecret \texttt{ai-tutor-secret} cho Gemini API key. Image runtime được pull từ Harbor theo dạng tag git SHA kèm digest \texttt{@sha256}. FluxCD trong namespace \texttt{fluxcd} có các Kustomization chính ở trạng thái \texttt{Ready=True}, bao gồm app runtime, Harbor, Kyverno và monitoring. Deployment \texttt{cloudflared} trong namespace \texttt{cloudflare} có 2 replica available.
+Đối chiếu runtime và manifest hiện tại cho thấy trạng thái triển khai khớp với kiến trúc báo cáo: public traffic đi qua Ingress/Gateway, đủ 9 workload ứng dụng, AI Tutor có route riêng qua Gateway, FluxCD ở trạng thái Ready và Cloudflare Tunnel có đủ replica. Bảng dưới giữ các chi tiết cần thiết để chấm kỹ thuật, còn định danh image đầy đủ được gom về Phụ lục~\ref{appendix:security-reports}.
 
 \begin{table}[H]
 \centering
@@ -241,7 +241,7 @@ Bằng chứng ảnh chụp GCP Console được đặt ở Phụ lục~\ref{app
 \midrule
 Ingress public & Host \texttt{sagelms.id.vn}; \path{/api/v1 -> gateway:8080}; \path{/ -> web:80}; load balancer IP \texttt{34.142.171.216}. \\
 App deployments & 9 workload ứng dụng: web, gateway, auth, course, content, progress, assessment, challenge và ai-tutor-service. \\
-Image runtime & Workload dùng image Harbor dạng \path{harbor.sagelms.id.vn/sagelms-app/<service>:<git-sha>@sha256:<digest>}; AI Tutor được pin bằng tag \texttt{bc89c849...} và digest riêng trong Kustomize. \\
+Image runtime & Workload dùng image Harbor đã được pin bằng digest trong Kustomize/GitOps; định danh đầy đủ nằm ở Phụ lục~\ref{appendix:security-reports}. \\
 FluxCD & Kustomization app runtime, Harbor, Kyverno và monitoring đều \texttt{Ready=True}. \\
 Cloudflare Tunnel & Deployment \texttt{cloudflared} namespace \texttt{cloudflare} có 2 replica available. \\
 AI Tutor route & Gateway route \path{/api/v1/ai/**} tới \texttt{ai-tutor-service:8087}; health endpoint của container là \path{/health}. \\

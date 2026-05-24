@@ -24,15 +24,13 @@ Nhóm tổ chức công việc theo hai hướng chính: Platform \& Runtime và
 \toprule
 \textbf{Thành viên} & \textbf{Vai trò} & \textbf{Phạm vi} \\
 \midrule
-Huỳnh Lê Đại Thắng & Cloud/IaC Owner & GCP, GKE, OpenTofu, VPC, IAM, Workload Identity, Secret Manager, Cloud Storage, CloudNativePG backup foundation, Redis. \\
-Trần Nguyễn Việt Hoàng & Runtime Platform Owner & FluxCD, Kustomize, External Secrets Operator, Harbor runtime, Kubernetes manifests, policy/runtime hardening, runbooks. \\
+Huỳnh Lê Đại Thắng & Cloud/IaC và Kustomize Owner & GCP, GKE, OpenTofu, VPC, IAM, Workload Identity, Secret Manager, Cloud Storage, CloudNativePG backup foundation, Redis; viết Kustomize overlay và deploy app lên Kubernetes. \\
+Trần Nguyễn Việt Hoàng & CD/GitOps Runtime Owner & Cấu hình CD để FluxCD sync và deploy app lên Kubernetes; External Secrets Operator, Harbor runtime, policy/runtime hardening, runbooks. \\
 Nguyễn Trường Duy & CI/CD Automation Owner & GitHub Actions, PR validation, path filter, quality/security gates, infra plan workflow, deploy PR, post-deploy check. \\
 Bùi Ngọc Thái & Artifact \& Supply Chain Owner & Dockerfile, image build, Harbor artifact flow, Trivy image scan, SBOM, Cosign, image convention. \\
 \bottomrule
 \end{tabularx}
 \end{table}
-
-Các vai trò trong bảng được trình bày theo phạm vi kết quả của đồ án thay vì theo mã thành viên nội bộ. Cách viết này giúp người đọc hiểu mỗi người chịu trách nhiệm phần nào của pipeline, đồng thời vẫn giữ được câu chuyện chung: một nhánh phụ trách hạ tầng/runtime và một nhánh phụ trách automation/supply chain.
 
 \section{Vertical slice auth-service}
 
