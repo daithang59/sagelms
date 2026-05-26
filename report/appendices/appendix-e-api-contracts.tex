@@ -1,20 +1,26 @@
 \chapter{API contracts}
 \label{appendix:api-contracts}
 
-Các OpenAPI contracts hiện có trong thư mục \path{contracts/openapi}. Đây là bằng chứng cho việc các service có contract rõ ràng và có thể được dùng để sinh tài liệu API, mock hoặc contract testing trong các bước mở rộng.
+Các OpenAPI contracts hiện có trong thư mục \path{contracts/openapi}. Đây là nền để sinh API reference, mock hoặc contract testing trong các bước mở rộng \cite{openapiSpec}. Tuy nhiên, phụ lục này chỉ dùng để công khai trạng thái contract, không dùng để thay thế evidence runtime ở Chương~\ref{chap:evaluation}. Cần phân biệt contract đã khớp implementation với contract còn mang tính bản nháp: AI Tutor hiện đã chạy theo implementation mới, nhưng file contract tương ứng vẫn cần đồng bộ lại trước khi dùng làm nguồn sinh client hoặc contract test.
 
-\begin{longtable}{p{0.32\textwidth}p{0.58\textwidth}}
+\begin{table}[H]
+\centering
+\caption{Trạng thái OpenAPI contracts}
+\label{tab:api-contract-status}
+\begin{tabularx}{\textwidth}{p{0.22\textwidth}p{0.34\textwidth}Y}
 \toprule
-\textbf{Contract} & \textbf{Đường dẫn} \\
+\textbf{Contract} & \textbf{Đường dẫn} & \textbf{Ghi chú} \\
 \midrule
-Gateway & \path{contracts/openapi/gateway.yaml} \\
-Auth & \path{contracts/openapi/auth.yaml} \\
-Course & \path{contracts/openapi/course.yaml} \\
-Content & \path{contracts/openapi/content.yaml} \\
-Progress & \path{contracts/openapi/progress.yaml} \\
-Assessment & \path{contracts/openapi/assessment.yaml} \\
-AI Tutor & \path{contracts/openapi/ai-tutor.yaml} \\
+Gateway & \path{contracts/openapi/gateway.yaml} & Cần cập nhật phần route AI Tutor từ port 8086 sang 8087 và endpoint mới. \\
+Auth & \path{contracts/openapi/auth.yaml} & Contract service lõi. \\
+Course & \path{contracts/openapi/course.yaml} & Contract service lõi. \\
+Content & \path{contracts/openapi/content.yaml} & Contract service lõi. \\
+Progress & \path{contracts/openapi/progress.yaml} & Contract service lõi. \\
+Assessment & \path{contracts/openapi/assessment.yaml} & Contract service lõi. \\
+Challenge & \path{contracts/openapi/challenge.yaml} & Contract hiện có cho Challenge Service. \\
+AI Tutor & \path{contracts/openapi/ai-tutor.yaml} & Cần đồng bộ với implementation FastAPI hiện tại. \\
 \bottomrule
-\end{longtable}
+\end{tabularx}
+\end{table}
 
-Trong bản báo cáo hoàn chỉnh, nhóm có thể bổ sung một bảng tóm tắt endpoint chính theo từng service thay vì đưa toàn bộ OpenAPI YAML vào phụ lục.
+Với AI Tutor, implementation hiện có các endpoint chính: \path{/health}, \path{/api/v1/ai/chat}, \path{/api/v1/ai/conversations}, \texttt{/api/v1/ai/conversations/\{id\}/messages}, \texttt{/api/v1/ai/conversations/\{id\}} cho đổi tên và xóa mềm hội thoại. Contract cũ còn mô tả hướng RAG ingestion qua \path{/api/v1/ai/ingest} và hỏi đáp qua \path{/api/v1/ai/ask}; phần này nên được xem là backlog đồng bộ contract, không phải trạng thái runtime hiện tại.

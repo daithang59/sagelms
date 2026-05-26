@@ -9,9 +9,52 @@ Theo \path{infra/opentofu/outputs.md}, môi trường DevSecOps dùng GKE cluste
   \item Cluster: \texttt{sagelms-devsecops-gke}.
   \item Region: \texttt{asia-southeast1}.
   \item Node pool: \texttt{sagelms-devsecops-main-pool}.
-  \item Số node Ready hiện tại: 2.
+  \item Số node Ready trong evidence bàn giao: 2.
   \item Workload Identity pool: \texttt{sagelms.svc.id.goog}.
 \end{itemize}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.98\textwidth,height=0.70\textheight,keepaspectratio]{28-gcp-gke-cluster-overview.png}
+\caption{GKE cluster sagelms-devsecops-gke đang Running tại asia-southeast1}
+\label{fig:appendix-gcp-gke-cluster-overview}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.98\textwidth,height=0.70\textheight,keepaspectratio]{29-gcp-gke-node-pool-ready.png}
+\caption{Node pool sagelms-devsecops-main-pool và các node GKE ở trạng thái Ready}
+\label{fig:appendix-gcp-gke-node-pool-ready}
+\end{figure}
+
+\section{Ingress, Cloudflare Tunnel và public endpoint}
+
+Runtime hiện có Ingress \texttt{sagelms-app} trong namespace \texttt{sagelms-devsecops}. Ingress dùng host \texttt{sagelms.id.vn}, route \path{/api/v1} tới \texttt{gateway:8080} và route \path{/} tới \texttt{web:80}. Deployment \texttt{cloudflared} trong namespace \texttt{cloudflare} có 2 replica available, dùng secret \texttt{tunnel-token} được đồng bộ từ Google Secret Manager.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.98\textwidth,height=0.70\textheight,keepaspectratio]{31-gcp-load-balancer-public-ip.png}
+\caption{Load balancer trên GCP cấp public IP 34.142.171.216 cho endpoint runtime}
+\label{fig:appendix-gcp-load-balancer-public-ip}
+\end{figure}
+
+\section{GCS buckets và object storage}
+
+Các bucket GCS quan trọng trong phạm vi hạ tầng gồm:
+
+\begin{itemize}
+  \item \texttt{sagelms-devsecops-tofu-state}: remote state OpenTofu.
+  \item \texttt{sagelms-cnpg-backup-sagelms}: CloudNativePG backup/WAL archive.
+  \item \texttt{sagelms-devsecops-harbor-registry}: Harbor registry image blobs khi dùng GCS backend.
+  \item \texttt{sagelms-devsecops-evidence} và \texttt{sagelms-devsecops-materials}: evidence/materials buckets theo outputs hạ tầng.
+\end{itemize}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.98\textwidth,height=0.70\textheight,keepaspectratio]{30-gcp-cloud-storage-buckets.png}
+\caption{Cloud Storage buckets phục vụ remote state, evidence, materials, Harbor registry và CloudNativePG backup}
+\label{fig:appendix-gcp-cloud-storage-buckets}
+\end{figure}
 
 \section{CloudNativePG}
 
@@ -22,10 +65,44 @@ Database baseline dùng CloudNativePG:
   \item Cluster: \texttt{sagelms-postgres}.
   \item RW service: \path{sagelms-postgres-rw.sagelms-data.svc.cluster.local:5432}.
   \item Status: \texttt{Ready=True}, cluster healthy.
+  \item Backup bucket: \path{gs://sagelms-cnpg-backup-sagelms}.
+  \item Object store path: \path{gs://sagelms-cnpg-backup-sagelms/sagelms-postgres}.
   \item WAL archive: \texttt{ContinuousArchiving=True}.
-  \item Manual backup đã completed và object đã có trong GCS.
+  \item Manual backup đã completed và object đã có trong GCS, gồm backup ID \texttt{20260518T144145}.
 \end{itemize}
 
-\section{Secret và registry}
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.98\textwidth,height=0.70\textheight,keepaspectratio]{09-cloudnative-pg-backup-wal-gcs.png}
+\caption{Bằng chứng object store CloudNativePG backup và WAL archive trên GCS}
+\label{fig:appendix-cloudnative-pg-backup-wal-gcs}
+\end{figure}
 
-External Secrets Operator đã đồng bộ các secret cần thiết vào namespace runtime. Harbor registry cho app images là \path{harbor.sagelms.id.vn/sagelms-app}. Pull secret runtime đã được ESO đồng bộ và test pull image Harbor có sự kiện pull thành công theo outputs hiện tại.
+\section{Secret, ESO và registry}
+
+External Secrets Operator đã đồng bộ các secret cần thiết vào namespace runtime. Harbor registry cho app images là \path{harbor.sagelms.id.vn/sagelms-app}. Pull secret runtime đã được ESO đồng bộ và test pull image Harbor có sự kiện pull thành công theo outputs hiện tại. Riêng AI Tutor dùng \texttt{ai-tutor-secret} lấy \texttt{GOOGLE\_API\_KEY} từ Google Secret Manager key \texttt{sagelms-devsecops-google-api-key}.
+
+
+\section{Harbor registry storage trên GCS}
+
+Phần Harbor GCS storage được thể hiện qua các file sau:
+
+\begin{itemize}
+  \item \path{infra/opentofu/modules/harbor-registry-storage}: tạo bucket \texttt{sagelms-devsecops-harbor-registry}, GSA và bucket IAM.
+  \item \path{infra/opentofu/envs/devsecops/outputs.tf}: xuất thông tin bucket, service account và Workload Identity handoff.
+  \item \path{infra/k8s/devsecops/harbor/values-gcs.yaml}: cấu hình Harbor registry dùng backend GCS.
+  \item \path{infra/k8s/devsecops/harbor/registry-pvc-to-gcs-job.yaml}: job copy dữ liệu registry từ PVC \path{/storage} sang GCS bằng \texttt{gcloud storage rsync}.
+\end{itemize}
+
+Điểm cần ghi chú khi nghiệm thu là Harbor metadata và registry blobs là hai lớp khác nhau. Database/metadata của Harbor có thể vẫn nằm trong runtime Harbor, còn image blobs được chuyển sang GCS backend để tăng độ bền dữ liệu artifact.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.98\textwidth,height=0.70\textheight,keepaspectratio]{08-harbor-registry-gcs-bucket.png}
+\caption{Bằng chứng bucket GCS dùng cho Harbor registry backend}
+\label{fig:appendix-harbor-registry-gcs-bucket}
+\end{figure}
+
+\section{FluxCD và runtime images}
+
+FluxCD trong namespace \texttt{fluxcd} có GitRepository \texttt{sagelms} Ready và các Kustomization app runtime, Harbor, Kyverno, monitoring ở trạng thái \texttt{Ready=True}. Các deployment ứng dụng trong namespace \texttt{sagelms-devsecops} đang dùng image Harbor kèm digest \path{@sha256:<digest>}, bao gồm \texttt{ai-tutor-service} với image \path{harbor.sagelms.id.vn/sagelms-app/ai-tutor-service}.

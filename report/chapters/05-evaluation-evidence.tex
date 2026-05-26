@@ -1,0 +1,369 @@
+\chapter{Đánh giá, kiểm thử và bằng chứng}
+\label{chap:evaluation}
+
+\section{Phương pháp đánh giá}
+
+Đồ án được đánh giá theo hai lớp: lớp ứng dụng và lớp pipeline. Lớp ứng dụng chứng minh SageLMS có thể build, test và chạy các service chính. Lớp pipeline chứng minh quy trình DevSecOps có thể kiểm soát thay đổi từ pull request đến runtime trên GKE. Khác với Chương~\ref{chap:implementation}, chương này chỉ tập trung vào câu hỏi: mỗi luận điểm quan trọng của báo cáo được chứng minh bằng evidence nào.
+
+Các nhóm evidence chính gồm:
+
+\begin{itemize}
+  \item GitHub Actions workflow logs.
+  \item Trivy image scan reports.
+  \item CycloneDX SBOM files.
+  \item Image digest reports.
+  \item Deploy summary và deploy PR body.
+  \item OpenTofu/Checkov validation evidence.
+  \item GKE, CloudNativePG, Redis và ESO status.
+  \item Post-deploy rollout và smoke test artifacts.
+\end{itemize}
+
+\begin{table}[H]
+\centering
+\small
+\caption{Luận điểm nghiệm thu và evidence trực tiếp}
+\label{tab:claim-evidence-map}
+\begin{tabularx}{\textwidth}{p{0.27\textwidth}Y Y}
+\toprule
+\textbf{Luận điểm cần bảo vệ} & \textbf{Evidence trực tiếp} & \textbf{Ảnh/log đưa vào báo cáo} \\
+\midrule
+PR không merge mù & Workflow \path{ci-pr.yml} có lint, test, typecheck, secret scan, Trivy, Checkov và Docker scan theo path filter. & Hình~\ref{fig:github-actions-pr-validation-pass}. \\
+Image có thể truy vết & Deploy summary, image digest report, SBOM và Trivy report trong \path{reports}; Harbor lưu artifact theo project \texttt{sagelms-app}. & Hình~\ref{fig:report-evidence-artifacts}, Hình~\ref{fig:ai-tutor-sbom-cyclonedx-file}, Hình~\ref{fig:harbor-sagelms-app-artifacts} và bảng digest trong \path{reports}. \\
+Supply chain được verify & AI Tutor CD run chứng minh service mới pass build/scan/SBOM/push, có SBOM/Cosign summary PASS và có log chi tiết \texttt{verify-attestation}; một run Cosign khác được giữ làm evidence bổ trợ cho \texttt{cosign verify}. & Hình~\ref{fig:cd-workflow-ai-tutor-summary}, Hình~\ref{fig:cd-workflow-ai-tutor-build-scan-push}, Hình~\ref{fig:cd-ai-tutor-sbom-attestation-log}, Hình~\ref{fig:cd-ai-tutor-summary-sbom-cosign-pass}, Hình~\ref{fig:cd-ai-tutor-verify-attestation-log}; định danh đầy đủ ở Bảng~\ref{tab:technical-traceability-identifiers}. \\
+Runtime đi qua GitOps & CD mở deploy PR, Kustomize overlay chứa image tag/digest, FluxCD reconcile vào GKE. & Hình~\ref{fig:fluxcd-runtime-ready}, Hình~\ref{fig:gke-workloads-ready} và Hình~\ref{fig:post-deploy-check-pass}. \\
+AI Tutor đã chạy ở mức demo & UI \path{/ai-tutor}, API \path{/api/v1/ai/chat}, Gateway route, Python tests, Trivy/SBOM và manifest \texttt{ai-tutor-service}. & Hình~\ref{fig:ai-tutor-ui-runtime}, Hình~\ref{fig:gke-ai-tutor-deployment-ready} và Hình~\ref{fig:post-deploy-check-pass}. \\
+Phạm vi chưa overclaim & RAG đầy đủ, restore drill, dashboard/alert và policy enforce được đặt ở phần hạn chế/hướng phát triển. & Không cần ảnh; cần giữ câu chữ nhất quán giữa Chương~\ref{chap:system-architecture}, Chương~\ref{chap:evaluation} và Chương~\ref{chap:discussion}. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begingroup
+\small
+\setstretch{1.05}
+\renewcommand{\arraystretch}{1.08}
+\begin{table}[H]
+\centering
+\caption{Đối chiếu rủi ro, control, evidence và trạng thái}
+\label{tab:threat-control-evidence-status}
+\begin{tabularx}{\textwidth}{p{0.22\textwidth}p{0.25\textwidth}Y p{0.14\textwidth}}
+\toprule
+\textbf{Rủi ro} & \textbf{Control chính} & \textbf{Evidence nghiệm thu} & \textbf{Trạng thái} \\
+\midrule
+Lộ secret trong source hoặc CI/CD & Gitleaks trong PR validation; secret thật nằm trong Google Secret Manager và được ESO đồng bộ vào Kubernetes. & Workflow PR validation pass ở Hình~\ref{fig:github-actions-pr-validation-pass}; secret store và ExternalSecret Ready trong cloud evidence. & Đạt mức demo \\
+Image hoặc dependency có lỗ hổng nghiêm trọng & Trivy dependency/image scan trước publish/deploy. & Trivy reports trong \path{reports/trivy/*.txt}; AI Tutor report và CD job build/scan ở Hình~\ref{fig:cd-workflow-ai-tutor-build-scan-push}. & Đạt \\
+Không chứng minh được thành phần phần mềm trong image & SBOM CycloneDX sinh bằng Trivy và gắn với image/tag cụ thể. & File SBOM AI Tutor ở Hình~\ref{fig:ai-tutor-sbom-cyclonedx-file}; SBOM path xuất hiện trong CD summary ở Hình~\ref{fig:cd-ai-tutor-summary-sbom-cosign-pass}. & Đạt \\
+Artifact hoặc attestation không đáng tin cậy & Cosign sign, attest SBOM theo digest, verify signature và verify-attestation trước deploy PR. & Workflow dùng SBOM payload ở Hình~\ref{fig:cd-ai-tutor-sbom-attestation-log}; AI Tutor \texttt{verify-attestation} pass ở Hình~\ref{fig:cd-ai-tutor-verify-attestation-log}; CD summary Cosign PASS ở Hình~\ref{fig:cd-ai-tutor-summary-sbom-cosign-pass}. & Đạt với evidence mới \\
+Deploy bằng tag mutable hoặc khó rollback & Image tag theo git SHA, resolve digest và pin digest trong Kustomize/GitOps. & Image digest reports, deploy summary, Harbor artifact ở Hình~\ref{fig:harbor-sagelms-app-artifacts} và runtime image digest trong manifest. & Đạt \\
+Runtime drift do apply thủ công & CD mở deploy PR; FluxCD reconcile từ Git; post-deploy check chỉ xác thực trạng thái sau deploy. & FluxCD Ready ở Hình~\ref{fig:fluxcd-runtime-ready}; post-deploy rollout/smoke pass ở Hình~\ref{fig:post-deploy-check-pass}. & Đạt mức demo \\
+Hạ tầng cloud drift hoặc sai cấu hình & OpenTofu quản lý foundation; Checkov kiểm tra IaC/config. & OpenTofu outputs, Checkov evidence và ảnh GCP Console ở Phụ lục~\ref{appendix:cloud-outputs}. & Đạt theo evidence \\
+Thiếu quan sát runtime khi demo & Post-deploy check, GKE workload status và Grafana dashboard ở mức foundation. & GKE workloads Ready ở Hình~\ref{fig:gke-workloads-ready}; dashboard Grafana ở Hình~\ref{fig:grafana-monitoring-dashboard}. & Foundation, cần mở rộng \\
+\bottomrule
+\end{tabularx}
+\end{table}
+\endgroup
+
+\section{So sánh trước và sau khi áp dụng DevSecOps}
+
+Để làm rõ đóng góp của đồ án, báo cáo trình bày sự khác biệt giữa cách triển khai thủ công/thông thường và pipeline DevSecOps đã xây dựng. Bảng này giúp người đọc thấy giá trị của các gate thay vì chỉ nhìn danh sách công cụ.
+
+\begin{table}[H]
+\centering
+\caption{So sánh quy trình trước và sau khi áp dụng DevSecOps}
+\label{tab:before-after-devsecops}
+\begin{tabularx}{\textwidth}{p{0.24\textwidth}Y Y}
+\toprule
+\textbf{Khía cạnh} & \textbf{Trước khi có pipeline} & \textbf{Sau khi áp dụng DevSecOps} \\
+\midrule
+Kiểm tra thay đổi & Dễ phụ thuộc kiểm tra thủ công, khó biết thay đổi nào làm fail. & PR validation tự động chạy lint, test, typecheck, secret scan, dependency scan và IaC scan theo path filter. \\
+Artifact deploy & Image có thể chỉ được tag theo tên hoặc latest, khó truy vết chính xác. & Image tag theo git SHA, resolve digest và deploy bằng digest bất biến. \\
+Bảo mật supply chain & Khó chứng minh image đến từ đúng workflow và chứa thành phần nào. & Trivy image scan, SBOM CycloneDX, Cosign sign/attest/verify trước deploy PR. \\
+Triển khai runtime & CI hoặc người vận hành có thể apply trực tiếp vào cluster. & CD mở deploy PR; FluxCD reconcile từ Git sau review, có lịch sử rollback. \\
+Evidence nghiệm thu & Dễ rời rạc giữa log, ảnh chụp và trạng thái cluster. & Evidence được gom trong \path{reports}, deploy summary, image digest, SBOM, scan report và workflow logs. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Kết quả PR validation}
+
+Workflow PR validation kiểm tra nhiều loại thay đổi khác nhau. Với thay đổi ứng dụng, pipeline chạy test theo service, frontend lint/typecheck/test/build và dependency scan. Với thay đổi hạ tầng, pipeline chạy OpenTofu validate và Checkov. Với Dockerfile, pipeline chạy Hadolint, Checkov và Docker build thử. Cách tổ chức này giúp giảm thời gian chạy nhờ path filter nhưng vẫn giữ coverage theo vùng thay đổi.
+
+Bằng chứng hình ảnh trong Hình~\ref{fig:github-actions-pr-validation-pass} là workflow \texttt{CI - Validation PR} cho nhánh \texttt{feat/ai-tutor-service}. Run này pass các job kiểm tra tên nhánh, commit message, secret scan, AI Tutor tests, dependency scan, Docker build/scan, SonarCloud và job tổng hợp trạng thái CI. Mã run đầy đủ được gom ở Phụ lục~\ref{appendix:security-reports} để tránh làm nặng phần đọc chính.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.98\textwidth,height=0.72\textheight,keepaspectratio]{10-github-actions-pr-validation-pass.png}
+\caption{Workflow CI - Validation PR pass cho nhánh AI Tutor}
+\label{fig:github-actions-pr-validation-pass}
+\end{figure}
+
+
+\section{Kết quả pipeline image và SBOM}
+
+Repo hiện có hai nhóm evidence chính cho pipeline image. Nhóm multi-service chứng minh pipeline có thể xử lý nhiều service cùng lúc. Nhóm AI Tutor chứng minh service mới đã có scan Trivy, SBOM CycloneDX, image được xuất bản lên Harbor và trạng thái CD pass. Để phần đọc chính không bị nặng bởi mã kỹ thuật, Chương này chỉ giữ tên artifact và ý nghĩa evidence; run ID, commit và digest đầy đủ được gom ở Bảng~\ref{tab:technical-traceability-identifiers}.
+
+Với AI Tutor, evidence riêng nằm trong report Trivy và SBOM CycloneDX của service. Trivy report ghi nhận 0 vulnerability, còn SBOM cho thấy thành phần phần mềm được sinh bằng Trivy và gắn với image của \texttt{ai-tutor-service}.
+
+\begin{table}[H]
+\centering
+\caption{Nguồn evidence supply chain}
+\label{tab:supply-chain-evidence}
+\begin{tabularx}{\textwidth}{p{0.30\textwidth}Y}
+\toprule
+\textbf{Evidence} & \textbf{Đường dẫn} \\
+\midrule
+Deploy summary & File tổng hợp kết quả deploy trong \path{reports}. \\
+Deploy PR body & File mô tả nội dung deploy PR trong \path{reports}. \\
+Image digest table & Bảng digest image được pipeline sinh ra trong \path{reports}. \\
+Trivy reports & Các report scan trong \path{reports/trivy}. \\
+SBOM files & Các SBOM CycloneDX trong \path{reports/sbom}. \\
+AI Tutor image/SBOM & Report riêng của \texttt{ai-tutor-service}; định danh đầy đủ nằm ở Bảng~\ref{tab:technical-traceability-identifiers}. \\
+AI Tutor CD workflow & Workflow CD mới của \texttt{ai-tutor-service}. \\
+AI Tutor verify-attestation log & Log xác minh SBOM attestation của AI Tutor. \\
+Cosign automation evidence & Deploy summary và Cosign logs; định danh đầy đủ ở Bảng~\ref{tab:technical-traceability-identifiers}. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.82\textwidth,height=0.60\textheight,keepaspectratio]{15-report-evidence-artifacts.png}
+\caption{Thư mục reports gom deploy summary, image digest, Trivy report và SBOM}
+\label{fig:report-evidence-artifacts}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.92\textwidth,height=0.68\textheight,keepaspectratio]{33-ai-tutor-sbom-cyclonedx-file.png}
+\caption{File SBOM CycloneDX của ai-tutor-service}
+\label{fig:ai-tutor-sbom-cyclonedx-file}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.98\textwidth,height=0.68\textheight,keepaspectratio]{26-harbor-sagelms-app-artifacts.png}
+\caption{Harbor project sagelms-app lưu artifact image của các service}
+\label{fig:harbor-sagelms-app-artifacts}
+\end{figure}
+
+
+\section{Kết quả CD workflow và Cosign verification mới nhất}
+
+Evidence mới nhất cho AI Tutor là workflow \texttt{CD - Build Scan Push Deploy PR}. Sau khi PR AI Tutor được merge, workflow phát hiện service cần deploy, build image, scan bằng Trivy, tạo SBOM, push image lên Harbor, ký/attest artifact và mở deploy PR thành công. Phần thân báo cáo chỉ cần kết luận vai trò của từng nhóm evidence; các mã run, commit và digest đầy đủ được đặt ở Phụ lục~\ref{appendix:security-reports}.
+
+Ba ảnh trong nhóm này bổ sung evidence trực tiếp cho chuỗi cung ứng của AI Tutor. Hình~\ref{fig:cd-ai-tutor-sbom-attestation-log} xác nhận SBOM của AI Tutor được dùng làm payload khi attest image. Hình~\ref{fig:cd-ai-tutor-summary-sbom-cosign-pass} cho thấy deploy summary có SBOM path và trạng thái Cosign PASS. Hình~\ref{fig:cd-ai-tutor-verify-attestation-log} là log \texttt{verify-attestation} của chính image AI Tutor. Vì vậy AI Tutor CD run hiện chứng minh được SBOM attestation verification pass; run Cosign bổ trợ vẫn được giữ để chứng minh thêm bước verify signature.
+
+\begin{table}[H]
+\centering
+\caption{Vai trò của evidence CD mới cho AI Tutor}
+\label{tab:cosign-verification-evidence}
+\begin{tabularx}{\textwidth}{p{0.30\textwidth}Y}
+\toprule
+\textbf{Nhóm evidence} & \textbf{Ý nghĩa trong báo cáo} \\
+\midrule
+AI Tutor CD workflow & Chứng minh service mới đi qua build, scan, tạo SBOM, push image và mở deploy PR. \\
+SBOM attestation & Chứng minh SBOM của AI Tutor được dùng làm payload attest và có log \texttt{verify-attestation} pass. \\
+Cosign verification bổ trợ & Giữ thêm evidence cho bước verify signature, tránh phụ thuộc vào một ảnh summary duy nhất. \\
+Workflow logic & \path{.github/workflows/cd-main.yml} chạy sign, attest, verify và verify-attestation trước bước mở deploy PR. \\
+Truy vết kỹ thuật & Run ID, commit và digest đầy đủ được đặt ở Bảng~\ref{tab:technical-traceability-identifiers}. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+
+Tóm lại, báo cáo dùng ba mốc evidence với vai trò khác nhau: gói multi-service chứng minh pipeline xử lý được nhiều service; AI Tutor CD run chứng minh service mới đã đi qua workflow CD; run Cosign bổ trợ chứng minh thêm bước verify signature. Cách tách vai trò này giúp phần đọc chính dễ theo dõi hơn nhưng vẫn giữ đầy đủ truy vết kỹ thuật ở Phụ lục~\ref{appendix:security-reports}.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.98\textwidth,height=0.72\textheight,keepaspectratio]{11-cd-workflow-ai-tutor-summary.png}
+\caption{CD workflow build, scan, push và mở deploy PR cho AI Tutor}
+\label{fig:cd-workflow-ai-tutor-summary}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.98\textwidth,height=0.72\textheight,keepaspectratio]{12-cd-workflow-ai-tutor-build-scan-push.png}
+\caption{Chi tiết job build, Trivy scan, SBOM và ghi digest trong CD workflow}
+\label{fig:cd-workflow-ai-tutor-build-scan-push}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.98\textwidth,height=0.68\textheight,keepaspectratio]{32-cd-ai-tutor-sbom-attestation-log.png}
+\caption{CD workflow dùng SBOM của ai-tutor-service làm payload khi ký và attest image}
+\label{fig:cd-ai-tutor-sbom-attestation-log}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.98\textwidth,height=0.68\textheight,keepaspectratio]{34-cd-ai-tutor-summary-sbom-cosign-pass.png}
+\caption{CD summary của ai-tutor-service hiển thị digest, SBOM path và Cosign PASS}
+\label{fig:cd-ai-tutor-summary-sbom-cosign-pass}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.98\textwidth,height=0.68\textheight,keepaspectratio]{35-cd-ai-tutor-cosign-verify-attestation-log.png}
+\caption{Log cosign verify-attestation pass cho SBOM attestation của ai-tutor-service}
+\label{fig:cd-ai-tutor-verify-attestation-log}
+\end{figure}
+
+\section{Kết quả cloud foundation}
+
+Evidence trong \path{docs/evidence/devsecops-cloud-foundation-evidence.md} và \path{infra/opentofu/outputs.md} cho thấy cloud foundation đã đạt nhiều tiêu chí quan trọng:
+
+\begin{itemize}
+  \item Remote state bucket \texttt{sagelms-devsecops-tofu-state} đã bật versioning, uniform bucket-level access và public access prevention.
+  \item OpenTofu environment có module Harbor registry storage để tạo bucket \texttt{sagelms-devsecops-harbor-registry}, GSA và Workload Identity cho \texttt{harbor/harbor-registry}.
+  \item GKE cluster \texttt{sagelms-devsecops-gke} chạy trong \texttt{asia-southeast1}.
+  \item Node pool \texttt{sagelms-devsecops-main-pool} có 2 node Ready.
+  \item CloudNativePG cluster \texttt{sagelms-data/sagelms-postgres} ở trạng thái Ready.
+  \item WAL archive có condition \texttt{ContinuousArchiving=True}.
+  \item Manual backup đã completed và object tồn tại trong GCS bucket \texttt{sagelms-cnpg-backup-sagelms}, gồm \path{base/20260518T144145/backup.info}, \path{base/20260518T144145/data.tar.gz} và các WAL \path{.gz} dưới \path{wals/}.
+  \item Memorystore Redis ở trạng thái READY, bật AUTH và transit encryption.
+  \item ClusterSecretStore \texttt{gcpsm-sagelms-devsecops} Valid, Ready=True.
+  \item ExternalSecrets đã đồng bộ secret DB, Redis, JWT và gateway shared secret.
+\end{itemize}
+
+Bằng chứng ảnh chụp GCP Console được đặt ở Phụ lục~\ref{appendix:cloud-outputs}. Cụ thể, Hình~\ref{fig:appendix-gcp-gke-cluster-overview} và Hình~\ref{fig:appendix-gcp-gke-node-pool-ready} chứng minh GKE cluster và node pool đang chạy; Hình~\ref{fig:appendix-gcp-cloud-storage-buckets} chứng minh các bucket remote state, Harbor registry và backup tồn tại; Hình~\ref{fig:appendix-gcp-load-balancer-public-ip} chứng minh public IP \texttt{34.142.171.216} được cấp cho load balancer.
+
+
+\section{Kết quả deployment và smoke test}
+
+Đối chiếu runtime và manifest hiện tại cho thấy trạng thái triển khai khớp với kiến trúc báo cáo: public traffic đi qua Ingress/Gateway, đủ 9 workload ứng dụng, AI Tutor có route riêng qua Gateway, FluxCD ở trạng thái Ready và Cloudflare Tunnel có đủ replica. Bảng dưới giữ các chi tiết cần thiết để chấm kỹ thuật, còn định danh image đầy đủ được gom về Phụ lục~\ref{appendix:security-reports}.
+
+\begin{table}[H]
+\centering
+\caption{Đối chiếu runtime GKE hiện tại}
+\label{tab:runtime-current-evidence}
+\begin{tabularx}{\textwidth}{p{0.28\textwidth}Y}
+\toprule
+\textbf{Hạng mục kiểm tra} & \textbf{Kết quả} \\
+\midrule
+Ingress public & Host \texttt{sagelms.id.vn}; \path{/api/v1 -> gateway:8080}; \path{/ -> web:80}; load balancer IP \texttt{34.142.171.216}. \\
+App deployments & 9 workload ứng dụng: web, gateway, auth, course, content, progress, assessment, challenge và ai-tutor-service. \\
+Image runtime & Workload dùng image Harbor đã được pin bằng digest trong Kustomize/GitOps; định danh đầy đủ nằm ở Phụ lục~\ref{appendix:security-reports}. \\
+FluxCD & Kustomization app runtime, Harbor, Kyverno và monitoring đều \texttt{Ready=True}. \\
+Cloudflare Tunnel & Deployment \texttt{cloudflared} namespace \texttt{cloudflare} có 2 replica available. \\
+AI Tutor route & Gateway route \path{/api/v1/ai/**} tới \texttt{ai-tutor-service:8087}; health endpoint của container là \path{/health}. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.98\textwidth,height=0.66\textheight,keepaspectratio]{23-gke-workloads-sagelms-devsecops-ready.png}
+\caption{GKE Workloads trong namespace sagelms-devsecops ở trạng thái Ready}
+\label{fig:gke-workloads-ready}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.98\textwidth,height=0.30\textheight,keepaspectratio]{24-gke-ai-tutor-deployment-ready.png}
+\caption{Deployment ai-tutor-service trong GKE đã Ready}
+\label{fig:gke-ai-tutor-deployment-ready}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.98\textwidth,height=0.68\textheight,keepaspectratio]{25-fluxcd-runtime-ready.png}
+\caption{FluxCD thể hiện trạng thái reconcile của runtime}
+\label{fig:fluxcd-runtime-ready}
+\end{figure}
+
+Workflow \path{post-deploy-check.yml} tách riêng bước kiểm tra sau triển khai. Workflow này không thay FluxCD và không cập nhật manifest; nó chỉ xác thực trạng thái runtime sau khi GitOps reconcile. Hai job chính là:
+
+\begin{itemize}
+  \item \textbf{GKE rollout status}: lấy kubeconfig, kiểm tra rollout của các deployment ứng dụng trong namespace \texttt{sagelms-devsecops}, bao gồm \texttt{ai-tutor-service}, rồi lưu pod/ingress report.
+  \item \textbf{Public endpoint smoke test}: gọi web health endpoint và API health endpoint, lưu header/body evidence.
+\end{itemize}
+
+Bằng chứng hình ảnh cho mục này là workflow run post-deploy pass trong Hình~\ref{fig:post-deploy-check-pass}. Ảnh này chứng minh post-deploy workflow đã pass hai nhóm kiểm tra chính: rollout status trên GKE và smoke test endpoint public. Kết hợp với Hình~\ref{fig:gke-workloads-ready} và Hình~\ref{fig:gke-ai-tutor-deployment-ready}, báo cáo đã có đủ bằng chứng trực quan cho trạng thái runtime của workload ứng dụng và AI Tutor.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.98\textwidth,height=0.72\textheight,keepaspectratio]{14-post-deploy-check-rollout-smoke.png}
+\caption{Post Deploy Check pass với GKE rollout status và public endpoint smoke test}
+\label{fig:post-deploy-check-pass}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.98\textwidth,height=0.68\textheight,keepaspectratio]{27-grafana-monitoring-dashboard.png}
+\caption{Grafana monitoring dashboard trong môi trường DevSecOps}
+\label{fig:grafana-monitoring-dashboard}
+\end{figure}
+
+\section{Luồng demo và gói evidence đề xuất}
+
+Luồng demo bảo vệ được tổ chức ngắn gọn nhưng đủ chứng minh end-to-end. Luồng này ưu tiên evidence có thể kiểm chứng lại trong repo, sau đó dùng ảnh chụp màn hình để giúp giảng viên quan sát nhanh trạng thái pass/Ready.
+
+\begin{table}[H]
+\centering
+\caption{Luồng demo đề xuất và evidence cần chuẩn bị}
+\label{tab:demo-evidence-flow}
+\begin{tabularx}{\textwidth}{p{0.22\textwidth}Y Y}
+\toprule
+\textbf{Bước demo} & \textbf{Mục tiêu chứng minh} & \textbf{Evidence đưa vào báo cáo/phụ lục} \\
+\midrule
+PR validation & Thay đổi source hoặc manifest bị kiểm tra trước khi merge. & Hình~\ref{fig:github-actions-pr-validation-pass}, log Gitleaks/Trivy/Checkov, link commit hoặc PR. \\
+CD AI Tutor và Cosign verification & Pipeline mới build, scan, tạo SBOM, push, resolve digest, sign, attest và verify. & AI Tutor CD run có SBOM/Cosign summary PASS và log \texttt{verify-attestation} chi tiết ở Hình~\ref{fig:cd-ai-tutor-verify-attestation-log}; run bổ trợ cung cấp thêm evidence \texttt{cosign verify}. \\
+Deploy PR/GitOps & CI không deploy trực tiếp mà tạo thay đổi GitOps có review. & Deploy PR body, diff image digest trong Kustomize overlay, Hình~\ref{fig:fluxcd-runtime-ready}. \\
+Runtime/public traffic & Public request đi đúng route qua Gateway thay vì web Nginx. & Ingress YAML, smoke test \path{/api/v1}, Hình~\ref{fig:gke-workloads-ready} và Hình~\ref{fig:post-deploy-check-pass}. \\
+Limitations & Nhóm phân biệt rõ phần đã triển khai và phần mở rộng. & Bảng scope runtime, mục hạn chế về RAG ingestion/vector-search chuyên sâu, observability, restore drill. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Đối chiếu KPI và Definition of Done}
+
+Ngoài trạng thái đạt/chưa đạt, báo cáo sử dụng một số KPI đơn giản để làm rõ mức độ nghiệm thu pipeline. Các KPI dưới đây không yêu cầu hệ thống production thật, nhưng đủ phản ánh mức độ tự động hóa và khả năng truy vết của đồ án.
+
+\begin{table}[H]
+\centering
+\caption{KPI đánh giá pipeline trong phạm vi đồ án}
+\label{tab:pipeline-kpi}
+\begin{tabularx}{\textwidth}{p{0.30\textwidth}p{0.24\textwidth}Y}
+\toprule
+\textbf{KPI} & \textbf{Mức kỳ vọng} & \textbf{Cách chứng minh} \\
+\midrule
+Coverage gate PR & Mỗi vùng thay đổi chính có gate tương ứng & Path filter và danh sách job trong \path{ci-pr.yml}. \\
+Artifact traceability & Mỗi image demo truy vết được về commit và digest & \path{reports/image-digests-*.md}, deploy summary. \\
+Supply chain verification & Deploy PR chỉ mở sau khi verify signature và SBOM attestation pass & AI Tutor CD run chứng minh service mới pass build/scan/SBOM/push và \texttt{verify-attestation}; run bổ trợ cung cấp log \texttt{cosign verify}. \\
+GitOps auditability & Thay đổi runtime đi qua commit/PR & Deploy PR body và Kustomize overlay. \\
+Runtime smoke coverage & Có kiểm tra rollout và endpoint public sau deploy & \path{post-deploy-check.yml} và artifacts smoke test. \\
+AI Tutor runtime evidence & Có UI, Gateway route, image/SBOM và manifest runtime & Hình~\ref{fig:ai-tutor-ui-runtime}, \path{apps/web/src/pages/ai-tutor}, \path{services/ai-tutor-service}, \path{reports/trivy/trivy-ai-tutor-service.txt}, \path{infra/k8s/devsecops/apps/kustomization.yaml}. \\
+Observability evidence & Có dashboard quan sát runtime ở mức demo & Hình~\ref{fig:grafana-monitoring-dashboard}; alert rule và log/trace correlation chi tiết vẫn là hướng mở rộng. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\clearpage
+
+\begingroup
+\small
+\setstretch{1.05}
+\renewcommand{\arraystretch}{1.05}
+\begin{table}[H]
+\centering
+\caption{Đối chiếu kết quả với Definition of Done DevSecOps}
+\label{tab:dod-evaluation}
+\begin{tabularx}{\textwidth}{p{0.34\textwidth}p{0.18\textwidth}Y}
+\toprule
+\textbf{Tiêu chí} & \textbf{Trạng thái} & \textbf{Evidence/Ghi chú} \\
+\midrule
+PR validation có lint/test/scan & Đạt & \path{ci-pr.yml}, quality gates docs. \\
+Image scan trước deploy & Đạt & \path{reports/trivy/*.txt}, deploy summary PASS. \\
+Image có digest & Đạt & \path{reports/image-digests-*.md}. \\
+Image có SBOM & Đạt & \path{reports/sbom/**}; AI Tutor có file CycloneDX ở Hình~\ref{fig:ai-tutor-sbom-cyclonedx-file}. \\
+Cosign verify và verify-attestation & Đạt với evidence mới & AI Tutor có SBOM/Cosign summary PASS ở Hình~\ref{fig:cd-ai-tutor-summary-sbom-cosign-pass} và log \texttt{verify-attestation} pass ở Hình~\ref{fig:cd-ai-tutor-verify-attestation-log}; run bổ trợ cung cấp log \texttt{cosign verify}. \\
+Hạ tầng bằng OpenTofu & Đạt & \path{infra/opentofu/**}, outputs và ảnh GCP Console ở Phụ lục~\ref{appendix:cloud-outputs}. \\
+Checkov không failed trong infra & Đạt theo evidence & 109 passed, 0 failed, 18 skipped. \\
+CloudNativePG backup/WAL & Đạt mức foundation & WAL archive và manual backup đã kiểm chứng. \\
+Restore drill CloudNativePG & Cần bổ sung & Evidence hiện tại ghi rõ chưa chạy restore drill. \\
+FluxCD/GitOps runtime & Đạt mức demo & Runtime hiện có FluxCD Kustomization Ready cho app, Harbor, Kyverno và monitoring; Hình~\ref{fig:fluxcd-runtime-ready} và post-deploy workflow pass ở Hình~\ref{fig:post-deploy-check-pass}. \\
+AI Tutor chat runtime & Đạt mức demo & Có UI chat ở Hình~\ref{fig:ai-tutor-ui-runtime}, deployment Ready ở Hình~\ref{fig:gke-ai-tutor-deployment-ready}, API \path{/api/v1/ai/chat}, Gateway route, Python tests, image scan/SBOM và manifest runtime. \\
+Observability đầy đủ & Đạt mức foundation, cần mở rộng & Có manifests monitoring, FluxCD Kustomization Ready và Grafana dashboard ở Hình~\ref{fig:grafana-monitoring-dashboard}; alert rule/log correlation chi tiết vẫn là hướng phát triển. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+\endgroup

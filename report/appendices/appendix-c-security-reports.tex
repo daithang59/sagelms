@@ -3,20 +3,61 @@
 
 \section{Trivy reports}
 
-Các report Trivy nằm trong \path{reports/trivy}. Khi hoàn thiện báo cáo, nhóm nên chèn ảnh hoặc bảng tóm tắt từ các file:
+Các report Trivy nằm trong \path{reports/trivy}. Đây là evidence cho gate image vulnerability scan trước khi artifact được promote sang bước publish/deploy.
 
 \begin{itemize}
   \item \path{reports/trivy/trivy-auth-service.txt}
+  \item \path{reports/trivy/trivy-assessment-service.txt}
+  \item \path{reports/trivy/trivy-challenge-service.txt}
   \item \path{reports/trivy/trivy-course-service.txt}
   \item \path{reports/trivy/trivy-content-service.txt}
   \item \path{reports/trivy/trivy-gateway.txt}
+  \item \path{reports/trivy/trivy-progress-service.txt}
+  \item \path{reports/trivy/trivy-ai-tutor-service.txt}
   \item \path{reports/trivy/trivy-web.txt}
 \end{itemize}
 
+
 \section{SBOM}
 
-SBOM CycloneDX được lưu dưới \path{reports/sbom/<git-sha>}. Mỗi service có một file \path{*-sbom.cdx.json}. Trong bản nộp cuối, không nên paste toàn bộ SBOM vì rất dài; chỉ cần chèn metadata, đường dẫn artifact và giải thích SBOM dùng để truy vết thành phần phần mềm.
+SBOM CycloneDX được lưu dưới \path{reports/sbom/<git-sha>}. Mỗi service có một file \path{*-sbom.cdx.json}. Báo cáo chỉ trích metadata, đường dẫn artifact và ý nghĩa truy vết thành phần phần mềm; không đưa toàn bộ SBOM vào phụ lục vì nội dung dài.
+
+Với AI Tutor, file \path{reports/sbom/ai-tutor-service-sbom.cdx.json} dùng định dạng CycloneDX \texttt{1.6}, có metadata tool Trivy và component container trỏ tới image \texttt{ai-tutor-service} được tag theo git SHA. Bằng chứng ảnh nằm ở Hình~\ref{fig:ai-tutor-sbom-cyclonedx-file}; định danh đầy đủ nằm ở Bảng~\ref{tab:technical-traceability-identifiers}.
+
 
 \section{Image digest}
 
-Image digest report nằm ở \path{reports/image-digests-1b21116f523c3e40c4c223988b88c73f55cfebf0.md}. Đây là bằng chứng rằng image đã được định danh bằng digest SHA256 thay vì chỉ dùng tag.
+Image digest report nằm trong nhóm \path{reports/image-digests-<git-sha>.md}. Đây là bằng chứng rằng image đã được định danh bằng digest SHA256 thay vì chỉ dùng tag.
+
+
+\section{Cosign signature và SBOM attestation}
+
+CD workflow lưu log Cosign trong artifact \path{reports/cosign/*.txt}. Run bổ trợ của \texttt{auth-service} đã pass cả \texttt{cosign verify} và \texttt{cosign verify-attestation}; định danh chi tiết được đặt ở Bảng~\ref{tab:technical-traceability-identifiers}.
+
+Với AI Tutor, CD run mới bổ sung evidence trực tiếp: SBOM path, cột Cosign PASS trong deploy summary và log \texttt{cosign verify-attestation} cho image \texttt{ai-tutor-service} theo digest. Log này xác nhận Cosign claims được validate, transparency log được kiểm tra và code-signing certificate được xác minh; payload là in-toto statement có \texttt{predicateType} CycloneDX.
+
+\begingroup
+\scriptsize
+\setstretch{1.05}
+\renewcommand{\arraystretch}{1.08}
+\begin{table}[H]
+\centering
+\caption{Định danh kỹ thuật dùng để truy vết evidence}
+\label{tab:technical-traceability-identifiers}
+\begin{tabularx}{\textwidth}{p{0.30\textwidth}Y}
+\toprule
+\textbf{Mốc evidence} & \textbf{Định danh đầy đủ} \\
+\midrule
+PR validation AI Tutor & GitHub Actions run \texttt{26326951547}. \\
+Multi-service evidence commit & \texttt{1b21116f523c3e40c4c223988b88c73f55cfebf0}. \\
+Runtime tag chung của phần lớn service & \texttt{7e8dfe46f760de0b980ca2e978f52bb5870a12d6}. \\
+AI Tutor CD run & GitHub Actions run \texttt{26326987915}. \\
+AI Tutor image tag/commit & \texttt{bc89c849b328b3618f09b18beb2683f1d8930db4}. \\
+AI Tutor image digest & \path{sha256:6d1c1e9c10e41f21237c7d4bd23f2a7c0d8be274752e5e5a7338175f9bb3a7a2}. \\
+AI Tutor digest reference & \path{harbor.sagelms.id.vn/sagelms-app/ai-tutor-service@sha256:6d1c1e9c10e41f21237c7d4bd23f2a7c0d8be274752e5e5a7338175f9bb3a7a2}. \\
+Cosign verify bổ trợ & GitHub Actions run \texttt{26303390987}, service \texttt{auth-service}, commit \texttt{a8a0b63d1568f0c356d10a22fcb89abad429ef52}. \\
+Auth-service digest trong run bổ trợ & \path{sha256:9e436d64f9a39a65d8052c57d9da5abbf285f5b400f4c94610311fe543efa35d}. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+\endgroup

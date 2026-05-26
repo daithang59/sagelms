@@ -14,22 +14,35 @@
 \fi
 
 \usepackage{microtype}
+\usepackage{indentfirst}
 \usepackage{setspace}
 \setstretch{1.5}
+\setlength{\parskip}{0.5em}
+\setlength{\parindent}{1.25cm}
+\raggedbottom
 
 \usepackage{graphicx}
+\graphicspath{{../images/}}
 \usepackage{booktabs}
 \usepackage{longtable}
 \usepackage{tabularx}
 \usepackage{array}
+\usepackage{multirow}
+\usepackage{makecell}
 \usepackage{enumitem}
 \usepackage{xcolor}
 \usepackage{xurl}
+\usepackage{fancyhdr}
 \usepackage{hyperref}
 \usepackage{listings}
 \usepackage{upquote}
 \usepackage{caption}
+\usepackage{subcaption}
 \usepackage{float}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,calc,backgrounds,shapes.geometric}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{cleveref}
 \usepackage{csquotes}
 \usepackage[backend=biber,style=ieee,sorting=none]{biblatex}
 \addbibresource{references.bib}
@@ -38,6 +51,12 @@
 \definecolor{codeframe}{RGB}{210,210,210}
 \definecolor{linkblue}{RGB}{20,77,145}
 
+\captionsetup{
+  justification=centering,
+  font=small,
+  labelfont=bf
+}
+
 \hypersetup{
   colorlinks=true,
   linkcolor=linkblue,
@@ -45,6 +64,21 @@
   urlcolor=linkblue,
   pdftitle={\reportTitle},
   pdfauthor={\studentA; \studentB; \studentC; \studentD}
+}
+
+\tikzset{
+  reportbox/.style={draw,rounded corners=2pt,align=center,inner sep=5pt,font=\small,fill=gray!8},
+  reportfocus/.style={draw,rounded corners=2pt,align=center,inner sep=5pt,font=\small\bfseries,fill=blue!8},
+  reportwarn/.style={draw,rounded corners=2pt,align=center,inner sep=5pt,font=\small,fill=orange!12},
+  reportarrow/.style={-{Latex[length=2.2mm]},thick}
+}
+
+\lstdefinelanguage{json}{
+  basicstyle=\ttfamily\small,
+  showstringspaces=false,
+  breaklines=true,
+  string=[b]",
+  stringstyle=\color{red}
 }
 
 \lstdefinestyle{reportcode}{
@@ -67,6 +101,26 @@
 \newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
 \setlist[itemize]{leftmargin=*,topsep=4pt,itemsep=2pt}
 \setlist[enumerate]{leftmargin=*,topsep=4pt,itemsep=2pt}
+\setcounter{secnumdepth}{2}
+\setcounter{tocdepth}{2}
+\renewcommand{\arraystretch}{1.2}
+
+\renewcommand{\headrulewidth}{0.3pt}
+\renewcommand{\footrulewidth}{0pt}
+\renewcommand{\chaptermark}[1]{\markboth{\chaptername\ \thechapter.\ #1}{}}
+\setlength{\headheight}{16pt}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\nouppercase{\leftmark}}
+\fancyfoot[C]{\thepage}
+
+\fancypagestyle{plain}{
+  \fancyhf{}
+  \fancyfoot[C]{\thepage}
+  \renewcommand{\headrulewidth}{0pt}
+  \renewcommand{\footrulewidth}{0pt}
+}
 
 \newcommand{\placeholderfigure}[2]{%
   \begin{figure}[H]
@@ -96,6 +150,11 @@
 \renewcommand{\figurename}{Hình}
 \renewcommand{\tablename}{Bảng}
 \renewcommand{\appendixname}{Phụ lục}
+
+\crefname{figure}{\figurename}{\figurename}
+\Crefname{figure}{\figurename}{\figurename}
+\crefname{table}{\tablename}{\tablename}
+\Crefname{table}{\tablename}{\tablename}
 
 \hyphenpenalty=10000
 \exhyphenpenalty=10000

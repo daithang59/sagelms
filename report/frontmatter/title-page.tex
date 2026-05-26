@@ -1,28 +1,64 @@
 \begin{titlepage}
+\pagestyle{empty}
+
+\begin{tikzpicture}[remember picture,overlay]
+  \draw[line width=3pt]
+    ($(current page.north west) + (3.0cm,-2.0cm)$)
+    rectangle
+    ($(current page.south east) + (-2.0cm,2.0cm)$);
+  \draw[line width=1pt]
+    ($(current page.north west) + (2.9cm,-1.9cm)$)
+    rectangle
+    ($(current page.south east) + (-1.9cm,1.9cm)$);
+\end{tikzpicture}
+
 \centering
-{\Large \reportUniversity\par}
-{\large \reportFaculty\par}
-\vspace{2.5cm}
+\vspace*{-0.8cm}
 
-{\bfseries\Large \reportCourse\par}
-\vspace{1cm}
-{\bfseries\LARGE \reportTitle\par}
-\vspace{2cm}
+{\bfseries\large\MakeUppercase{\reportUniversity}\par}
+\vspace{0.2cm}
+{\bfseries\large\MakeUppercase{\reportFaculty}\par}
 
-\begin{tabular}{L{5cm}L{8cm}}
-Môn học & \reportSubject \\
-Nhóm thực hiện & Nhóm SageLMS DevSecOps \\
-\end{tabular}
+\vspace{0.8cm}
+\IfFileExists{logo-uit.png}{%
+  \includegraphics[width=0.18\textwidth]{logo-uit.png}\par
+  \vspace{0.8cm}
+}{%
+  \vspace{1.8cm}
+}
 
-\vspace{1.5cm}
-\begin{tabular}{L{5cm}L{8cm}}
-\textbf{Thành viên} & \textbf{Vai trò chính} \\
-\studentA & \roleA \\
-\studentB & \roleB \\
-\studentC & \roleC \\
-\studentD & \roleD \\
-\end{tabular}
+{\bfseries\Large\MakeUppercase{\reportCourse}\par}
 
 \vfill
-{\reportDate\par}
+
+\begin{minipage}{0.86\textwidth}
+  \centering
+  {\bfseries\Large \reportTitle\par}
+\end{minipage}
+
+\vfill
+
+\begin{minipage}{0.94\textwidth}
+  \centering
+  \begin{tabular}{L{5cm}L{8cm}}
+    \textbf{Môn học} & \reportSubject \\
+    \textbf{Nhóm thực hiện} & Nhóm 7 \\
+  \end{tabular}
+\end{minipage}
+
+\vspace{0.9cm}
+
+\begin{minipage}{0.94\textwidth}
+  \begin{tabular}{L{5cm}L{8cm}}
+    \textbf{Thành viên} & \textbf{MSSV} \\
+    \studentA & \roleA \\
+    \studentB & \roleB \\
+    \studentC & \roleC \\
+    \studentD & \roleD \\
+  \end{tabular}
+\end{minipage}
+
+\vfill
+
+{\bfseries \reportDate\par}
 \end{titlepage}

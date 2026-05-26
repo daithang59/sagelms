@@ -3,7 +3,7 @@
 
 \section{Bối cảnh}
 
-Các hệ thống web hiện đại thường không còn chỉ là một ứng dụng đơn khối được build và deploy thủ công. Khi hệ thống mở rộng thành nhiều dịch vụ, nhiều ngôn ngữ lập trình, nhiều loại artifact và nhiều môi trường chạy, nhóm phát triển phải kiểm soát đồng thời chất lượng mã nguồn, bảo mật phụ thuộc, cấu hình hạ tầng, container image, secret, quy trình triển khai và khả năng rollback. Nếu không có pipeline phù hợp, mỗi lần thay đổi đều có nguy cơ tạo ra lỗi tích hợp, lộ secret, đưa image có lỗ hổng lên môi trường chạy hoặc làm lệch trạng thái hạ tầng so với tài liệu.
+Các hệ thống web hiện đại thường không còn chỉ là một ứng dụng đơn khối được build và deploy thủ công. Khi hệ thống mở rộng thành nhiều dịch vụ, nhiều ngôn ngữ lập trình, nhiều loại artifact và nhiều môi trường chạy, nhóm phát triển phải kiểm soát đồng thời chất lượng mã nguồn, bảo mật phụ thuộc, cấu hình hạ tầng, container image, secret, quy trình triển khai và khả năng rollback. Nếu không có pipeline phù hợp, mỗi lần thay đổi đều có nguy cơ tạo ra lỗi tích hợp, lộ secret, đưa image có lỗ hổng lên môi trường chạy hoặc làm lệch trạng thái runtime so với cấu hình đã được review trong Git.
 
 SageLMS được xây dựng như một nền tảng quản lý học tập có nhiều module: xác thực và phân quyền, quản lý khóa học, nội dung bài học, theo dõi tiến độ, bài kiểm tra, thử thách và trợ lý học tập AI. Kiến trúc microservices giúp các module có ranh giới rõ hơn, nhưng cũng làm tăng độ phức tạp của quá trình tích hợp và triển khai. Vì vậy, trọng tâm của đồ án không chỉ là xây dựng ứng dụng web, mà còn là thiết kế một pipeline DevSecOps đủ chặt chẽ để hỗ trợ phát triển, kiểm thử, phát hành và vận hành hệ thống này.
 
@@ -38,7 +38,7 @@ Do đó, đồ án cần một pipeline có các điểm kiểm soát rõ ràng 
 Trong phạm vi báo cáo, nhóm tập trung vào các thành phần có liên quan trực tiếp đến pipeline DevSecOps:
 
 \begin{itemize}
-  \item Ứng dụng SageLMS: frontend React/Vite, Spring Boot Gateway, các service backend chính và AI Tutor FastAPI.
+  \item Ứng dụng SageLMS: frontend React/Vite, Spring Boot Gateway, các service backend chính và AI Tutor FastAPI. AI Tutor đã có UI chat, Gateway route, kiểm thử Python, Dockerfile, image/SBOM evidence và Kubernetes manifest; phần RAG ingestion/vector-search đầy đủ được trình bày như hướng mở rộng khi chưa có benchmark/evidence sâu.
   \item CI/CD: GitHub Actions workflows cho PR validation, CD build/scan/push/deploy PR, OpenTofu plan và post-deploy smoke test.
   \item Supply chain security: Harbor registry, Trivy image scan, SBOM CycloneDX, Cosign signing/attestation theo image digest.
   \item Cloud runtime: GKE, CloudNativePG, Redis, Google Secret Manager, External Secrets Operator, Kustomize overlay và FluxCD manifests.
