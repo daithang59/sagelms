@@ -44,10 +44,10 @@ Với AI Tutor, CD run mới bổ sung evidence trực tiếp: SBOM path, cột 
 \centering
 \caption{Định danh kỹ thuật dùng để truy vết evidence}
 \label{tab:technical-traceability-identifiers}
-\begin{tabularx}{\textwidth}{p{0.30\textwidth}Y}
-\toprule
+\begin{tabularx}{\textwidth}{|p{0.30\textwidth}|Y|}
+\hline
 \textbf{Mốc evidence} & \textbf{Định danh đầy đủ} \\
-\midrule
+\hline
 PR validation AI Tutor & GitHub Actions run \texttt{26326951547}. \\
 Multi-service evidence commit & \texttt{1b21116f523c3e40c4c223988b88c73f55cfebf0}. \\
 Runtime tag chung của phần lớn service & \texttt{7e8dfe46f760de0b980ca2e978f52bb5870a12d6}. \\
@@ -57,7 +57,7 @@ AI Tutor image digest & \path{sha256:6d1c1e9c10e41f21237c7d4bd23f2a7c0d8be274752
 AI Tutor digest reference & \path{harbor.sagelms.id.vn/sagelms-app/ai-tutor-service@sha256:6d1c1e9c10e41f21237c7d4bd23f2a7c0d8be274752e5e5a7338175f9bb3a7a2}. \\
 Cosign verify bổ trợ & GitHub Actions run \texttt{26303390987}, service \texttt{auth-service}, commit \texttt{a8a0b63d1568f0c356d10a22fcb89abad429ef52}. \\
 Auth-service digest trong run bổ trợ & \path{sha256:9e436d64f9a39a65d8052c57d9da5abbf285f5b400f4c94610311fe543efa35d}. \\
-\bottomrule
+\hline
 \end{tabularx}
 \end{table}
 \endgroup
