@@ -7,10 +7,10 @@ Các OpenAPI contracts hiện có trong thư mục \path{contracts/openapi}. Đ�
 \centering
 \caption{Trạng thái OpenAPI contracts}
 \label{tab:api-contract-status}
-\begin{tabularx}{\textwidth}{p{0.22\textwidth}p{0.34\textwidth}Y}
-\toprule
+\begin{tabularx}{\textwidth}{|p{0.22\textwidth}|p{0.34\textwidth}|Y|}
+\hline
 \textbf{Contract} & \textbf{Đường dẫn} & \textbf{Ghi chú} \\
-\midrule
+\hline
 Gateway & \path{contracts/openapi/gateway.yaml} & Cần cập nhật phần route AI Tutor từ port 8086 sang 8087 và endpoint mới. \\
 Auth & \path{contracts/openapi/auth.yaml} & Contract service lõi. \\
 Course & \path{contracts/openapi/course.yaml} & Contract service lõi. \\
@@ -19,7 +19,7 @@ Progress & \path{contracts/openapi/progress.yaml} & Contract service lõi. \\
 Assessment & \path{contracts/openapi/assessment.yaml} & Contract service lõi. \\
 Challenge & \path{contracts/openapi/challenge.yaml} & Contract hiện có cho Challenge Service. \\
 AI Tutor & \path{contracts/openapi/ai-tutor.yaml} & Cần đồng bộ với implementation FastAPI hiện tại. \\
-\bottomrule
+\hline
 \end{tabularx}
 \end{table}
 
