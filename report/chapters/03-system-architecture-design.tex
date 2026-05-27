@@ -122,7 +122,6 @@ DevSecOps tooling & GitHub Actions, Harbor, Trivy, SBOM CycloneDX và Cosign đ�
 
 \begin{figure}[H]
 \centering
-\fbox{%
 \begin{minipage}{0.94\textwidth}
 \small
 \begin{tabularx}{\linewidth}{|p{0.25\linewidth}|Y|}
@@ -138,7 +137,6 @@ AI Tutor & FastAPI service port 8087, nhận request qua Gateway path \path{/api
 \hline
 \end{tabularx}
 \end{minipage}%
-}
 \caption{Sơ đồ kiến trúc microservices SageLMS}
 \label{fig:microservices-architecture}
 \end{figure}
@@ -212,7 +210,6 @@ Luồng request cơ bản diễn ra như sau:
 \centering
 \caption{Luồng request qua Cloudflare Tunnel, Ingress và API Gateway}
 \label{tab:request-flow}
-\fbox{%
 \begin{minipage}{0.94\textwidth}
 \small
 \begin{tabularx}{\linewidth}{|p{0.18\linewidth}|Y|}
@@ -227,7 +224,6 @@ Luồng request cơ bản diễn ra như sau:
 \hline
 \end{tabularx}
 \end{minipage}%
-}
 \end{table}
 
 Trong bản demo public, traffic được thiết kế theo luồng:
@@ -383,7 +379,6 @@ Luồng tổng thể bắt đầu từ pull request và kết thúc ở runtime 
 \centering
 \caption{Pipeline DevSecOps tổng thể của SageLMS}
 \label{tab:pipeline-overall}
-\fbox{%
 \begin{minipage}{0.94\textwidth}
 \small
 \begin{tabularx}{\linewidth}{|p{0.20\linewidth}|Y|}
@@ -398,7 +393,6 @@ GitOps deploy & Mở deploy PR, review/merge, FluxCD reconcile vào GKE, post-de
 \hline
 \end{tabularx}
 \end{minipage}%
-}
 \end{table}
 
 \begin{figure}[H]
@@ -573,7 +567,6 @@ Cách làm này tách rời trách nhiệm:
 \centering
 \caption{GitOps deployment flow của SageLMS}
 \label{tab:gitops-flow}
-\fbox{%
 \begin{minipage}{0.94\textwidth}
 \small
 \begin{tabularx}{\linewidth}{|p{0.22\linewidth}|Y|}
@@ -588,7 +581,6 @@ Rollback & Revert GitOps commit hoặc deploy PR trước đó để FluxCD reco
 \hline
 \end{tabularx}
 \end{minipage}%
-}
 \end{table}
 
 \begin{figure}[H]
