@@ -142,17 +142,61 @@ web & \path{harbor.sagelms.id.vn/sagelms-app/web:<git-sha>} & PASS \\
 
 \section{Cosign verification automation}
 
-Trong workflow hiện tại, chuỗi sau khi push image là:
+Trong workflow hiện tại, automation Cosign được đặt sau bước push image lên Harbor:
 
-\begin{lstlisting}[language=bash]
-Push -> Resolve digest -> Cosign sign
-     -> Cosign attest SBOM
-     -> Cosign verify
-     -> Cosign verify-attestation
-     -> Open deploy PR
-\end{lstlisting}
+\begin{figure}[H]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+  >=Stealth,
+  node distance=0.95cm and 0.8cm,
+  every node/.style={font=\footnotesize},
+  artifactbox/.style={
+    draw,
+    rounded corners=2pt,
+    align=center,
+    minimum height=0.78cm,
+    text width=2.55cm
+  },
+  harborstep/.style={artifactbox,fill=green!12},
+  digeststep/.style={artifactbox,fill=cyan!12},
+  cosignstep/.style={artifactbox,fill=purple!12},
+  prstep/.style={artifactbox,fill=red!10},
+  note/.style={
+    draw,
+    rounded corners=2pt,
+    align=center,
+    minimum height=0.55cm,
+    text width=6.0cm,
+    fill=gray!8
+  },
+  flowarrow/.style={->,thick}
+]
+  \node[harborstep] (push) {Push Image\\to Harbor};
+  \node[digeststep, right=of push] (digest) {Resolve Image\\Digest};
+  \node[cosignstep, right=of digest] (sign) {Cosign Sign\\Image};
+  \node[cosignstep, right=of sign] (attest) {Cosign Attest\\SBOM};
 
-Bước verify dùng certificate identity của workflow \path{.github/workflows/cd-main.yml} trên branch hiện tại và issuer \path{https://token.actions.githubusercontent.com}. Nhờ đó deploy PR chỉ được tạo sau khi chữ ký image và CycloneDX SBOM attestation được xác minh từ đúng GitHub Actions identity.
+  \node[cosignstep, below=1.1cm of attest] (verifySig) {Cosign Verify\\Signature};
+  \node[cosignstep, left=of verifySig] (verifyAttest) {Cosign Verify\\Attestation};
+  \node[prstep, left=of verifyAttest] (deployPr) {Open\\Deploy PR};
+
+  \draw[flowarrow] (push) -- (digest);
+  \draw[flowarrow] (digest) -- (sign);
+  \draw[flowarrow] (sign) -- (attest);
+  \draw[flowarrow] (attest) -- (verifySig);
+  \draw[flowarrow] (verifySig) -- (verifyAttest);
+  \draw[flowarrow] (verifyAttest) -- (deployPr);
+
+  \node[note, below=0.85cm of verifyAttest] (oidcNote) {Verify uses GitHub Actions OIDC identity\\and issuer \texttt{token.actions.}\\\texttt{githubusercontent.com}};
+  \node[note, right=0.75cm of oidcNote] (deployNote) {Deploy PR is opened only after signature and SBOM attestation verification succeed};
+\end{tikzpicture}%
+}
+\caption{Luồng tự động ký và xác minh Cosign trước khi mở Deploy PR}
+\label{fig:cosign-verification-automation}
+\end{figure}
+
+Bước verify sử dụng certificate identity của workflow \path{.github/workflows/cd-main.yml} và issuer \path{https://token.actions.githubusercontent.com}. Nhờ đó, Deploy PR chỉ được tạo sau khi chữ ký image và CycloneDX SBOM attestation được xác minh từ đúng GitHub Actions identity.
 
 \section{OpenTofu cloud foundation}
 
