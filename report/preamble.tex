@@ -113,6 +113,26 @@
 \renewcommand{\chaptermark}[1]{\markboth{\chaptername\ \thechapter.\ #1}{}}
 \setlength{\headheight}{16pt}
 
+\makeatletter
+\def\@makechapterhead#1{%
+  \vspace*{-0.2cm}%
+  {\parindent \z@ \centering \normalfont
+    \interlinepenalty\@M
+    \ifnum \c@secnumdepth >\m@ne
+      \bfseries\Large \@chapapp\space \thechapter.\space #1\par\nobreak
+    \else
+      \bfseries\Large #1\par\nobreak
+    \fi
+    \vspace{0.65cm}%
+  }}
+\def\@makeschapterhead#1{%
+  \vspace*{-0.2cm}%
+  {\parindent \z@ \centering
+    \normalfont\bfseries\Large #1\par\nobreak
+    \vspace{0.65cm}%
+  }}
+\makeatother
+
 \pagestyle{fancy}
 \fancyhf{}
 \fancyhead[L]{\nouppercase{\leftmark}}
