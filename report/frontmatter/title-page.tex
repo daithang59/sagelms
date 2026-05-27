@@ -3,11 +3,11 @@
 
 \begin{tikzpicture}[remember picture,overlay]
   \draw[line width=3pt]
-    ($(current page.north west) + (3.0cm,-2.0cm)$)
+    ($(current page.north west) + (2.0cm,-2.0cm)$)
     rectangle
     ($(current page.south east) + (-2.0cm,2.0cm)$);
   \draw[line width=1pt]
-    ($(current page.north west) + (2.9cm,-1.9cm)$)
+    ($(current page.north west) + (1.9cm,-1.9cm)$)
     rectangle
     ($(current page.south east) + (-1.9cm,1.9cm)$);
 \end{tikzpicture}
@@ -38,9 +38,9 @@
 
 \vfill
 
-\begin{minipage}{0.94\textwidth}
+\begin{minipage}{0.60\textwidth}
   \centering
-  \begin{tabular}{L{5cm}L{8cm}}
+  \begin{tabular}{@{}l@{\hspace{0.8cm}}l@{}}
     \textbf{Môn học} & \reportSubject \\
     \textbf{Nhóm thực hiện} & Nhóm 7 \\
   \end{tabular}
@@ -48,8 +48,9 @@
 
 \vspace{0.9cm}
 
-\begin{minipage}{0.94\textwidth}
-  \begin{tabular}{L{5cm}L{8cm}}
+\begin{minipage}{0.76\textwidth}
+  \centering
+  \begin{tabular}{@{}L{6.0cm}L{2.6cm}@{}}
     \textbf{Thành viên} & \textbf{MSSV} \\
     \studentA & \roleA \\
     \studentB & \roleB \\

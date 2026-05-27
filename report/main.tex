@@ -8,7 +8,11 @@
 \pagenumbering{roman}
 \input{frontmatter/title-page}
 
-\tableofcontents
+{
+  \hypersetup{linkcolor=black}
+  \renewcommand{\contentsname}{\hfill Mục lục\hfill\null}
+  \tableofcontents
+}
 \listoffigures
 \listoftables
 \clearpage
