@@ -20,15 +20,15 @@ Nhóm tổ chức công việc theo hai hướng chính: Platform \& Runtime và
 \centering
 \caption{Vai trò chính của các thành viên}
 \label{tab:team-roles}
-\begin{tabularx}{\textwidth}{p{0.25\textwidth}p{0.30\textwidth}Y}
-\toprule
+\begin{tabularx}{\textwidth}{|p{0.25\textwidth}|p{0.30\textwidth}|Y|}
+\hline
 \textbf{Thành viên} & \textbf{Vai trò} & \textbf{Phạm vi} \\
-\midrule
+\hline
 Huỳnh Lê Đại Thắng & Cloud/IaC và Kustomize Owner & GCP, GKE, OpenTofu, VPC, IAM, Workload Identity, Secret Manager, Cloud Storage, CloudNativePG backup foundation, Redis; viết Kustomize overlay và deploy app lên Kubernetes. \\
 Trần Nguyễn Việt Hoàng & CD/GitOps Runtime Owner & Cấu hình CD để FluxCD sync và deploy app lên Kubernetes; External Secrets Operator, Harbor runtime, policy/runtime hardening, runbooks. \\
 Nguyễn Trường Duy & CI/CD Automation Owner & GitHub Actions, PR validation, path filter, quality/security gates, infra plan workflow, deploy PR, post-deploy check. \\
 Bùi Ngọc Thái & Artifact \& Supply Chain Owner & Dockerfile, image build, Harbor artifact flow, Trivy image scan, SBOM, Cosign, image convention. \\
-\bottomrule
+\hline
 \end{tabularx}
 \end{table}
 
@@ -67,16 +67,16 @@ Các convention quan trọng cần trình bày trong báo cáo:
 \centering
 \caption{Rủi ro chính của đồ án}
 \label{tab:risks}
-\begin{tabularx}{\textwidth}{p{0.28\textwidth}p{0.26\textwidth}Y}
-\toprule
+\begin{tabularx}{\textwidth}{|p{0.28\textwidth}|p{0.26\textwidth}|Y|}
+\hline
 \textbf{Rủi ro} & \textbf{Ảnh hưởng} & \textbf{Phương án dự phòng} \\
-\midrule
+\hline
 Chi phí cloud vượt dự kiến & Không duy trì được nhiều môi trường & Chỉ dùng một Shared Cloud DevSecOps Environment, scale resource ở mức demo. \\
 Pipeline build nhiều service lâu & CI/CD chậm & Dùng path filter, matrix theo service thay đổi, cache dependency. \\
 Trivy/Checkov false positive & PR bị chặn dù rủi ro chấp nhận được & Dùng allowlist có lý do, ghi rõ trong báo cáo. \\
 Harbor hoặc credential lỗi & Không push/pull được image & Tách robot push/pull, kiểm tra secret từ GCP Secret Manager trước build. \\
 FluxCD reconcile lỗi & Runtime không cập nhật & Có post-deploy check, runbook debug FluxCD và rollback bằng revert GitOps commit. \\
 CloudNativePG chưa restore drill & Chưa chứng minh DR hoàn chỉnh & Ghi rõ limitation và bổ sung restore drill trước khi có dữ liệu thật. \\
-\bottomrule
+\hline
 \end{tabularx}
 \end{table}
