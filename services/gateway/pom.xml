@@ -21,7 +21,7 @@
     <properties>
         <java.version>17</java.version>
         <netty.version>4.1.133.Final</netty.version>
-        <bouncycastle.version>1.85</bouncycastle.version>
+        <bouncycastle.version>1.85.2</bouncycastle.version>
         <spring-cloud-gateway.version>4.3.5</spring-cloud-gateway.version>
     </properties>
 
